@@ -22,6 +22,7 @@ A high-performance, feature-rich Excel-like grid component built with React, Typ
 
 ### Formatting Toolbar
 - ✅ **Font Formatting**: Family selection, size (8-36px), bold, italic, underline
+- ✅ **Text Alignment**: Left, center, right alignment
 - ✅ **Colors**: Text color and cell fill color pickers
 - ✅ **Borders**: All borders, outer, individual sides, custom styles
 - ✅ **Clipboard Operations**: Cut, copy, paste with formatting preservation
@@ -207,6 +208,7 @@ interface CellFormatting {
   bold?: boolean;             // Bold text
   italic?: boolean;           // Italic text
   underline?: boolean;        // Underlined text
+  textAlign?: 'left' | 'center' | 'right';  // Text alignment
   textColor?: string;         // Text color (hex)
   fillColor?: string;         // Background color (hex)
   borderStyle?: BorderStyle;  // Border configuration

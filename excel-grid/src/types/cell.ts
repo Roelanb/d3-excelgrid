@@ -21,6 +21,8 @@ export interface BorderStyle {
   left?: BorderLine;
 }
 
+export type TextAlign = 'left' | 'center' | 'right';
+
 export interface CellFormatting {
   fontFamily?: string;
   fontSize?: number;
@@ -30,6 +32,7 @@ export interface CellFormatting {
   textColor?: string;
   fillColor?: string;
   borderStyle?: BorderStyle;
+  textAlign?: TextAlign;
 }
 
 export interface Cell {

@@ -19,6 +19,9 @@ import {
   FormatBold,
   FormatItalic,
   FormatUnderlined,
+  FormatAlignLeft,
+  FormatAlignCenter,
+  FormatAlignRight,
   BorderAll,
   BorderOuter,
   BorderTop,
@@ -84,6 +87,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   const handleUnderlineToggle = () => {
     onFormat({ underline: !currentFormatting?.underline });
+  };
+
+  const handleAlignLeft = () => {
+    onFormat({ textAlign: 'left' });
+  };
+
+  const handleAlignCenter = () => {
+    onFormat({ textAlign: 'center' });
+  };
+
+  const handleAlignRight = () => {
+    onFormat({ textAlign: 'right' });
   };
 
   const handleTextColorChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -273,6 +288,45 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   sx={{ px: 1, py: 0.5, minWidth: 32 }}
                 >
                   <FormatUnderlined fontSize="small" />
+                </ToggleButton>
+              </Tooltip>
+            </ToggleButtonGroup>
+
+            <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+            {/* Text Alignment */}
+            <ToggleButtonGroup size="small" sx={{ height: 28 }} value={currentFormatting?.textAlign || 'left'} exclusive>
+              <Tooltip title="Align left">
+                <ToggleButton
+                  value="left"
+                  selected={currentFormatting?.textAlign === 'left' || !currentFormatting?.textAlign}
+                  onChange={handleAlignLeft}
+                  disabled={disabled}
+                  sx={{ px: 1, py: 0.5, minWidth: 32 }}
+                >
+                  <FormatAlignLeft fontSize="small" />
+                </ToggleButton>
+              </Tooltip>
+              <Tooltip title="Align center">
+                <ToggleButton
+                  value="center"
+                  selected={currentFormatting?.textAlign === 'center'}
+                  onChange={handleAlignCenter}
+                  disabled={disabled}
+                  sx={{ px: 1, py: 0.5, minWidth: 32 }}
+                >
+                  <FormatAlignCenter fontSize="small" />
+                </ToggleButton>
+              </Tooltip>
+              <Tooltip title="Align right">
+                <ToggleButton
+                  value="right"
+                  selected={currentFormatting?.textAlign === 'right'}
+                  onChange={handleAlignRight}
+                  disabled={disabled}
+                  sx={{ px: 1, py: 0.5, minWidth: 32 }}
+                >
+                  <FormatAlignRight fontSize="small" />
                 </ToggleButton>
               </Tooltip>
             </ToggleButtonGroup>

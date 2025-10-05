@@ -420,6 +420,69 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
       .on('mouseleave', function() {
         d3.select(this).attr('fill', 'transparent');
       })
+      .on('dblclick', function(event, d) {
+        event.stopPropagation();
+        
+        // Calculate the maximum content width for this column
+        let maxWidth = 50; // Minimum width
+        const padding = 10; // Extra padding for content
+        
+        // Check header text width
+        const headerText = getColumnLabel(d);
+        const headerWidth = headerText.length * 8 + padding; // Approximate width
+        maxWidth = Math.max(maxWidth, headerWidth);
+        
+        // Check all cells in this column
+        for (let row = 0; row < gridData.rowCount; row++) {
+          const key = getCellKey(row, d);
+          const cell = gridData.cells.get(key);
+          if (cell) {
+            const cellText = formatCellValue(cell.value);
+            const fontSize = cell.formatting?.fontSize || 12;
+            const isBold = cell.formatting?.bold || false;
+            
+            // Approximate text width based on font size and content
+            const charWidth = fontSize * 0.6; // Approximate character width
+            const textWidth = cellText.length * charWidth * (isBold ? 1.1 : 1) + padding;
+            maxWidth = Math.max(maxWidth, textWidth);
+          }
+        }
+        
+        // Cap maximum width to reasonable size
+        maxWidth = Math.min(maxWidth, 500);
+        
+        // Determine which columns to resize
+        let affectedColumns = [d];
+        if (selectionType === 'column' && (selectionRange || selectionRanges.length > 0)) {
+          const ranges = selectionRanges.length > 0 ? selectionRanges : (selectionRange ? [selectionRange] : []);
+          let isInSelection = false;
+          const selectedCols = new Set<number>();
+          
+          for (const range of ranges) {
+            const minCol = Math.min(range.start.col, range.end.col);
+            const maxCol = Math.max(range.start.col, range.end.col);
+            if (d >= minCol && d <= maxCol) {
+              isInSelection = true;
+            }
+            for (let col = minCol; col <= maxCol; col++) {
+              selectedCols.add(col);
+            }
+          }
+          
+          if (isInSelection && selectedCols.size > 0) {
+            affectedColumns = Array.from(selectedCols);
+          }
+        }
+        
+        // Apply the calculated width to affected columns
+        setColumnWidths((prev) => {
+          const newWidths = new Map(prev);
+          affectedColumns.forEach(colIndex => {
+            newWidths.set(colIndex, maxWidth);
+          });
+          return newWidths;
+        });
+      })
       .on('mousedown', function (event, d) {
         event.stopPropagation();
         
@@ -667,10 +730,24 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
 
         // Only show cell text if not currently editing this cell
         if (cell && !isEditing) {
+          // Calculate text position based on alignment
+          const textAlign = formatting?.textAlign || 'left';
+          let textX = 5; // Default left alignment with padding
+          let textAnchor: 'start' | 'middle' | 'end' = 'start';
+          
+          if (textAlign === 'center') {
+            textX = colWidth / 2;
+            textAnchor = 'middle';
+          } else if (textAlign === 'right') {
+            textX = colWidth - 5; // Right alignment with padding
+            textAnchor = 'end';
+          }
+          
           const textElement = cellGroup
             .append('text')
-            .attr('x', 5)
+            .attr('x', textX)
             .attr('y', rowHeight / 2)
+            .attr('text-anchor', textAnchor)
             .attr('dominant-baseline', 'middle')
             .attr('font-size', formatting?.fontSize ? `${formatting.fontSize}px` : '12px')
             .attr('font-family', formatting?.fontFamily || 'Arial')
