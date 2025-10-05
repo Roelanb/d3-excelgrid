@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef, useMemo } from 'react';
 import * as d3 from 'd3';
 import { Box, Paper, TextField } from '@mui/material';
-import type { Cell, CellValue, GridData } from '../types/cell';
+import type { Cell, CellValue, GridData, CellFormatting } from '../types/cell';
 import { getCellKey, getColumnLabel } from '../types/cell';
+import { copyCellsToClipboard, cutCellsToClipboard, pasteCellsFromClipboard, getSelectedCellsInRange, type ClipboardData } from '../utils/clipboard';
 
 type SelectionRange = {
   start: { row: number; col: number };
@@ -18,12 +19,20 @@ interface ExcelGridProps {
   cellHeight?: number;
   headerWidth?: number;
   headerHeight?: number;
+  onSelectionChange?: (hasSelection: boolean, formatting?: CellFormatting) => void;
+  onClipboardChange?: (hasClipboard: boolean) => void;
 }
 
 export interface ExcelGridHandle {
   clearGrid: () => void;
   setCellValue: (row: number, col: number, value: string) => void;
   setCellRange: (startRow: number, startCol: number, endRow: number, endCol: number, value: string) => void;
+  formatCells: (formatting: Partial<CellFormatting>) => void;
+  copyCells: () => void;
+  cutCells: () => void;
+  pasteCells: () => void;
+  getSelectedFormatting: () => CellFormatting | undefined;
+  importCells: (cells: Map<string, Cell>, autoExpand?: boolean) => void;
 }
 
 export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
@@ -34,6 +43,8 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
     cellHeight = 30,
     headerWidth = 50,
     headerHeight = 30,
+    onSelectionChange,
+    onClipboardChange,
   },
   ref
 ) => {
@@ -55,6 +66,7 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
   const [rowHeights, setRowHeights] = useState<Map<number, number>>(new Map());
   const [resizing, setResizing] = useState<{ type: 'col' | 'row'; index: number; startPos: number; startSize: number; affectedIndices: number[] } | null>(null);
   const [viewport, setViewport] = useState({ startRow: 0, endRow: 50, startCol: 0, endCol: 20 });
+  const [clipboardData, setClipboardData] = useState<ClipboardData | null>(null);
 
   const selectionRangeRef = useRef<SelectionRange | null>(selectionRange);
   const selectionRangesRef = useRef<SelectionRange[]>(selectionRanges);
@@ -396,12 +408,18 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
     colHeaders
       .append('rect')
       .attr('class', 'col-resize-handle')
-      .attr('x', (d) => getColumnWidth(d) - 3)
+      .attr('x', (d) => getColumnWidth(d) - 5)
       .attr('y', 0)
-      .attr('width', 6)
+      .attr('width', 10)
       .attr('height', headerHeight)
       .attr('fill', 'transparent')
       .style('cursor', 'col-resize')
+      .on('mouseenter', function() {
+        d3.select(this).attr('fill', 'rgba(25, 118, 210, 0.1)');
+      })
+      .on('mouseleave', function() {
+        d3.select(this).attr('fill', 'transparent');
+      })
       .on('mousedown', function (event, d) {
         event.stopPropagation();
         
@@ -496,11 +514,17 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
       .append('rect')
       .attr('class', 'row-resize-handle')
       .attr('x', 0)
-      .attr('y', (d) => getRowHeight(d) - 3)
+      .attr('y', (d) => getRowHeight(d) - 5)
       .attr('width', headerWidth)
-      .attr('height', 6)
+      .attr('height', 10)
       .attr('fill', 'transparent')
       .style('cursor', 'row-resize')
+      .on('mouseenter', function() {
+        d3.select(this).attr('fill', 'rgba(25, 118, 210, 0.1)');
+      })
+      .on('mouseleave', function() {
+        d3.select(this).attr('fill', 'transparent');
+      })
       .on('mousedown', function (event, d) {
         event.stopPropagation();
         
@@ -567,26 +591,99 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
         const isEditing = editingCell?.row === d.row && editingCell?.col === d.col;
         const colWidth = getColumnWidth(d.col);
         const rowHeight = getRowHeight(d.row);
+        const formatting = cell?.formatting;
+
+        // Determine fill color
+        let fillColor = 'white';
+        if (isInRange) {
+          fillColor = '#bbdefb';
+        } else if (isSelected) {
+          fillColor = '#e3f2fd';
+        } else if (formatting?.fillColor) {
+          fillColor = formatting.fillColor;
+        }
 
         cellGroup
           .append('rect')
           .attr('width', colWidth)
           .attr('height', rowHeight)
-          .attr('fill', isInRange ? '#bbdefb' : (isSelected ? '#e3f2fd' : 'white'))
+          .attr('fill', fillColor)
           .attr('stroke', '#ccc')
           .attr('stroke-width', isInRange || isSelected ? 2 : 1)
           .style('cursor', 'cell');
 
+        // Draw borders if specified
+        if (formatting?.borderStyle) {
+          const borders = formatting.borderStyle;
+          if (borders.top) {
+            cellGroup
+              .append('line')
+              .attr('x1', 0)
+              .attr('y1', 0)
+              .attr('x2', colWidth)
+              .attr('y2', 0)
+              .attr('stroke', borders.top.color)
+              .attr('stroke-width', borders.top.width)
+              .attr('stroke-dasharray', borders.top.style === 'dashed' ? '5,5' : borders.top.style === 'dotted' ? '2,2' : 'none')
+              .style('pointer-events', 'none');
+          }
+          if (borders.right) {
+            cellGroup
+              .append('line')
+              .attr('x1', colWidth)
+              .attr('y1', 0)
+              .attr('x2', colWidth)
+              .attr('y2', rowHeight)
+              .attr('stroke', borders.right.color)
+              .attr('stroke-width', borders.right.width)
+              .attr('stroke-dasharray', borders.right.style === 'dashed' ? '5,5' : borders.right.style === 'dotted' ? '2,2' : 'none')
+              .style('pointer-events', 'none');
+          }
+          if (borders.bottom) {
+            cellGroup
+              .append('line')
+              .attr('x1', 0)
+              .attr('y1', rowHeight)
+              .attr('x2', colWidth)
+              .attr('y2', rowHeight)
+              .attr('stroke', borders.bottom.color)
+              .attr('stroke-width', borders.bottom.width)
+              .attr('stroke-dasharray', borders.bottom.style === 'dashed' ? '5,5' : borders.bottom.style === 'dotted' ? '2,2' : 'none')
+              .style('pointer-events', 'none');
+          }
+          if (borders.left) {
+            cellGroup
+              .append('line')
+              .attr('x1', 0)
+              .attr('y1', 0)
+              .attr('x2', 0)
+              .attr('y2', rowHeight)
+              .attr('stroke', borders.left.color)
+              .attr('stroke-width', borders.left.width)
+              .attr('stroke-dasharray', borders.left.style === 'dashed' ? '5,5' : borders.left.style === 'dotted' ? '2,2' : 'none')
+              .style('pointer-events', 'none');
+          }
+        }
+
         // Only show cell text if not currently editing this cell
         if (cell && !isEditing) {
-          cellGroup
+          const textElement = cellGroup
             .append('text')
             .attr('x', 5)
             .attr('y', rowHeight / 2)
             .attr('dominant-baseline', 'middle')
-            .attr('font-size', '12px')
+            .attr('font-size', formatting?.fontSize ? `${formatting.fontSize}px` : '12px')
+            .attr('font-family', formatting?.fontFamily || 'Arial')
+            .attr('font-weight', formatting?.bold ? 'bold' : 'normal')
+            .attr('font-style', formatting?.italic ? 'italic' : 'normal')
+            .attr('fill', formatting?.textColor || '#000000')
             .text(formatCellValue(cell.value))
             .style('pointer-events', 'none');
+
+          // Add underline if specified
+          if (formatting?.underline) {
+            textElement.attr('text-decoration', 'underline');
+          }
         }
 
         cellGroup.on('mousedown', (event) => handleCellMouseDown(d.row, d.col, event as MouseEvent));
@@ -986,6 +1083,55 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
     [handleEditSubmit, handleEditCancel]
   );
 
+  // Helper to get selected cells
+  const getSelectedCells = useCallback((): { row: number; col: number }[] => {
+    if (!selectionRange) return [];
+    
+    if (selectionType === 'row') {
+      const ranges = selectionRanges.length > 0 ? selectionRanges : [selectionRange];
+      const cells: { row: number; col: number }[] = [];
+      ranges.forEach(range => {
+        const minRow = Math.min(range.start.row, range.end.row);
+        const maxRow = Math.max(range.start.row, range.end.row);
+        for (let row = minRow; row <= maxRow; row++) {
+          for (let col = 0; col < gridData.colCount; col++) {
+            cells.push({ row, col });
+          }
+        }
+      });
+      return cells;
+    }
+    
+    if (selectionType === 'column') {
+      const ranges = selectionRanges.length > 0 ? selectionRanges : [selectionRange];
+      const cells: { row: number; col: number }[] = [];
+      ranges.forEach(range => {
+        const minCol = Math.min(range.start.col, range.end.col);
+        const maxCol = Math.max(range.start.col, range.end.col);
+        for (let col = minCol; col <= maxCol; col++) {
+          for (let row = 0; row < gridData.rowCount; row++) {
+            cells.push({ row, col });
+          }
+        }
+      });
+      return cells;
+    }
+    
+    // Cell selection
+    const ranges = selectionRanges.length > 0 ? selectionRanges : [selectionRange];
+    const cells: { row: number; col: number }[] = [];
+    ranges.forEach(range => {
+      const selectedCells = getSelectedCellsInRange(
+        range.start.row,
+        range.start.col,
+        range.end.row,
+        range.end.col
+      );
+      cells.push(...selectedCells);
+    });
+    return cells;
+  }, [selectionRange, selectionRanges, selectionType, gridData.colCount, gridData.rowCount]);
+
   useEffect(() => {
     const handleGlobalKeyDown = (event: KeyboardEvent) => {
       if (editingCell) return;
@@ -997,6 +1143,63 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
           return;
         }
       }
+
+      // Handle clipboard shortcuts
+      if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
+        event.preventDefault();
+        const selectedCells = getSelectedCells();
+        const data = copyCellsToClipboard(gridData.cells, selectedCells);
+        setClipboardData(data);
+        if (onClipboardChange) {
+          onClipboardChange(data !== null);
+        }
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === 'x') {
+        event.preventDefault();
+        const selectedCells = getSelectedCells();
+        const data = cutCellsToClipboard(gridData.cells, selectedCells);
+        setClipboardData(data);
+        if (onClipboardChange) {
+          onClipboardChange(data !== null);
+        }
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
+        event.preventDefault();
+        if (!clipboardData || !selectedCell) return;
+
+        const pastedCells = pasteCellsFromClipboard(clipboardData, selectedCell.row, selectedCell.col);
+        
+        setGridData((prev) => {
+          const newCells = new Map(prev.cells);
+          
+          if (clipboardData.isCut) {
+            clipboardData.cells.forEach((cell) => {
+              const key = getCellKey(cell.row, cell.col);
+              newCells.delete(key);
+            });
+          }
+          
+          pastedCells.forEach((cell) => {
+            const key = getCellKey(cell.row, cell.col);
+            newCells.set(key, cell);
+          });
+          
+          return { ...prev, cells: newCells };
+        });
+
+        if (clipboardData.isCut) {
+          setClipboardData(null);
+          if (onClipboardChange) {
+            onClipboardChange(false);
+          }
+        }
+        return;
+      }
+
       if (event.ctrlKey || event.metaKey || event.altKey) return;
 
       const isCharacterKey = event.key.length === 1;
@@ -1013,7 +1216,16 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
     return () => {
       document.removeEventListener('keydown', handleGlobalKeyDown);
     };
-  }, [editingCell, selectedCell, enterEditMode]);
+  }, [editingCell, selectedCell, enterEditMode, getSelectedCells, gridData.cells, clipboardData, onClipboardChange]);
+
+  // Notify parent of selection changes
+  useEffect(() => {
+    if (onSelectionChange) {
+      const hasSelection = selectedCell !== null;
+      const formatting = selectedCell ? gridData.cells.get(getCellKey(selectedCell.row, selectedCell.col))?.formatting : undefined;
+      onSelectionChange(hasSelection, formatting);
+    }
+  }, [selectedCell, gridData.cells, onSelectionChange]);
 
   // Calculate edit field position
   const getEditFieldPosition = () => {
@@ -1075,7 +1287,120 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
         return { ...prev, cells: newCells };
       });
     },
-  }));
+    formatCells: (formatting: Partial<CellFormatting>) => {
+      const selectedCells = getSelectedCells();
+      if (selectedCells.length === 0) return;
+
+      setGridData((prev) => {
+        const newCells = new Map(prev.cells);
+        selectedCells.forEach(({ row, col }) => {
+          const key = getCellKey(row, col);
+          const existingCell = newCells.get(key);
+          
+          if (existingCell) {
+            // Update existing cell
+            newCells.set(key, {
+              ...existingCell,
+              formatting: {
+                ...existingCell.formatting,
+                ...formatting,
+              },
+            });
+          } else {
+            // Create new cell with formatting only
+            newCells.set(key, {
+              row,
+              col,
+              value: { type: 'text', value: '', rawValue: '' },
+              formatting: { ...formatting },
+            });
+          }
+        });
+        return { ...prev, cells: newCells };
+      });
+    },
+    copyCells: () => {
+      const selectedCells = getSelectedCells();
+      const data = copyCellsToClipboard(gridData.cells, selectedCells);
+      setClipboardData(data);
+      if (onClipboardChange) {
+        onClipboardChange(data !== null);
+      }
+    },
+    cutCells: () => {
+      const selectedCells = getSelectedCells();
+      const data = cutCellsToClipboard(gridData.cells, selectedCells);
+      setClipboardData(data);
+      if (onClipboardChange) {
+        onClipboardChange(data !== null);
+      }
+    },
+    pasteCells: () => {
+      if (!clipboardData || !selectedCell) return;
+
+      const pastedCells = pasteCellsFromClipboard(clipboardData, selectedCell.row, selectedCell.col);
+      
+      setGridData((prev) => {
+        const newCells = new Map(prev.cells);
+        
+        // If it was a cut operation, delete the original cells
+        if (clipboardData.isCut) {
+          clipboardData.cells.forEach((cell) => {
+            const key = getCellKey(cell.row, cell.col);
+            newCells.delete(key);
+          });
+        }
+        
+        // Add pasted cells
+        pastedCells.forEach((cell) => {
+          const key = getCellKey(cell.row, cell.col);
+          newCells.set(key, cell);
+        });
+        
+        return { ...prev, cells: newCells };
+      });
+
+      // Clear clipboard if it was a cut operation
+      if (clipboardData.isCut) {
+        setClipboardData(null);
+        if (onClipboardChange) {
+          onClipboardChange(false);
+        }
+      }
+    },
+    getSelectedFormatting: () => {
+      if (!selectedCell) return undefined;
+      const key = getCellKey(selectedCell.row, selectedCell.col);
+      const cell = gridData.cells.get(key);
+      return cell?.formatting;
+    },
+    importCells: (cells: Map<string, Cell>, autoExpand = true) => {
+      setGridData((prev) => {
+        const newCells = new Map(prev.cells);
+        let maxRow = prev.rowCount;
+        let maxCol = prev.colCount;
+        
+        // Find the maximum row and column in the imported cells
+        if (autoExpand) {
+          cells.forEach((cell) => {
+            maxRow = Math.max(maxRow, cell.row + 1);
+            maxCol = Math.max(maxCol, cell.col + 1);
+          });
+        }
+        
+        // Add imported cells to the grid
+        cells.forEach((cell, key) => {
+          newCells.set(key, cell);
+        });
+        
+        return {
+          cells: newCells,
+          rowCount: maxRow,
+          colCount: maxCol,
+        };
+      });
+    },
+  }), [getSelectedCells, gridData.cells, clipboardData, selectedCell, onClipboardChange, gridData.colCount, gridData.rowCount]);
 
   return (
     <Paper elevation={3} sx={{ p: 2, position: 'relative', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>

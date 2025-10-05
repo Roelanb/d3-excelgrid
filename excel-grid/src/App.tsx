@@ -1,11 +1,20 @@
-import { Container, Typography, Box, Button, Stack } from '@mui/material';
+import { Container, Typography, Box, Button, Stack, Snackbar, Alert } from '@mui/material';
 import { useRef, useState } from 'react';
 import { ExcelGrid, type ExcelGridHandle } from './components/ExcelGrid';
+import { Toolbar } from './components/Toolbar';
+import { CSVImportDialog } from './components/CSVImportDialog';
+import type { CellFormatting, Cell } from './types/cell';
 import './App.css';
 
 function App() {
   const gridRef = useRef<ExcelGridHandle>(null);
   const [counter, setCounter] = useState(1);
+  const [hasSelection, setHasSelection] = useState(false);
+  const [currentFormatting, setCurrentFormatting] = useState<CellFormatting | undefined>(undefined);
+  const [hasClipboard, setHasClipboard] = useState(false);
+  const [csvDialogOpen, setCsvDialogOpen] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   const handleClear = () => {
     gridRef.current?.clearGrid();
@@ -26,6 +35,50 @@ function App() {
     setCounter(counter + 20);
   };
 
+  const handleSelectionChange = (selection: boolean, formatting?: CellFormatting) => {
+    setHasSelection(selection);
+    setCurrentFormatting(formatting);
+  };
+
+  const handleClipboardChange = (clipboard: boolean) => {
+    setHasClipboard(clipboard);
+  };
+
+  const handleCut = () => {
+    gridRef.current?.cutCells();
+  };
+
+  const handleCopy = () => {
+    gridRef.current?.copyCells();
+  };
+
+  const handlePaste = () => {
+    gridRef.current?.pasteCells();
+  };
+
+  const handleFormat = (formatting: Partial<CellFormatting>) => {
+    gridRef.current?.formatCells(formatting);
+  };
+
+  const handleCSVImport = (cells: Map<string, Cell>, rowCount: number, colCount: number) => {
+    gridRef.current?.importCells(cells, true);
+    
+    // Show notification if grid was expanded
+    const currentRows = 1000;
+    const currentCols = 500;
+    const needsExpansion = rowCount > currentRows || colCount > currentCols;
+    
+    if (needsExpansion) {
+      const newRows = Math.max(rowCount, currentRows);
+      const newCols = Math.max(colCount, currentCols);
+      setSnackbarMessage(`Grid expanded to ${newRows} rows × ${newCols} columns to fit imported data`);
+      setSnackbarOpen(true);
+    } else {
+      setSnackbarMessage(`Imported ${cells.size} cells successfully`);
+      setSnackbarOpen(true);
+    }
+  };
+
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Box sx={{ mb: 3 }}>
@@ -36,9 +89,14 @@ function App() {
           Click to select a cell, double-click to edit. Supports text, numbers, dates (YYYY-MM-DD), and booleans (true/false).
           <br />
           <strong>Tip:</strong> Select multiple columns by clicking column headers, then resize any selected column to resize all of them together.
+          <br />
+          <strong>New:</strong> Use the toolbar to format cells with fonts, colors, and borders. Use Ctrl+C/X/V for clipboard operations.
         </Typography>
       </Box>
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+        <Button variant="contained" color="primary" onClick={() => setCsvDialogOpen(true)}>
+          Import CSV
+        </Button>
         <Button variant="contained" color="primary" onClick={handlePopulateTest}>
           Populate B2:B15 with 'test'
         </Button>
@@ -49,13 +107,44 @@ function App() {
           Clear Grid
         </Button>
       </Stack>
+      <Toolbar
+        onCut={handleCut}
+        onCopy={handleCopy}
+        onPaste={handlePaste}
+        onFormat={handleFormat}
+        currentFormatting={currentFormatting}
+        disabled={!hasSelection}
+        pasteDisabled={!hasClipboard}
+      />
       <ExcelGrid
         ref={gridRef}
         initialRows={1000}
         initialCols={500}
         cellWidth={100}
         cellHeight={30}
+        onSelectionChange={handleSelectionChange}
+        onClipboardChange={handleClipboardChange}
       />
+      <CSVImportDialog
+        open={csvDialogOpen}
+        onClose={() => setCsvDialogOpen(false)}
+        onImport={handleCSVImport}
+      />
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity="success"
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }

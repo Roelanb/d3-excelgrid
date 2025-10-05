@@ -6,10 +6,37 @@ export interface CellValue {
   rawValue?: string;
 }
 
+export type BorderLineStyle = 'solid' | 'dashed' | 'dotted';
+
+export interface BorderLine {
+  width: number;
+  color: string;
+  style: BorderLineStyle;
+}
+
+export interface BorderStyle {
+  top?: BorderLine;
+  right?: BorderLine;
+  bottom?: BorderLine;
+  left?: BorderLine;
+}
+
+export interface CellFormatting {
+  fontFamily?: string;
+  fontSize?: number;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  textColor?: string;
+  fillColor?: string;
+  borderStyle?: BorderStyle;
+}
+
 export interface Cell {
   row: number;
   col: number;
   value: CellValue;
+  formatting?: CellFormatting;
 }
 
 export interface GridData {
