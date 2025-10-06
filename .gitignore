@@ -46,7 +46,4 @@ Thumbs.db
 dist-ssr
 *.local
 
-# vibecoding
-# ignore all files in vibecoding folder
-vibecoding
-vibecoding/*
+

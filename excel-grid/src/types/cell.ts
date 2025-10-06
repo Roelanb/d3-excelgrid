@@ -1,4 +1,17 @@
-export type CellType = 'text' | 'number' | 'date' | 'boolean';
+export type CellType = 
+  | 'text' 
+  | 'number' 
+  | 'date' 
+  | 'boolean' 
+  | 'guid' 
+  | 'uri' 
+  | 'email' 
+  | 'phone' 
+  | 'time' 
+  | 'datetime' 
+  | 'duration' 
+  | 'currency' 
+  | 'percentage';
 
 export interface CellValue {
   type: CellType;

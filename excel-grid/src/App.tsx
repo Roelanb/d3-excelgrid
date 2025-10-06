@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { ExcelGrid, type ExcelGridHandle } from './components/ExcelGrid';
 import { Toolbar } from './components/Toolbar';
 import { CSVImportDialog } from './components/CSVImportDialog';
-import type { CellFormatting, Cell } from './types/cell';
+import type { CellFormatting, Cell, CellType } from './types/cell';
 import './App.css';
 
 function App() {
@@ -11,6 +11,7 @@ function App() {
   const [counter, setCounter] = useState(1);
   const [hasSelection, setHasSelection] = useState(false);
   const [currentFormatting, setCurrentFormatting] = useState<CellFormatting | undefined>(undefined);
+  const [currentCellType, setCurrentCellType] = useState<CellType | undefined>(undefined);
   const [hasClipboard, setHasClipboard] = useState(false);
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -38,6 +39,13 @@ function App() {
   const handleSelectionChange = (selection: boolean, formatting?: CellFormatting) => {
     setHasSelection(selection);
     setCurrentFormatting(formatting);
+    // Update cell type when selection changes
+    if (selection && gridRef.current) {
+      const cellType = gridRef.current.getSelectedCellType();
+      setCurrentCellType(cellType);
+    } else {
+      setCurrentCellType(undefined);
+    }
   };
 
   const handleClipboardChange = (clipboard: boolean) => {
@@ -60,6 +68,11 @@ function App() {
     gridRef.current?.formatCells(formatting);
   };
 
+  const handleCellTypeChange = (cellType: CellType) => {
+    gridRef.current?.setCellType(cellType);
+    setCurrentCellType(cellType);
+  };
+
   const handleCSVImport = (cells: Map<string, Cell>, rowCount: number, colCount: number) => {
     gridRef.current?.importCells(cells, true);
     
@@ -80,7 +93,7 @@ function App() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container maxWidth="xl" sx={{ py: 1 }}>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Excel Grid Component
@@ -91,6 +104,8 @@ function App() {
           <strong>Tip:</strong> Select multiple columns by clicking column headers, then resize any selected column to resize all of them together.
           <br />
           <strong>New:</strong> Use the toolbar to format cells with fonts, colors, and borders. Use Ctrl+C/X/V for clipboard operations.
+          <br />
+          <strong>CSV Import:</strong> Select a cell first, then import CSV to place data at that position with optional table styling.
         </Typography>
       </Box>
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
@@ -112,7 +127,9 @@ function App() {
         onCopy={handleCopy}
         onPaste={handlePaste}
         onFormat={handleFormat}
+        onCellTypeChange={handleCellTypeChange}
         currentFormatting={currentFormatting}
+        currentCellType={currentCellType}
         disabled={!hasSelection}
         pasteDisabled={!hasClipboard}
       />
@@ -129,6 +146,7 @@ function App() {
         open={csvDialogOpen}
         onClose={() => setCsvDialogOpen(false)}
         onImport={handleCSVImport}
+        selectedCell={gridRef.current?.getSelectedCell() ?? null}
       />
       <Snackbar
         open={snackbarOpen}

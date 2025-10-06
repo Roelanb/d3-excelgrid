@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef, useMemo } from 'react';
 import * as d3 from 'd3';
 import { Box, Paper, TextField } from '@mui/material';
-import type { Cell, CellValue, GridData, CellFormatting } from '../types/cell';
+import type { Cell, CellValue, GridData, CellFormatting, CellType } from '../types/cell';
 import { getCellKey, getColumnLabel } from '../types/cell';
 import { copyCellsToClipboard, cutCellsToClipboard, pasteCellsFromClipboard, getSelectedCellsInRange, type ClipboardData } from '../utils/clipboard';
+import { inferCellValue, formatCellValue as formatCellValueUtil } from '../utils/dataTypeInference';
 
 type SelectionRange = {
   start: { row: number; col: number };
@@ -32,6 +33,9 @@ export interface ExcelGridHandle {
   cutCells: () => void;
   pasteCells: () => void;
   getSelectedFormatting: () => CellFormatting | undefined;
+  getSelectedCell: () => { row: number; col: number } | null;
+  getSelectedCellType: () => CellType | undefined;
+  setCellType: (cellType: CellType) => void;
   importCells: (cells: Map<string, Cell>, autoExpand?: boolean) => void;
 }
 
@@ -800,52 +804,11 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
   }, [gridData.cells, selectedCell, selectionRange, selectionRanges, selectionType, editingCell, headerWidth, headerHeight, viewport, getColumnWidth, getRowHeight, getColumnX, getRowY, totalWidth, totalHeight]);
 
   const formatCellValue = (value: CellValue): string => {
-    if (value.value === null || value.value === undefined) return '';
-
-    switch (value.type) {
-      case 'date':
-        return value.value instanceof Date
-          ? value.value.toLocaleDateString()
-          : String(value.value);
-      case 'boolean':
-        return value.value ? 'TRUE' : 'FALSE';
-      case 'number':
-        return typeof value.value === 'number'
-          ? value.value.toString()
-          : String(value.value);
-      default:
-        return String(value.value);
-    }
+    return formatCellValueUtil(value);
   };
 
   const parseCellValue = (input: string): CellValue => {
-    const trimmed = input.trim();
-
-    // Boolean
-    if (trimmed.toLowerCase() === 'true') {
-      return { type: 'boolean', value: true, rawValue: input };
-    }
-    if (trimmed.toLowerCase() === 'false') {
-      return { type: 'boolean', value: false, rawValue: input };
-    }
-
-    // Number
-    const num = Number(trimmed);
-    if (!isNaN(num) && trimmed !== '') {
-      return { type: 'number', value: num, rawValue: input };
-    }
-
-    // Date (basic ISO format detection)
-    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    if (datePattern.test(trimmed)) {
-      const date = new Date(trimmed);
-      if (!isNaN(date.getTime())) {
-        return { type: 'date', value: date, rawValue: input };
-      }
-    }
-
-    // Default to text
-    return { type: 'text', value: input, rawValue: input };
+    return inferCellValue(input);
   };
 
   const enterEditMode = useCallback(
@@ -1471,6 +1434,39 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
       const key = getCellKey(selectedCell.row, selectedCell.col);
       const cell = gridData.cells.get(key);
       return cell?.formatting;
+    },
+    getSelectedCell: () => {
+      return selectedCell;
+    },
+    getSelectedCellType: () => {
+      if (!selectedCell) return undefined;
+      const key = getCellKey(selectedCell.row, selectedCell.col);
+      const cell = gridData.cells.get(key);
+      return cell?.value.type;
+    },
+    setCellType: (cellType: CellType) => {
+      const selectedCells = getSelectedCells();
+      if (selectedCells.length === 0) return;
+
+      setGridData((prev) => {
+        const newCells = new Map(prev.cells);
+        selectedCells.forEach(({ row, col }) => {
+          const key = getCellKey(row, col);
+          const existingCell = newCells.get(key);
+          
+          if (existingCell) {
+            // Force the type to the selected one
+            newCells.set(key, {
+              ...existingCell,
+              value: {
+                ...existingCell.value,
+                type: cellType,
+              },
+            });
+          }
+        });
+        return { ...prev, cells: newCells };
+      });
     },
     importCells: (cells: Map<string, Cell>, autoExpand = true) => {
       setGridData((prev) => {

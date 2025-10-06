@@ -76,11 +76,18 @@ pnpm run pages:dev
 
 ## Configuration
 
+### wrangler.toml
 The `wrangler.toml` file contains your deployment configuration:
 - Project name
-- Build output directory
-- Custom headers for security and caching
-- Redirects and routes (if needed)
+- Build output directory (`dist`)
+- Compatibility date
+
+### Custom Headers and Redirects
+Cloudflare Pages uses special files in the `public/` directory:
+- `public/_headers` - Custom HTTP headers for security and caching
+- `public/_redirects` - URL redirects (create if needed)
+
+These files are automatically copied to the build output and processed by Cloudflare Pages.
 
 ## Environment Variables
 

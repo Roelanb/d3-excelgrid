@@ -1,28 +1,3 @@
 name = "excel-grid"
 compatibility_date = "2024-01-01"
-
 pages_build_output_dir = "dist"
-
-[build]
-command = "pnpm run build"
-
-# Uncomment and configure if you need custom routes or redirects
-# [[redirects]]
-# from = "/old-path"
-# to = "/new-path"
-# status = 301
-
-# Custom headers for security and performance
-[[headers]]
-for = "/*"
-
-  [headers.values]
-  X-Frame-Options = "DENY"
-  X-Content-Type-Options = "nosniff"
-  Referrer-Policy = "strict-origin-when-cross-origin"
-
-[[headers]]
-for = "/assets/*"
-
-  [headers.values]
-  Cache-Control = "public, max-age=31536000, immutable"

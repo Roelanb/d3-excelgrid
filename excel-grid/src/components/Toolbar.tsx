@@ -32,14 +32,17 @@ import {
   ExpandMore,
   ExpandLess,
 } from '@mui/icons-material';
-import type { CellFormatting, BorderLineStyle } from '../types/cell';
+import type { CellFormatting, BorderLineStyle, CellType } from '../types/cell';
+import { getCellTypeDisplayName } from '../utils/dataTypeInference';
 
 interface ToolbarProps {
   onCut: () => void;
   onCopy: () => void;
   onPaste: () => void;
   onFormat: (formatting: Partial<CellFormatting>) => void;
+  onCellTypeChange?: (cellType: CellType) => void;
   currentFormatting?: CellFormatting;
+  currentCellType?: CellType;
   disabled?: boolean;
   pasteDisabled?: boolean;
 }
@@ -58,12 +61,30 @@ const FONT_FAMILIES = [
 
 const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36];
 
+const CELL_TYPES: CellType[] = [
+  'text',
+  'number',
+  'date',
+  'datetime',
+  'time',
+  'boolean',
+  'percentage',
+  'currency',
+  'duration',
+  'email',
+  'phone',
+  'uri',
+  'guid',
+];
+
 export const Toolbar: React.FC<ToolbarProps> = ({
   onCut,
   onCopy,
   onPaste,
   onFormat,
+  onCellTypeChange,
   currentFormatting,
+  currentCellType,
   disabled = false,
   pasteDisabled = false,
 }) => {
@@ -75,6 +96,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   const handleFontSizeChange = (event: SelectChangeEvent<number>) => {
     onFormat({ fontSize: event.target.value as number });
+  };
+
+  const handleCellTypeChange = (event: SelectChangeEvent<string>) => {
+    if (onCellTypeChange) {
+      onCellTypeChange(event.target.value as CellType);
+    }
   };
 
   const handleBoldToggle = () => {
@@ -220,6 +247,23 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 </IconButton>
               </span>
             </Tooltip>
+
+            <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+            {/* Cell Type */}
+            <Select
+              value={currentCellType || 'text'}
+              onChange={handleCellTypeChange}
+              size="small"
+              disabled={disabled}
+              sx={{ minWidth: 120, height: 28, fontSize: '0.875rem' }}
+            >
+              {CELL_TYPES.map((type) => (
+                <MenuItem key={type} value={type} sx={{ fontSize: '0.875rem' }}>
+                  {getCellTypeDisplayName(type)}
+                </MenuItem>
+              ))}
+            </Select>
 
             <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -26,26 +26,37 @@ interface CSVImportDialogProps {
   open: boolean;
   onClose: () => void;
   onImport: (cells: Map<string, Cell>, rowCount: number, colCount: number) => void;
+  selectedCell?: { row: number; col: number } | null;
 }
 
 export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
   open,
   onClose,
   onImport,
+  selectedCell,
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const [delimiter, setDelimiter] = useState<string>(',');
   const [hasHeader, setHasHeader] = useState<boolean>(true);
-  const [startRow, setStartRow] = useState<number>(0);
-  const [startCol, setStartCol] = useState<number>(0);
+  const [startRow, setStartRow] = useState<number>(selectedCell?.row ?? 0);
+  const [startCol, setStartCol] = useState<number>(selectedCell?.col ?? 0);
   const [trimValues, setTrimValues] = useState<boolean>(true);
   const [skipEmptyLines, setSkipEmptyLines] = useState<boolean>(true);
+  const [applyTableStyle, setApplyTableStyle] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [preview, setPreview] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
   const [loadingMessage, setLoadingMessage] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Update start position when selectedCell changes
+  useEffect(() => {
+    if (selectedCell) {
+      setStartRow(selectedCell.row);
+      setStartCol(selectedCell.col);
+    }
+  }, [selectedCell]);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -124,6 +135,7 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
         startCol,
         trimValues,
         skipEmptyLines,
+        applyTableStyle,
       };
 
       // Add a small delay to show parsing message
@@ -159,10 +171,11 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
     setFile(null);
     setDelimiter(',');
     setHasHeader(true);
-    setStartRow(0);
-    setStartCol(0);
+    setStartRow(selectedCell?.row ?? 0);
+    setStartCol(selectedCell?.col ?? 0);
     setTrimValues(true);
     setSkipEmptyLines(true);
+    setApplyTableStyle(true);
     setError('');
     setPreview('');
     setLoading(false);
@@ -292,6 +305,15 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
                     />
                   }
                   label="Skip empty lines"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={applyTableStyle}
+                      onChange={(e) => setApplyTableStyle(e.target.checked)}
+                    />
+                  }
+                  label="Apply table styling (borders and header formatting)"
                 />
               </Box>
 

@@ -1,5 +1,6 @@
-import type { Cell, CellValue } from '../types/cell';
+import type { Cell } from '../types/cell';
 import { getCellKey } from '../types/cell';
+import { inferCellValue } from './dataTypeInference';
 
 export interface CSVImportOptions {
   delimiter?: string;
@@ -8,6 +9,7 @@ export interface CSVImportOptions {
   startCol?: number;
   trimValues?: boolean;
   skipEmptyLines?: boolean;
+  applyTableStyle?: boolean;
 }
 
 export interface CSVImportResult {
@@ -31,6 +33,7 @@ export const parseCSV = (
     startCol = 0,
     trimValues = true,
     skipEmptyLines = true,
+    applyTableStyle = false,
   } = options;
 
   const cells = new Map<string, Cell>();
@@ -50,6 +53,35 @@ export const parseCSV = (
     // Handle header row
     if (hasHeader && lineIndex === 0) {
       headers = trimValues ? values.map(v => v.trim()) : values;
+      
+      // Create header cells with styling if table style is enabled
+      if (applyTableStyle) {
+        values.forEach((value, colIndex) => {
+          const targetCol = startCol + colIndex;
+          const processedValue = trimValues ? value.trim() : value;
+          const key = getCellKey(startRow, targetCol);
+          const cellValue = inferCellValue(processedValue);
+
+          cells.set(key, {
+            row: startRow,
+            col: targetCol,
+            value: cellValue,
+            formatting: {
+              bold: true,
+              fillColor: '#e3f2fd',
+              borderStyle: {
+                top: { width: 1, color: '#1976d2', style: 'solid' },
+                right: { width: 1, color: '#1976d2', style: 'solid' },
+                bottom: { width: 2, color: '#1976d2', style: 'solid' },
+                left: { width: 1, color: '#1976d2', style: 'solid' },
+              },
+              textAlign: 'center',
+            },
+          });
+        });
+        maxColCount = Math.max(maxColCount, values.length);
+        actualRowCount = 1;
+      }
       return;
     }
 
@@ -73,11 +105,25 @@ export const parseCSV = (
       const key = getCellKey(targetRow, targetCol);
       const cellValue = inferCellValue(processedValue);
 
-      cells.set(key, {
+      // Apply table styling if enabled
+      const cell: Cell = {
         row: targetRow,
         col: targetCol,
         value: cellValue,
-      });
+      };
+
+      if (applyTableStyle) {
+        cell.formatting = {
+          borderStyle: {
+            top: { width: 1, color: '#90caf9', style: 'solid' },
+            right: { width: 1, color: '#90caf9', style: 'solid' },
+            bottom: { width: 1, color: '#90caf9', style: 'solid' },
+            left: { width: 1, color: '#90caf9', style: 'solid' },
+          },
+        };
+      }
+
+      cells.set(key, cell);
     });
   });
 
@@ -132,44 +178,6 @@ const parseCSVLine = (line: string, delimiter: string): string[] => {
   values.push(currentValue);
 
   return values;
-};
-
-/**
- * Infer the cell value type from a string
- */
-const inferCellValue = (value: string): CellValue => {
-  const trimmed = value.trim();
-
-  // Empty
-  if (trimmed === '') {
-    return { type: 'text', value: '', rawValue: value };
-  }
-
-  // Boolean
-  if (trimmed.toLowerCase() === 'true') {
-    return { type: 'boolean', value: true, rawValue: value };
-  }
-  if (trimmed.toLowerCase() === 'false') {
-    return { type: 'boolean', value: false, rawValue: value };
-  }
-
-  // Number (including negative and decimal)
-  const num = Number(trimmed);
-  if (!isNaN(num) && trimmed !== '') {
-    return { type: 'number', value: num, rawValue: value };
-  }
-
-  // Date (ISO format YYYY-MM-DD)
-  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-  if (datePattern.test(trimmed)) {
-    const date = new Date(trimmed);
-    if (!isNaN(date.getTime())) {
-      return { type: 'date', value: date, rawValue: value };
-    }
-  }
-
-  // Default to text
-  return { type: 'text', value: value, rawValue: value };
 };
 
 /**
