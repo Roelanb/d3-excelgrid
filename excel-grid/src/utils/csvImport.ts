@@ -17,6 +17,14 @@ export interface CSVImportResult {
   rowCount: number;
   colCount: number;
   headers?: string[];
+  tableMetadata?: {
+    startRow: number;
+    startCol: number;
+    endRow: number;
+    endCol: number;
+    headerRow?: number;
+    hasHeader: boolean;
+  };
 }
 
 /**
@@ -127,11 +135,21 @@ export const parseCSV = (
     });
   });
 
+  const tableMetadata = applyTableStyle ? {
+    startRow,
+    startCol,
+    endRow: startRow + actualRowCount - 1,
+    endCol: startCol + maxColCount - 1,
+    headerRow: hasHeader ? startRow : undefined,
+    hasHeader,
+  } : undefined;
+
   return {
     cells,
     rowCount: actualRowCount,
     colCount: maxColCount,
     headers,
+    tableMetadata,
   };
 };
 

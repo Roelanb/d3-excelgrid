@@ -73,8 +73,8 @@ function App() {
     setCurrentCellType(cellType);
   };
 
-  const handleCSVImport = (cells: Map<string, Cell>, rowCount: number, colCount: number) => {
-    gridRef.current?.importCells(cells, true);
+  const handleCSVImport = (cells: Map<string, Cell>, rowCount: number, colCount: number, tableMetadata?: any) => {
+    gridRef.current?.importCells(cells, true, tableMetadata);
     
     // Show notification if grid was expanded
     const currentRows = 1000;

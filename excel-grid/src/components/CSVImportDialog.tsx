@@ -25,7 +25,7 @@ import type { Cell } from '../types/cell';
 interface CSVImportDialogProps {
   open: boolean;
   onClose: () => void;
-  onImport: (cells: Map<string, Cell>, rowCount: number, colCount: number) => void;
+  onImport: (cells: Map<string, Cell>, rowCount: number, colCount: number, tableMetadata?: any) => void;
   selectedCell?: { row: number; col: number } | null;
 }
 
@@ -150,7 +150,7 @@ export const CSVImportDialog: React.FC<CSVImportDialogProps> = ({
       // Add a small delay before import
       await new Promise(resolve => setTimeout(resolve, 200));
       
-      onImport(result.cells, result.rowCount, result.colCount);
+      onImport(result.cells, result.rowCount, result.colCount, result.tableMetadata);
       
       setLoadingProgress(100);
       setLoadingMessage('Import complete!');

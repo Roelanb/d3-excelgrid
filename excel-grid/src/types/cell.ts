@@ -48,6 +48,21 @@ export interface CellFormatting {
   textAlign?: TextAlign;
 }
 
+export type SortDirection = 'asc' | 'desc' | null;
+
+export interface TableMetadata {
+  id: string;
+  startRow: number;
+  startCol: number;
+  endRow: number;
+  endCol: number;
+  headerRow: number;
+  hasHeader: boolean;
+  sortColumn?: number;
+  sortDirection?: SortDirection;
+  filters?: Map<number, Set<string>>; // column index -> set of visible values
+}
+
 export interface Cell {
   row: number;
   col: number;
