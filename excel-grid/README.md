@@ -1,15 +1,100 @@
-# React + TypeScript + Vite
+# Excel Grid
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A feature-rich, Excel-like grid component built with React, TypeScript, D3.js, and Material-UI.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 📊 Excel-like grid with row/column selection
+- 🎨 Rich text formatting (bold, italic, underline, font size, colors)
+- 📏 Resizable columns and rows
+- 🔄 CSV import/export
+- 📋 Copy/paste support
+- 🎯 Cell alignment (left, center, right)
+- 🖌️ Cell styling and borders
+- ⚡ High performance with virtual scrolling
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **React 19** - UI framework
+- **TypeScript** - Type safety
+- **Vite** - Build tool and dev server
+- **D3.js** - Grid rendering and visualization
+- **Material-UI** - UI components and toolbar
+- **Cloudflare Pages** - Deployment platform
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+ 
+- pnpm (recommended) or npm
+
+### Installation
+
+```bash
+# Install dependencies
+pnpm install
+
+# Start development server
+pnpm run dev
+
+# Build for production
+pnpm run build
+
+# Preview production build
+pnpm run preview
+```
+
+### Development
+
+The application will be available at `http://localhost:5173` (default Vite port).
+
+## Deployment
+
+### Deploy to Cloudflare Pages
+
+This project is configured for easy deployment to Cloudflare Pages.
+
+**Quick Deploy:**
+```bash
+# Install wrangler and deploy
+pnpm install
+pnpm run deploy
+```
+
+For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+### Deployment Options:
+1. **Manual deployment** - Deploy from local machine with `pnpm run deploy`
+2. **GitHub integration** - Connect your repo to Cloudflare Pages for automatic deployments
+3. **CI/CD** - Use the included GitHub Actions workflow
+
+## Project Structure
+
+```
+excel-grid/
+├── src/
+│   ├── components/       # React components
+│   │   ├── ExcelGrid.tsx # Main grid component
+│   │   ├── Toolbar.tsx   # Formatting toolbar
+│   │   └── CSVImportDialog.tsx
+│   ├── types/            # TypeScript type definitions
+│   ├── utils/            # Utility functions
+│   └── hooks/            # Custom React hooks
+├── public/               # Static assets
+├── wrangler.toml         # Cloudflare configuration
+└── DEPLOYMENT.md         # Deployment guide
+
+```
+
+## Scripts
+
+- `pnpm run dev` - Start development server
+- `pnpm run build` - Build for production
+- `pnpm run preview` - Preview production build locally
+- `pnpm run deploy` - Build and deploy to Cloudflare Pages
+- `pnpm run pages:dev` - Test with Cloudflare Pages locally
+- `pnpm run lint` - Run ESLint
 
 ## Expanding the ESLint configuration
 

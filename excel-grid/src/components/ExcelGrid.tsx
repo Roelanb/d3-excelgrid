@@ -348,6 +348,9 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
 
     svg.attr('width', totalWidth).attr('height', totalHeight);
 
+    // Create defs for clip paths
+    const defs = svg.append('defs');
+
     // Create main group
     const g = svg.append('g');
 
@@ -730,20 +733,38 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
 
         // Only show cell text if not currently editing this cell
         if (cell && !isEditing) {
+          const cellPadding = 5;
+          const clipPathId = `cell-clip-${d.row}-${d.col}`;
+
+          // Define clip path in defs with local coordinates (0,0 relative to cell group)
+          defs
+            .append('clipPath')
+            .attr('id', clipPathId)
+            .append('rect')
+            .attr('x', 0)
+            .attr('y', 0)
+            .attr('width', colWidth)
+            .attr('height', rowHeight);
+
           // Calculate text position based on alignment
           const textAlign = formatting?.textAlign || 'left';
-          let textX = 5; // Default left alignment with padding
+          let textX = cellPadding; // Default left alignment with padding
           let textAnchor: 'start' | 'middle' | 'end' = 'start';
           
           if (textAlign === 'center') {
             textX = colWidth / 2;
             textAnchor = 'middle';
           } else if (textAlign === 'right') {
-            textX = colWidth - 5; // Right alignment with padding
+            textX = colWidth - cellPadding; // Right alignment with padding
             textAnchor = 'end';
           }
+
+          // Create a wrapper group with clip-path applied to it
+          const textGroup = cellGroup
+            .append('g')
+            .attr('clip-path', `url(#${clipPathId})`);
           
-          const textElement = cellGroup
+          const textElement = textGroup
             .append('text')
             .attr('x', textX)
             .attr('y', rowHeight / 2)

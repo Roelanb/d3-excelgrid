@@ -1,0 +1,7 @@
+# Local environment variables for Wrangler development
+# Copy this file to .dev.vars and fill in your values
+# .dev.vars is gitignored and will not be committed
+
+# Example environment variables:
+# API_KEY=your-api-key-here
+# DATABASE_URL=your-database-url
