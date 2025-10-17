@@ -17,3 +17,5 @@ Possible datatypes:
 - currency
 - percentage
  
+Improve the logic for determining the datatype of the cell. when is is a integer or float, it should be a number.
+Only take a currency when the user  add a $ or € sign.

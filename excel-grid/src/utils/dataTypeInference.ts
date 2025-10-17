@@ -50,10 +50,10 @@ export const inferCellValue = (input: string): CellValue => {
     return { type: 'percentage', value: numValue, rawValue: input };
   }
 
-  // Currency (e.g., $100, €50.25, £75.50)
-  const currencyPattern = /^[$€£¥₹]?\s?-?\d+(?:,\d{3})*(?:\.\d{2})?$/;
+  // Currency (e.g., $100, €50.25)
+  const currencyPattern = /^[$€]\s?-?\d+(?:,\d{3})*(?:\.\d+)?$/;
   if (currencyPattern.test(trimmed)) {
-    const numValue = parseFloat(trimmed.replace(/[$€£¥₹,\s]/g, ''));
+    const numValue = parseFloat(trimmed.replace(/[$€,\s]/g, ''));
     return { type: 'currency', value: numValue, rawValue: input };
   }
 

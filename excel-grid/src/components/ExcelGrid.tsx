@@ -1383,11 +1383,38 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
         handleEditSubmit();
-      } else if (e.key === 'Escape') {
+        return;
+      }
+
+      if (e.key === 'Escape') {
         handleEditCancel();
+        return;
+      }
+
+      if (!editingCell) return;
+
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+
+        let nextRow = editingCell.row;
+        let nextCol = editingCell.col;
+
+        if (e.key === 'ArrowUp' && editingCell.row > 0) {
+          nextRow = editingCell.row - 1;
+        } else if (e.key === 'ArrowDown' && editingCell.row < gridData.rowCount - 1) {
+          nextRow = editingCell.row + 1;
+        } else if (e.key === 'ArrowLeft' && editingCell.col > 0) {
+          nextCol = editingCell.col - 1;
+        } else if (e.key === 'ArrowRight' && editingCell.col < gridData.colCount - 1) {
+          nextCol = editingCell.col + 1;
+        }
+
+        if (nextRow !== editingCell.row || nextCol !== editingCell.col) {
+          saveEditingCell(editingCell, { row: nextRow, col: nextCol });
+        }
       }
     },
-    [handleEditSubmit, handleEditCancel]
+    [editingCell, gridData.colCount, gridData.rowCount, handleEditCancel, handleEditSubmit, saveEditingCell]
   );
 
   // Helper to get selected cells
@@ -1449,6 +1476,39 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
         if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) {
           return;
         }
+      }
+
+      if (
+        event.key === 'ArrowUp' ||
+        event.key === 'ArrowDown' ||
+        event.key === 'ArrowLeft' ||
+        event.key === 'ArrowRight'
+      ) {
+        event.preventDefault();
+
+        let nextRow = selectedCell.row;
+        let nextCol = selectedCell.col;
+
+        if (event.key === 'ArrowUp' && selectedCell.row > 0) {
+          nextRow = selectedCell.row - 1;
+        } else if (event.key === 'ArrowDown' && selectedCell.row < gridData.rowCount - 1) {
+          nextRow = selectedCell.row + 1;
+        } else if (event.key === 'ArrowLeft' && selectedCell.col > 0) {
+          nextCol = selectedCell.col - 1;
+        } else if (event.key === 'ArrowRight' && selectedCell.col < gridData.colCount - 1) {
+          nextCol = selectedCell.col + 1;
+        }
+
+        if (nextRow !== selectedCell.row || nextCol !== selectedCell.col) {
+          const nextSelection = { row: nextRow, col: nextCol };
+          const range: SelectionRange = { start: nextSelection, end: nextSelection };
+          selectionRangeRef.current = range;
+          selectionRangesRef.current = [range];
+          setSelectionRange(range);
+          setSelectionRanges([range]);
+          setSelectedCell(nextSelection);
+        }
+        return;
       }
 
       // Handle clipboard shortcuts
