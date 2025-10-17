@@ -33,6 +33,8 @@ export interface ExcelGridHandle {
   copyCells: () => void;
   cutCells: () => void;
   pasteCells: () => void;
+  copyDown: () => void;
+  copyRight: () => void;
   getSelectedFormatting: () => CellFormatting | undefined;
   getSelectedCell: () => { row: number; col: number } | null;
   getSelectedCellType: () => CellType | undefined;
@@ -1579,6 +1581,100 @@ function ExcelGridComponent(
         return;
       }
 
+      // Handle copy down (Ctrl+D)
+      if ((event.ctrlKey || event.metaKey) && event.key === 'd') {
+        event.preventDefault();
+        
+        // Get the selection range
+        const range = selectionRange || (selectedCell ? { start: selectedCell, end: selectedCell } : null);
+        if (!range) return;
+
+        const minRow = Math.min(range.start.row, range.end.row);
+        const maxRow = Math.max(range.start.row, range.end.row);
+        const minCol = Math.min(range.start.col, range.end.col);
+        const maxCol = Math.max(range.start.col, range.end.col);
+
+        // If only one row selected, nothing to copy down
+        if (minRow === maxRow) return;
+
+        setGridData((prev) => {
+          const newCells = new Map(prev.cells);
+
+          // For each column in the selection
+          for (let col = minCol; col <= maxCol; col++) {
+            // Get the source cell (first row)
+            const sourceKey = getCellKey(minRow, col);
+            const sourceCell = prev.cells.get(sourceKey);
+
+            // Copy to all rows below in the selection
+            for (let row = minRow + 1; row <= maxRow; row++) {
+              const targetKey = getCellKey(row, col);
+              if (sourceCell) {
+                // Clone the source cell to the target row
+                newCells.set(targetKey, {
+                  ...sourceCell,
+                  row,
+                  col,
+                });
+              } else {
+                // If source is empty, clear the target
+                newCells.delete(targetKey);
+              }
+            }
+          }
+
+          return { ...prev, cells: newCells };
+        });
+        return;
+      }
+
+      // Handle copy right (Ctrl+R)
+      if ((event.ctrlKey || event.metaKey) && event.key === 'r') {
+        event.preventDefault();
+        
+        // Get the selection range
+        const range = selectionRange || (selectedCell ? { start: selectedCell, end: selectedCell } : null);
+        if (!range) return;
+
+        const minRow = Math.min(range.start.row, range.end.row);
+        const maxRow = Math.max(range.start.row, range.end.row);
+        const minCol = Math.min(range.start.col, range.end.col);
+        const maxCol = Math.max(range.start.col, range.end.col);
+
+        // If only one column selected, nothing to copy right
+        if (minCol === maxCol) return;
+
+        setGridData((prev) => {
+          const newCells = new Map(prev.cells);
+
+          // For each row in the selection
+          for (let row = minRow; row <= maxRow; row++) {
+            // Get the source cell (first column)
+            const sourceKey = getCellKey(row, minCol);
+            const sourceCell = prev.cells.get(sourceKey);
+
+            // Copy to all columns to the right in the selection
+            for (let col = minCol + 1; col <= maxCol; col++) {
+              const targetKey = getCellKey(row, col);
+              if (sourceCell) {
+                // Clone the source cell to the target column
+                newCells.set(targetKey, {
+                  ...sourceCell,
+                  row,
+                  col,
+                });
+              } else {
+                // If source is empty, clear the target
+                newCells.delete(targetKey);
+              }
+            }
+          }
+
+          return { ...prev, cells: newCells };
+        });
+        return;
+      }
+
       if (event.ctrlKey || event.metaKey || event.altKey) return;
 
       const isCharacterKey = event.key.length === 1;
@@ -1765,6 +1861,88 @@ function ExcelGridComponent(
           onClipboardChange(false);
         }
       }
+    },
+    copyDown: () => {
+      const range = selectionRange || (selectedCell ? { start: selectedCell, end: selectedCell } : null);
+      if (!range) return;
+
+      const minRow = Math.min(range.start.row, range.end.row);
+      const maxRow = Math.max(range.start.row, range.end.row);
+      const minCol = Math.min(range.start.col, range.end.col);
+      const maxCol = Math.max(range.start.col, range.end.col);
+
+      // If only one row selected, nothing to copy down
+      if (minRow === maxRow) return;
+
+      setGridData((prev) => {
+        const newCells = new Map(prev.cells);
+
+        // For each column in the selection
+        for (let col = minCol; col <= maxCol; col++) {
+          // Get the source cell (first row)
+          const sourceKey = getCellKey(minRow, col);
+          const sourceCell = prev.cells.get(sourceKey);
+
+          // Copy to all rows below in the selection
+          for (let row = minRow + 1; row <= maxRow; row++) {
+            const targetKey = getCellKey(row, col);
+            if (sourceCell) {
+              // Clone the source cell to the target row
+              newCells.set(targetKey, {
+                ...sourceCell,
+                row,
+                col,
+              });
+            } else {
+              // If source is empty, clear the target
+              newCells.delete(targetKey);
+            }
+          }
+        }
+
+        return { ...prev, cells: newCells };
+      });
+    },
+    copyRight: () => {
+      const range = selectionRange || (selectedCell ? { start: selectedCell, end: selectedCell } : null);
+      if (!range) return;
+
+      const minRow = Math.min(range.start.row, range.end.row);
+      const maxRow = Math.max(range.start.row, range.end.row);
+      const minCol = Math.min(range.start.col, range.end.col);
+      const maxCol = Math.max(range.start.col, range.end.col);
+
+      // If only one column selected, nothing to copy right
+      if (minCol === maxCol) return;
+
+      setGridData((prev) => {
+        const newCells = new Map(prev.cells);
+
+        // For each row in the selection
+        for (let row = minRow; row <= maxRow; row++) {
+          // Get the source cell (first column)
+          const sourceKey = getCellKey(row, minCol);
+          const sourceCell = prev.cells.get(sourceKey);
+
+          // Copy to all columns to the right in the selection
+          for (let col = minCol + 1; col <= maxCol; col++) {
+            const targetKey = getCellKey(row, col);
+            if (sourceCell) {
+              // Clone the source cell to the target column
+              newCells.set(targetKey, {
+                ...sourceCell,
+                row,
+                col,
+              });
+            } else {
+              // If source is empty, clear the target
+              newCells.delete(targetKey);
+            }
+          }
+        }
+
+        return { ...prev, cells: newCells };
+      });
     },
     getSelectedFormatting: () => {
       if (!selectedCell) return undefined;

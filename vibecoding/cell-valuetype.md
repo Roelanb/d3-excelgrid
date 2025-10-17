@@ -35,3 +35,7 @@ Improve the logic for determining the datatype of the cell. Following formats ar
 
 
 Add an option to further specify the date format. The cell should then be formatted according to the selected format.
+
+Extend the cell format dropdown with formats for numbers (thousands separator, decimal separator, etc.), percentage and currency.
+
+can you combine the date format dropdown and the number format dropdown into one dropdown? Maybe style it with 2 vertical columns.

@@ -16,6 +16,8 @@ import {
   ContentCut,
   ContentCopy,
   ContentPaste,
+  ArrowDownward,
+  ArrowForward,
   FormatBold,
   FormatItalic,
   FormatUnderlined,
@@ -33,12 +35,14 @@ import {
   ExpandLess,
 } from '@mui/icons-material';
 import type { CellFormatting, BorderLineStyle, CellType } from '../types/cell';
-import { getCellTypeDisplayName, DATE_FORMAT_OPTIONS } from '../utils/dataTypeInference';
+import { getCellTypeDisplayName, DATE_FORMAT_OPTIONS, NUMBER_FORMAT_OPTIONS } from '../utils/dataTypeInference';
 
 interface ToolbarProps {
   onCut: () => void;
   onCopy: () => void;
   onPaste: () => void;
+  onCopyDown: () => void;
+  onCopyRight: () => void;
   onFormat: (formatting: Partial<CellFormatting>) => void;
   onCellTypeChange?: (cellType: CellType) => void;
   currentFormatting?: CellFormatting;
@@ -81,6 +85,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onCut,
   onCopy,
   onPaste,
+  onCopyDown,
+  onCopyRight,
   onFormat,
   onCellTypeChange,
   currentFormatting,
@@ -106,6 +112,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   const handleDateFormatChange = (event: SelectChangeEvent<string>) => {
     onFormat({ dateFormat: event.target.value });
+  };
+
+  const handleNumberFormatChange = (event: SelectChangeEvent<string>) => {
+    onFormat({ numberFormat: event.target.value });
   };
 
   const handleBoldToggle = () => {
@@ -251,6 +261,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 </IconButton>
               </span>
             </Tooltip>
+            <Tooltip title="Copy Down (Ctrl+D)">
+              <span>
+                <IconButton size="small" onClick={onCopyDown} disabled={disabled} sx={{ minWidth: 32 }}>
+                  <ArrowDownward fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Copy Right (Ctrl+R)">
+              <span>
+                <IconButton size="small" onClick={onCopyRight} disabled={disabled} sx={{ minWidth: 32 }}>
+                  <ArrowForward fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
 
             <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
@@ -271,20 +295,69 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
             <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-            {/* Date Format */}
+            {/* Unified Format Dropdown */}
             <Select
-              value={currentFormatting?.dateFormat ?? ''}
-              onChange={handleDateFormatChange}
+              value={
+                currentCellType === 'date' || currentCellType === 'datetime'
+                  ? currentFormatting?.dateFormat ?? ''
+                  : currentFormatting?.numberFormat ?? ''
+              }
+              onChange={(event) => {
+                if (currentCellType === 'date' || currentCellType === 'datetime') {
+                  handleDateFormatChange(event);
+                } else {
+                  handleNumberFormatChange(event);
+                }
+              }}
               size="small"
-              disabled={disabled || !(currentCellType === 'date' || currentCellType === 'datetime')}
+              disabled={
+                disabled ||
+                !(
+                  currentCellType === 'date' ||
+                  currentCellType === 'datetime' ||
+                  currentCellType === 'number' ||
+                  currentCellType === 'percentage' ||
+                  currentCellType === 'currency'
+                )
+              }
               displayEmpty
-              sx={{ minWidth: 140, height: 28, fontSize: '0.875rem' }}
+              renderValue={(value) => {
+                if (!value) return <span style={{ color: '#999' }}>Format</span>;
+                const allOptions = [...DATE_FORMAT_OPTIONS, ...NUMBER_FORMAT_OPTIONS];
+                const option = allOptions.find((opt) => opt.value === value);
+                return option?.label || value;
+              }}
+              sx={{ minWidth: 180, height: 28, fontSize: '0.875rem' }}
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    maxHeight: 400,
+                  },
+                },
+              }}
             >
-              {DATE_FORMAT_OPTIONS.map((option) => (
-                <MenuItem key={option.value || 'default'} value={option.value} sx={{ fontSize: '0.875rem' }}>
-                  {option.label}
-                </MenuItem>
-              ))}
+              {(currentCellType === 'date' || currentCellType === 'datetime') &&
+                DATE_FORMAT_OPTIONS.map((option) => (
+                  <MenuItem
+                    key={option.value || 'default'}
+                    value={option.value}
+                    sx={{ fontSize: '0.875rem' }}
+                  >
+                    {option.label}
+                  </MenuItem>
+                ))}
+              {(currentCellType === 'number' ||
+                currentCellType === 'percentage' ||
+                currentCellType === 'currency') &&
+                NUMBER_FORMAT_OPTIONS.map((option) => (
+                  <MenuItem
+                    key={option.value || 'general'}
+                    value={option.value}
+                    sx={{ fontSize: '0.875rem' }}
+                  >
+                    {option.label}
+                  </MenuItem>
+                ))}
             </Select>
 
             <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />

@@ -64,6 +64,14 @@ function App() {
     gridRef.current?.pasteCells();
   };
 
+  const handleCopyDown = () => {
+    gridRef.current?.copyDown();
+  };
+
+  const handleCopyRight = () => {
+    gridRef.current?.copyRight();
+  };
+
   const handleFormat = (formatting: Partial<CellFormatting>) => {
     gridRef.current?.formatCells(formatting);
   };
@@ -126,6 +134,8 @@ function App() {
         onCut={handleCut}
         onCopy={handleCopy}
         onPaste={handlePaste}
+        onCopyDown={handleCopyDown}
+        onCopyRight={handleCopyRight}
         onFormat={handleFormat}
         onCellTypeChange={handleCellTypeChange}
         currentFormatting={currentFormatting}

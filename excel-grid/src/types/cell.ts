@@ -48,6 +48,7 @@ export interface CellFormatting {
   borderStyle?: BorderStyle;
   textAlign?: TextAlign;
   dateFormat?: string;
+  numberFormat?: string;
 }
 
 export type SortDirection = 'asc' | 'desc' | null;

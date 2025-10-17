@@ -37,6 +37,62 @@ export const DATE_FORMAT_OPTIONS: { value: string; label: string }[] = [
   { value: 'MMM DD YYYY HH:mm', label: 'Jan 15 2024 14:30 (MMM DD YYYY HH:mm)' },
 ];
 
+export const NUMBER_FORMAT_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'General' },
+  { value: '0', label: '1234 (no decimals)' },
+  { value: '0.0', label: '1234.5 (1 decimal)' },
+  { value: '0.00', label: '1234.56 (2 decimals)' },
+  { value: '#,##0', label: '1,234 (thousands separator)' },
+  { value: '#,##0.0', label: '1,234.5 (thousands + 1 decimal)' },
+  { value: '#,##0.00', label: '1,234.56 (thousands + 2 decimals)' },
+  { value: '0%', label: '50% (percentage, no decimals)' },
+  { value: '0.0%', label: '50.5% (percentage, 1 decimal)' },
+  { value: '0.00%', label: '50.55% (percentage, 2 decimals)' },
+  { value: '$#,##0.00', label: '$1,234.56 (currency USD)' },
+  { value: '€#,##0.00', label: '€1,234.56 (currency EUR)' },
+  { value: '£#,##0.00', label: '£1,234.56 (currency GBP)' },
+];
+
+const formatNumberByPattern = (value: number, format?: string): string => {
+  if (!format) return value.toString();
+
+  // Parse format pattern
+  const hasThousands = format.includes(',');
+  const hasCurrency = /^[$€£]/.test(format);
+  const currencySymbol = hasCurrency ? format.charAt(0) : '';
+  const isPercentage = format.includes('%');
+  
+  // Extract decimal places from format
+  const decimalMatch = format.match(/\.(0+)/);
+  const decimalPlaces = decimalMatch ? decimalMatch[1].length : 0;
+  
+  // Apply percentage conversion
+  let displayValue = isPercentage ? value * 100 : value;
+  
+  // Round to decimal places
+  displayValue = Number(displayValue.toFixed(decimalPlaces));
+  
+  // Format with thousands separator
+  let formattedNumber = displayValue.toString();
+  if (hasThousands) {
+    const parts = formattedNumber.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    formattedNumber = parts.join('.');
+  } else if (decimalPlaces > 0) {
+    // Ensure decimal places even without thousands separator
+    formattedNumber = displayValue.toFixed(decimalPlaces);
+  }
+  
+  // Add currency or percentage symbol
+  if (currencySymbol) {
+    return `${currencySymbol}${formattedNumber}`;
+  } else if (isPercentage) {
+    return `${formattedNumber}%`;
+  }
+  
+  return formattedNumber;
+};
+
 const formatDateByPattern = (date: Date, format?: string, includeTimeFallback = false): string => {
   if (!format) {
     return includeTimeFallback ? date.toLocaleString() : date.toLocaleDateString();
@@ -384,19 +440,28 @@ export const formatCellValue = (value: CellValue, formatting?: CellFormatting): 
       return value.value ? 'TRUE' : 'FALSE';
     
     case 'number':
-      return typeof value.value === 'number'
-        ? value.value.toString()
-        : String(value.value);
+      if (typeof value.value === 'number') {
+        return formatting?.numberFormat
+          ? formatNumberByPattern(value.value, formatting.numberFormat)
+          : value.value.toString();
+      }
+      return String(value.value);
 
     case 'percentage':
-      return typeof value.value === 'number'
-        ? `${value.value}%`
-        : String(value.value);
+      if (typeof value.value === 'number') {
+        return formatting?.numberFormat
+          ? formatNumberByPattern(value.value / 100, formatting.numberFormat)
+          : `${value.value}%`;
+      }
+      return String(value.value);
     
     case 'currency':
-      return typeof value.value === 'number'
-        ? `$${value.value.toFixed(2)}`
-        : String(value.value);
+      if (typeof value.value === 'number') {
+        return formatting?.numberFormat
+          ? formatNumberByPattern(value.value, formatting.numberFormat)
+          : `$${value.value.toFixed(2)}`;
+      }
+      return String(value.value);
     
     case 'duration':
     case 'phone':
