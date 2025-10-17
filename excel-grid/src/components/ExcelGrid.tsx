@@ -40,8 +40,11 @@ export interface ExcelGridHandle {
   importCells: (cells: Map<string, Cell>, autoExpand?: boolean, tableMetadata?: any) => void;
 }
 
-export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
-  {
+function ExcelGridComponent(
+  props: ExcelGridProps,
+  ref: React.ForwardedRef<ExcelGridHandle>,
+): React.ReactElement {
+  const {
     initialRows = 500,
     initialCols = 260,
     cellWidth = 100,
@@ -50,9 +53,7 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
     headerHeight = 30,
     onSelectionChange,
     onClipboardChange,
-  },
-  ref
-) => {
+  } = props;
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [gridData, setGridData] = useState<GridData>({
@@ -619,31 +620,28 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
         maxWidth = Math.max(maxWidth, headerWidth);
         
         // Check all cells in this column
+        const charWidth = 7;
         for (let row = 0; row < gridData.rowCount; row++) {
           const key = getCellKey(row, d);
           const cell = gridData.cells.get(key);
           if (cell) {
-            const cellText = formatCellValue(cell.value);
-            const fontSize = cell.formatting?.fontSize || 12;
-            const isBold = cell.formatting?.bold || false;
-            
-            // Approximate text width based on font size and content
-            const charWidth = fontSize * 0.6; // Approximate character width
+            const cellText = formatCellValueUtil(cell.value);
+            const isBold = cell.formatting?.bold;
             const textWidth = cellText.length * charWidth * (isBold ? 1.1 : 1) + padding;
             maxWidth = Math.max(maxWidth, textWidth);
           }
         }
-        
+
         // Cap maximum width to reasonable size
         maxWidth = Math.min(maxWidth, 500);
-        
+
         // Determine which columns to resize
         let affectedColumns = [d];
         if (selectionType === 'column' && (selectionRange || selectionRanges.length > 0)) {
           const ranges = selectionRanges.length > 0 ? selectionRanges : (selectionRange ? [selectionRange] : []);
           let isInSelection = false;
           const selectedCols = new Set<number>();
-          
+
           for (const range of ranges) {
             const minCol = Math.min(range.start.col, range.end.col);
             const maxCol = Math.max(range.start.col, range.end.col);
@@ -654,16 +652,16 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
               selectedCols.add(col);
             }
           }
-          
+
           if (isInSelection && selectedCols.size > 0) {
             affectedColumns = Array.from(selectedCols);
           }
         }
-        
+
         // Apply the calculated width to affected columns
         setColumnWidths((prev) => {
           const newWidths = new Map(prev);
-          affectedColumns.forEach(colIndex => {
+          affectedColumns.forEach((colIndex) => {
             newWidths.set(colIndex, maxWidth);
           });
           return newWidths;
@@ -967,7 +965,7 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
             .attr('font-weight', formatting?.bold ? 'bold' : 'normal')
             .attr('font-style', formatting?.italic ? 'italic' : 'normal')
             .attr('fill', formatting?.textColor || '#000000')
-            .text(formatCellValue(cell.value))
+            .text(formatCellValue(cell.value, formatting))
             .style('pointer-events', 'none');
 
           // Add underline if specified
@@ -1041,8 +1039,8 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
       .attr('stroke-width', 1);
   }, [gridData.cells, selectedCell, selectionRange, selectionRanges, selectionType, editingCell, headerWidth, headerHeight, viewport, getColumnWidth, getRowHeight, getColumnX, getRowY, totalWidth, totalHeight, tables, isTableHeader, isRowVisible, openFilterDialog]);
 
-  const formatCellValue = (value: CellValue): string => {
-    return formatCellValueUtil(value);
+  const formatCellValue = (value: CellValue, formatting?: CellFormatting): string => {
+    return formatCellValueUtil(value, formatting);
   };
 
   const parseCellValue = (input: string): CellValue => {
@@ -1072,11 +1070,25 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
 
       const key = getCellKey(cellToSave.row, cellToSave.col);
       const valueToSave = editValueRef.current;
+      const parsedValue = parseCellValue(valueToSave);
+      
+      // Get existing cell to preserve formatting
+      const existingCell = gridData.cells.get(key);
+      
       const newCell: Cell = {
         row: cellToSave.row,
         col: cellToSave.col,
-        value: parseCellValue(valueToSave),
+        value: parsedValue,
+        formatting: existingCell?.formatting,
       };
+
+      // Auto-apply detected date format if this is a date/datetime and has a detected format
+      if ((parsedValue.type === 'date' || parsedValue.type === 'datetime') && parsedValue.detectedFormat) {
+        newCell.formatting = {
+          ...newCell.formatting,
+          dateFormat: parsedValue.detectedFormat,
+        };
+      }
 
       setGridData((prev) => {
         const newCells = new Map(prev.cells);
@@ -1096,7 +1108,7 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
       setEditValue('');
       editValueRef.current = '';
     },
-    []
+    [gridData.cells]
   );
 
   const handleRowHeaderClick = useCallback(
@@ -1618,11 +1630,20 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
     },
     setCellValue: (row: number, col: number, value: string) => {
       const key = getCellKey(row, col);
+      const parsedValue = parseCellValue(value);
       const newCell: Cell = {
         row,
         col,
-        value: parseCellValue(value),
+        value: parsedValue,
       };
+      
+      // Auto-apply detected date format
+      if ((parsedValue.type === 'date' || parsedValue.type === 'datetime') && parsedValue.detectedFormat) {
+        newCell.formatting = {
+          dateFormat: parsedValue.detectedFormat,
+        };
+      }
+      
       setGridData((prev) => {
         const newCells = new Map(prev.cells);
         if (value.trim() === '') {
@@ -1634,6 +1655,8 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
       });
     },
     setCellRange: (startRow: number, startCol: number, endRow: number, endCol: number, value: string) => {
+      const parsedValue = parseCellValue(value);
+      
       setGridData((prev) => {
         const newCells = new Map(prev.cells);
         for (let row = startRow; row <= endRow; row++) {
@@ -1642,8 +1665,16 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
             const newCell: Cell = {
               row,
               col,
-              value: parseCellValue(value),
+              value: parsedValue,
             };
+            
+            // Auto-apply detected date format
+            if ((parsedValue.type === 'date' || parsedValue.type === 'datetime') && parsedValue.detectedFormat) {
+              newCell.formatting = {
+                dateFormat: parsedValue.detectedFormat,
+              };
+            }
+            
             if (value.trim() === '') {
               newCells.delete(key);
             } else {
@@ -1890,6 +1921,8 @@ export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>((
       </Box>
     </Paper>
   );
-});
+}
+
+export const ExcelGrid = forwardRef<ExcelGridHandle, ExcelGridProps>(ExcelGridComponent);
 
 ExcelGrid.displayName = 'ExcelGrid';

@@ -17,6 +17,7 @@ export interface CellValue {
   type: CellType;
   value: string | number | Date | boolean | null;
   rawValue?: string;
+  detectedFormat?: string;
 }
 
 export type BorderLineStyle = 'solid' | 'dashed' | 'dotted';
@@ -46,6 +47,7 @@ export interface CellFormatting {
   fillColor?: string;
   borderStyle?: BorderStyle;
   textAlign?: TextAlign;
+  dateFormat?: string;
 }
 
 export type SortDirection = 'asc' | 'desc' | null;

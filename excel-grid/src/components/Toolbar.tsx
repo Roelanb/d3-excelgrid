@@ -33,7 +33,7 @@ import {
   ExpandLess,
 } from '@mui/icons-material';
 import type { CellFormatting, BorderLineStyle, CellType } from '../types/cell';
-import { getCellTypeDisplayName } from '../utils/dataTypeInference';
+import { getCellTypeDisplayName, DATE_FORMAT_OPTIONS } from '../utils/dataTypeInference';
 
 interface ToolbarProps {
   onCut: () => void;
@@ -102,6 +102,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     if (onCellTypeChange) {
       onCellTypeChange(event.target.value as CellType);
     }
+  };
+
+  const handleDateFormatChange = (event: SelectChangeEvent<string>) => {
+    onFormat({ dateFormat: event.target.value });
   };
 
   const handleBoldToggle = () => {
@@ -261,6 +265,24 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               {CELL_TYPES.map((type) => (
                 <MenuItem key={type} value={type} sx={{ fontSize: '0.875rem' }}>
                   {getCellTypeDisplayName(type)}
+                </MenuItem>
+              ))}
+            </Select>
+
+            <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+            {/* Date Format */}
+            <Select
+              value={currentFormatting?.dateFormat ?? ''}
+              onChange={handleDateFormatChange}
+              size="small"
+              disabled={disabled || !(currentCellType === 'date' || currentCellType === 'datetime')}
+              displayEmpty
+              sx={{ minWidth: 140, height: 28, fontSize: '0.875rem' }}
+            >
+              {DATE_FORMAT_OPTIONS.map((option) => (
+                <MenuItem key={option.value || 'default'} value={option.value} sx={{ fontSize: '0.875rem' }}>
+                  {option.label}
                 </MenuItem>
               ))}
             </Select>
