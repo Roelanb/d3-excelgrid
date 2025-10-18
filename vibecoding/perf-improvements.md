@@ -76,7 +76,8 @@ All 5 quick win optimizations have been successfully implemented:
 - **Solution**: Pre-compute a Set of selected cell keys during selection changes
 - **Impact**: O(1) lookup instead of O(n) per cell
 - **Complexity**: Medium
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
+- **Implementation**: Added selectionCellKeys state, useEffect to rebuild cache when selection/ranges/type change, replaced 50-line isCellInSelection logic with single Set.has() lookup
 
 ### 7. Pre-compute Visible Rows for Filters
 - **File**: [src/components/ExcelGrid.tsx](cci:7://file:///media/bart/Development/dev/github/d3-excelgrid/excel-grid/src/components/ExcelGrid.tsx:0:0-0:0)
@@ -85,7 +86,8 @@ All 5 quick win optimizations have been successfully implemented:
 - **Solution**: Pre-compute visible rows Set when filters change
 - **Impact**: Reduce render time by 30-50% for filtered tables
 - **Complexity**: Medium
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
+- **Implementation**: Added visibleRowsCache state (Map<tableId, Set<rowNumbers>>), useEffect to rebuild cache when tables/cells change, replaced filter loop logic with simple Set.has() lookup
 
 ### 8. Optimize Sorting with Single-Pass Algorithm
 - **File**: [src/components/ExcelGrid.tsx](cci:7://file:///media/bart/Development/dev/github/d3-excelgrid/excel-grid/src/components/ExcelGrid.tsx:0:0-0:0)
@@ -94,7 +96,8 @@ All 5 quick win optimizations have been successfully implemented:
 - **Solution**: Use a single pass sort with direct cell updates
 - **Impact**: Reduce sort time by 50%
 - **Complexity**: Medium
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
+- **Implementation**: Refactored to collect rows with sort keys in single pass, eliminated separate clear/place loops, optimized comparison logic by pre-extracting sort values
 
 ### 9. Use Event Delegation for Cell Events
 - **File**: [src/components/ExcelGrid.tsx](cci:7://file:///media/bart/Development/dev/github/d3-excelgrid/excel-grid/src/components/ExcelGrid.tsx:0:0-0:0)
@@ -103,7 +106,8 @@ All 5 quick win optimizations have been successfully implemented:
 - **Solution**: Use event delegation on parent container instead of binding to individual cells
 - **Impact**: Reduce memory usage and initialization time
 - **Complexity**: Medium
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
+- **Implementation**: Added data-row/data-col attributes to cell groups, moved 5 event handlers (mousedown, mouseenter, click, dblclick, contextmenu) from individual cells to parent g element, used event.target.closest() for delegation
 
 ### 10. Implement Batch Update API
 - **File**: [src/components/ExcelGrid.tsx](cci:7://file:///media/bart/Development/dev/github/d3-excelgrid/excel-grid/src/components/ExcelGrid.tsx:0:0-0:0)
@@ -111,25 +115,28 @@ All 5 quick win optimizations have been successfully implemented:
 - **Solution**: Add `batchUpdateCells()` method to ExcelGridHandle
 - **Impact**: Enable efficient bulk operations
 - **Complexity**: Medium
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
+- **Implementation**: Added batchUpdateCells() method that processes array of updates in single setGridData call, exported ExcelGridHandle interface with all public methods
 
 ### 11. Optimize CSV Parsing
 - **File**: [src/utils/csvImport.ts](cci:7://file:///media/bart/Development/dev/github/d3-excelgrid/excel-grid/src/utils/csvImport.ts:0:0-0:0)
-- **Lines**: 53-136
+- **Lines**: 53-162
 - **Issue**: Multiple passes and intermediate array creation
 - **Solution**: Single-pass parsing with direct cell creation
 - **Impact**: Faster CSV imports for large files
 - **Complexity**: Medium
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
+- **Implementation**: Refactored parseCSV to use single for-loop instead of forEach, pre-compute formatting objects, replaced forEach with for-loops for cell creation, eliminated intermediate object creation
 
 ### 12. Optimize String Concatenation in CSV Parser
 - **File**: [src/utils/csvImport.ts](cci:7://file:///media/bart/Development/dev/github/d3-excelgrid/excel-grid/src/utils/csvImport.ts:0:0-0:0)
-- **Lines**: 191
-- **Issue**: Character-by-character string concatenation in [parseCSVLine()](cci:1://file:///media/bart/Development/dev/github/d3-excelgrid/excel-grid/src/utils/csvImport.ts:155:0-198:2)
+- **Lines**: 168-208
+- **Issue**: Character-by-character string concatenation in parseCSVLine()
 - **Solution**: Use array and join at the end
 - **Impact**: Reduce string allocation overhead
 - **Complexity**: Low
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
+- **Implementation**: Replaced character-by-character concatenation with array.push() and array.join(), resets array length instead of creating new array
 
 ---
 

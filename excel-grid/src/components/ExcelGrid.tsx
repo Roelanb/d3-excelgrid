@@ -14,6 +14,24 @@ type SelectionRange = {
 
 type SelectionType = 'cell' | 'row' | 'column';
 
+export interface ExcelGridHandle {
+  clearGrid: () => void;
+  setCellValue: (row: number, col: number, value: string) => void;
+  setCellRange: (startRow: number, startCol: number, endRow: number, endCol: number, value: string) => void;
+  formatCells: (formatting: Partial<CellFormatting>) => void;
+  copyCells: () => void;
+  cutCells: () => void;
+  pasteCells: () => void;
+  copyDown: () => void;
+  copyRight: () => void;
+  getSelectedFormatting: () => CellFormatting | undefined;
+  getSelectedCell: () => { row: number; col: number } | null;
+  getSelectedCellType: () => CellType | undefined;
+  setCellType: (cellType: CellType) => void;
+  importCells: (cells: Map<string, Cell>, autoExpand?: boolean, tableMetadata?: any) => void;
+  batchUpdateCells: (updates: Array<{ row: number; col: number; value: string }>) => void;
+}
+
 interface ExcelGridProps {
   initialRows?: number;
   initialCols?: number;
@@ -78,6 +96,8 @@ function ExcelGridComponent(
   const [tables, setTables] = useState<Map<string, TableMetadata>>(new Map());
   const [filterDialog, setFilterDialog] = useState<{ open: boolean; tableId: string; column: number; columnName: string } | null>(null);
   const [tableHeaderCellKeys, setTableHeaderCellKeys] = useState<Map<string, string>>(new Map());
+  const [selectionCellKeys, setSelectionCellKeys] = useState<Set<string>>(new Set());
+  const [visibleRowsCache, setVisibleRowsCache] = useState<Map<string, Set<number>>>(new Map());
 
   const selectionRangeRef = useRef<SelectionRange | null>(selectionRange);
   const selectionRangesRef = useRef<SelectionRange[]>(selectionRanges);
@@ -92,6 +112,80 @@ function ExcelGridComponent(
   useEffect(() => {
     selectionRangesRef.current = selectionRanges;
   }, [selectionRanges]);
+
+  // Update selection cell keys cache when selection changes
+  useEffect(() => {
+    const cellKeys = new Set<string>();
+    
+    if (selectionType === 'row' && selectionRanges.length > 0) {
+      // Multi-range row selection
+      for (const range of selectionRanges) {
+        const minRow = Math.min(range.start.row, range.end.row);
+        const maxRow = Math.max(range.start.row, range.end.row);
+        for (let row = minRow; row <= maxRow; row++) {
+          for (let col = 0; col < gridData.colCount; col++) {
+            cellKeys.add(getCellKey(row, col));
+          }
+        }
+      }
+    } else if (selectionType === 'column' && selectionRanges.length > 0) {
+      // Multi-range column selection
+      for (const range of selectionRanges) {
+        const minCol = Math.min(range.start.col, range.end.col);
+        const maxCol = Math.max(range.start.col, range.end.col);
+        for (let col = minCol; col <= maxCol; col++) {
+          for (let row = 0; row < gridData.rowCount; row++) {
+            cellKeys.add(getCellKey(row, col));
+          }
+        }
+      }
+    } else if (selectionRanges.length > 0) {
+      // Multi-range cell selection
+      for (const range of selectionRanges) {
+        const minRow = Math.min(range.start.row, range.end.row);
+        const maxRow = Math.max(range.start.row, range.end.row);
+        const minCol = Math.min(range.start.col, range.end.col);
+        const maxCol = Math.max(range.start.col, range.end.col);
+        for (let row = minRow; row <= maxRow; row++) {
+          for (let col = minCol; col <= maxCol; col++) {
+            cellKeys.add(getCellKey(row, col));
+          }
+        }
+      }
+    } else if (selectionRange) {
+      // Single range selection
+      if (selectionType === 'row') {
+        const minRow = Math.min(selectionRange.start.row, selectionRange.end.row);
+        const maxRow = Math.max(selectionRange.start.row, selectionRange.end.row);
+        for (let row = minRow; row <= maxRow; row++) {
+          for (let col = 0; col < gridData.colCount; col++) {
+            cellKeys.add(getCellKey(row, col));
+          }
+        }
+      } else if (selectionType === 'column') {
+        const minCol = Math.min(selectionRange.start.col, selectionRange.end.col);
+        const maxCol = Math.max(selectionRange.start.col, selectionRange.end.col);
+        for (let col = minCol; col <= maxCol; col++) {
+          for (let row = 0; row < gridData.rowCount; row++) {
+            cellKeys.add(getCellKey(row, col));
+          }
+        }
+      } else {
+        // Cell selection
+        const minRow = Math.min(selectionRange.start.row, selectionRange.end.row);
+        const maxRow = Math.max(selectionRange.start.row, selectionRange.end.row);
+        const minCol = Math.min(selectionRange.start.col, selectionRange.end.col);
+        const maxCol = Math.max(selectionRange.start.col, selectionRange.end.col);
+        for (let row = minRow; row <= maxRow; row++) {
+          for (let col = minCol; col <= maxCol; col++) {
+            cellKeys.add(getCellKey(row, col));
+          }
+        }
+      }
+    }
+    
+    setSelectionCellKeys(cellKeys);
+  }, [selectionRange, selectionRanges, selectionType, gridData.rowCount, gridData.colCount]);
 
   useEffect(() => {
     isDraggingRef.current = isDragging;
@@ -132,48 +226,8 @@ function ExcelGridComponent(
 
   // Check if a cell is in the selection range
   const isCellInSelection = (row: number, col: number): boolean => {
-    // Check multi-ranges first (for ctrl-click selections)
-    if (selectionRanges.length > 0) {
-      for (const range of selectionRanges) {
-        if (selectionType === 'row') {
-          const minRow = Math.min(range.start.row, range.end.row);
-          const maxRow = Math.max(range.start.row, range.end.row);
-          if (row >= minRow && row <= maxRow) return true;
-        } else if (selectionType === 'column') {
-          const minCol = Math.min(range.start.col, range.end.col);
-          const maxCol = Math.max(range.start.col, range.end.col);
-          if (col >= minCol && col <= maxCol) return true;
-        } else {
-          const minRow = Math.min(range.start.row, range.end.row);
-          const maxRow = Math.max(range.start.row, range.end.row);
-          const minCol = Math.min(range.start.col, range.end.col);
-          const maxCol = Math.max(range.start.col, range.end.col);
-          if (row >= minRow && row <= maxRow && col >= minCol && col <= maxCol) return true;
-        }
-      }
-      return false;
-    }
-
-    // Fallback to single range
-    if (!selectionRange) return false;
-    
-    if (selectionType === 'row') {
-      const minRow = Math.min(selectionRange.start.row, selectionRange.end.row);
-      const maxRow = Math.max(selectionRange.start.row, selectionRange.end.row);
-      return row >= minRow && row <= maxRow;
-    }
-    
-    if (selectionType === 'column') {
-      const minCol = Math.min(selectionRange.start.col, selectionRange.end.col);
-      const maxCol = Math.max(selectionRange.start.col, selectionRange.end.col);
-      return col >= minCol && col <= maxCol;
-    }
-    
-    const minRow = Math.min(selectionRange.start.row, selectionRange.end.row);
-    const maxRow = Math.max(selectionRange.start.row, selectionRange.end.row);
-    const minCol = Math.min(selectionRange.start.col, selectionRange.end.col);
-    const maxCol = Math.max(selectionRange.start.col, selectionRange.end.col);
-    return row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
+    const key = getCellKey(row, col);
+    return selectionCellKeys.has(key);
   };
 
   // Check if a cell is in the clipboard
@@ -207,6 +261,47 @@ function ExcelGridComponent(
     setTableHeaderCellKeys(newHeaderKeys);
   }, [tables]);
 
+  // Update visible rows cache when tables or cells change
+  useEffect(() => {
+    const newVisibleRowsCache = new Map<string, Set<number>>();
+    
+    for (const [tableId, table] of tables.entries()) {
+      const visibleRows = new Set<number>();
+      
+      // If no filters, all rows are visible
+      if (!table.filters || table.filters.size === 0) {
+        for (let row = (table.headerRow ?? -1) + 1; row <= table.endRow; row++) {
+          visibleRows.add(row);
+        }
+      } else {
+        // Check each row against all filters
+        for (let row = (table.headerRow ?? -1) + 1; row <= table.endRow; row++) {
+          let isVisible = true;
+          
+          // Check all active filters for this row
+          for (const [col, allowedValues] of table.filters.entries()) {
+            const key = getCellKey(row, col);
+            const cell = gridData.cells.get(key);
+            const cellValue = cell ? formatCellValueUtil(cell.value) : '';
+            
+            if (!allowedValues.has(cellValue)) {
+              isVisible = false;
+              break;
+            }
+          }
+          
+          if (isVisible) {
+            visibleRows.add(row);
+          }
+        }
+      }
+      
+      newVisibleRowsCache.set(tableId, visibleRows);
+    }
+    
+    setVisibleRowsCache(newVisibleRowsCache);
+  }, [tables, gridData.cells]);
+
   // Open filter dialog for column
   const openFilterDialog = useCallback((tableId: string, column: number) => {
     const table = tables.get(tableId);
@@ -226,58 +321,34 @@ function ExcelGridComponent(
   }, [tables, gridData.cells]);
 
   // Apply filter to table column
-  const applyFilter = useCallback((tableId: string, column: number, selectedValues: Set<string>) => {
-    const table = tables.get(tableId);
-    if (!table) return;
+  const handleApplyFilter = useCallback(
+    (tableId: string, column: number, values: Set<string>) => {
+      const table = tables.get(tableId);
+      if (!table) return;
 
-    setTables(prev => {
-      const newTables = new Map(prev);
       const updatedTable = { ...table };
-      
-      if (!updatedTable.filters) {
-        updatedTable.filters = new Map();
-      }
-      
-      // Get all unique values in column
-      const allValues = new Set<string>();
-      for (let r = table.headerRow! + 1; r <= table.endRow; r++) {
-        const key = getCellKey(r, column);
-        const cell = gridData.cells.get(key);
-        if (cell) {
-          allValues.add(formatCellValueUtil(cell.value));
-        }
-      }
-      
-      // If all values are selected, remove filter
-      if (selectedValues.size === allValues.size) {
+      if (values.size === 0) {
+        updatedTable.filters = new Map(table.filters);
         updatedTable.filters.delete(column);
       } else {
-        updatedTable.filters.set(column, selectedValues);
+        updatedTable.filters = new Map(table.filters);
+        updatedTable.filters.set(column, values);
       }
-      
-      newTables.set(tableId, updatedTable);
-      return newTables;
-    });
-  }, [tables, gridData.cells]);
+
+      const updatedTables = new Map(tables);
+      updatedTables.set(tableId, updatedTable);
+      setTables(updatedTables);
+      // visibleRowsCache will be automatically updated by the useEffect
+    },
+    [tables]
+  );
 
   // Check if row should be visible based on filters
   const isRowVisible = useCallback((tableId: string, row: number): boolean => {
-    const table = tables.get(tableId);
-    if (!table || !table.filters || table.filters.size === 0) return true;
-
-    // Check all active filters
-    for (const [col, allowedValues] of table.filters.entries()) {
-      const key = getCellKey(row, col);
-      const cell = gridData.cells.get(key);
-      const cellValue = cell ? formatCellValueUtil(cell.value) : '';
-      
-      if (!allowedValues.has(cellValue)) {
-        return false;
-      }
-    }
-    
-    return true;
-  }, [tables, gridData.cells]);
+    const visibleRows = visibleRowsCache.get(tableId);
+    if (!visibleRows) return true;
+    return visibleRows.has(row);
+  }, [visibleRowsCache]);
 
   // Sort table by column
   const sortTable = useCallback((tableId: string, column: number) => {
@@ -305,30 +376,34 @@ function ExcelGridComponent(
     // If no sort, restore original order (would need to store original)
     if (!newDirection) return;
 
-    // Get all data rows
-    const dataRows: { row: number; cells: Cell[] }[] = [];
+    // Single-pass sort: collect rows with sort key in one pass
+    const rowsWithKeys: { row: number; sortKey: any; cells: Map<number, Cell> }[] = [];
+    
     for (let r = table.headerRow! + 1; r <= table.endRow; r++) {
-      const rowCells: Cell[] = [];
+      const cellMap = new Map<number, Cell>();
+      let sortKey: any = null;
+      
       for (let c = table.startCol; c <= table.endCol; c++) {
         const key = getCellKey(r, c);
         const cell = gridData.cells.get(key);
-        if (cell) rowCells.push(cell);
+        if (cell) {
+          cellMap.set(c, cell);
+          // Extract sort key on first pass
+          if (c === column) {
+            sortKey = cell.value.value;
+          }
+        }
       }
-      if (rowCells.length > 0) {
-        dataRows.push({ row: r, cells: rowCells });
+      
+      if (cellMap.size > 0) {
+        rowsWithKeys.push({ row: r, sortKey, cells: cellMap });
       }
     }
 
-    // Sort rows
-    const sortedRows = [...dataRows].sort((a, b) => {
-      const colIndex = column - table.startCol;
-      const cellA = a.cells[colIndex];
-      const cellB = b.cells[colIndex];
-      
-      if (!cellA || !cellB) return 0;
-      
-      const valueA = cellA.value.value;
-      const valueB = cellB.value.value;
+    // Sort with optimized comparison
+    rowsWithKeys.sort((a, b) => {
+      const valueA = a.sortKey;
+      const valueB = b.sortKey;
       
       let comparison = 0;
       if (typeof valueA === 'string' && typeof valueB === 'string') {
@@ -344,23 +419,15 @@ function ExcelGridComponent(
       return newDirection === 'desc' ? -comparison : comparison;
     });
 
-    // Update grid with sorted data
+    // Update grid with sorted data in single pass
     setGridData(prev => {
       const newCells = new Map(prev.cells);
       
-      // Clear existing data rows
-      for (let r = table.headerRow! + 1; r <= table.endRow; r++) {
-        for (let c = table.startCol; c <= table.endCol; c++) {
-          const key = getCellKey(r, c);
-          newCells.delete(key);
-        }
-      }
-      
-      // Place sorted rows
-      sortedRows.forEach((rowData, index) => {
+      // Update all cells directly without clearing first
+      rowsWithKeys.forEach((rowData, index) => {
         const targetRow = table.headerRow! + 1 + index;
-        rowData.cells.forEach(cell => {
-          const key = getCellKey(targetRow, cell.col);
+        rowData.cells.forEach((cell, col) => {
+          const key = getCellKey(targetRow, col);
           newCells.set(key, {
             ...cell,
             row: targetRow,
@@ -1063,18 +1130,59 @@ function ExcelGridComponent(
           }
         }
 
-        cellGroup.on('mousedown', (event) => handleCellMouseDown(d.row, d.col, event as MouseEvent));
-        cellGroup.on('mouseenter', () => handleCellMouseEnter(d.row, d.col));
-        cellGroup.on('click', () => handleCellClick(d.row, d.col));
-        cellGroup.on('dblclick', () => handleCellDoubleClick(d.row, d.col));
-        cellGroup.on('contextmenu', (event) => {
-          event.preventDefault();
-          const tableHeader = isTableHeader(d.row, d.col);
-          if (tableHeader) {
-            openFilterDialog(tableHeader.id, d.col);
-          }
-        });
+        // Store row/col as data attributes for event delegation
+        cellGroup.attr('data-row', d.row).attr('data-col', d.col);
       });
+
+    // Event delegation: attach handlers to parent group instead of individual cells
+    g.on('mousedown', function(event) {
+      const target = (event.target as SVGElement).closest('[data-row]');
+      if (target) {
+        const row = parseInt(target.getAttribute('data-row') || '0', 10);
+        const col = parseInt(target.getAttribute('data-col') || '0', 10);
+        handleCellMouseDown(row, col, event as MouseEvent);
+      }
+    });
+
+    g.on('mouseenter', function(event) {
+      const target = (event.target as SVGElement).closest('[data-row]');
+      if (target) {
+        const row = parseInt(target.getAttribute('data-row') || '0', 10);
+        const col = parseInt(target.getAttribute('data-col') || '0', 10);
+        handleCellMouseEnter(row, col);
+      }
+    }, true);
+
+    g.on('click', function(event) {
+      const target = (event.target as SVGElement).closest('[data-row]');
+      if (target) {
+        const row = parseInt(target.getAttribute('data-row') || '0', 10);
+        const col = parseInt(target.getAttribute('data-col') || '0', 10);
+        handleCellClick(row, col);
+      }
+    });
+
+    g.on('dblclick', function(event) {
+      const target = (event.target as SVGElement).closest('[data-row]');
+      if (target) {
+        const row = parseInt(target.getAttribute('data-row') || '0', 10);
+        const col = parseInt(target.getAttribute('data-col') || '0', 10);
+        handleCellDoubleClick(row, col);
+      }
+    });
+
+    g.on('contextmenu', function(event) {
+      const target = (event.target as SVGElement).closest('[data-row]');
+      if (target) {
+        event.preventDefault();
+        const row = parseInt(target.getAttribute('data-row') || '0', 10);
+        const col = parseInt(target.getAttribute('data-col') || '0', 10);
+        const tableHeader = isTableHeader(row, col);
+        if (tableHeader) {
+          openFilterDialog(tableHeader.id, col);
+        }
+      }
+    });
 
     // Draw top-left corner header
     g.append('rect')
@@ -1083,7 +1191,7 @@ function ExcelGridComponent(
       .attr('fill', '#e0e0e0')
       .attr('stroke', '#ccc')
       .attr('stroke-width', 1);
-  }, [gridData.cells, selectedCell, selectionRange, selectionRanges, selectionType, editingCell, headerWidth, headerHeight, viewport, getColumnWidth, getRowHeight, getColumnX, getRowY, totalWidth, totalHeight, tables, tableHeaderCellKeys, isTableHeader, isRowVisible, openFilterDialog]);
+  }, [gridData.cells, selectedCell, selectionRange, selectionRanges, selectionType, editingCell, headerWidth, headerHeight, viewport, getColumnWidth, getRowHeight, getColumnX, getRowY, totalWidth, totalHeight, tables, tableHeaderCellKeys, selectionCellKeys, visibleRowsCache, isTableHeader, isRowVisible, openFilterDialog]);
 
   const formatCellValue = (value: CellValue, formatting?: CellFormatting): string => {
     return formatCellValueUtil(value, formatting);
@@ -1331,7 +1439,7 @@ function ExcelGridComponent(
 
   const handleRowHeaderEnter = useCallback(
     (row: number) => {
-      if (isDraggingRef.current && selectionRangeRef.current && selectionType === 'row') {
+      if (isDraggingRef.current && selectionRangeRef.current && selectionType === 'row' && gridData.colCount > 0) {
         const anchorRow = selectionRangeRef.current.start.row;
         const updatedRange: SelectionRange = {
           start: { row: Math.min(anchorRow, row), col: 0 },
@@ -2076,7 +2184,49 @@ function ExcelGridComponent(
         });
       }
     },
-  }), [getSelectedCells, gridData.cells, clipboardData, selectedCell, onClipboardChange, gridData.colCount, gridData.rowCount]);
+    batchUpdateCells: (updates: Array<{ row: number; col: number; value: string }>) => {
+      setGridData((prev) => {
+        const newCells = new Map(prev.cells);
+        let maxRow = prev.rowCount;
+        let maxCol = prev.colCount;
+        
+        // Process all updates in a single pass
+        updates.forEach(({ row, col, value }) => {
+          const key = getCellKey(row, col);
+          const parsedValue = parseCellValue(value);
+          
+          // Track grid dimensions
+          maxRow = Math.max(maxRow, row + 1);
+          maxCol = Math.max(maxCol, col + 1);
+          
+          if (value.trim() === '') {
+            newCells.delete(key);
+          } else {
+            const newCell: Cell = {
+              row,
+              col,
+              value: parsedValue,
+            };
+            
+            // Auto-apply detected date format
+            if ((parsedValue.type === 'date' || parsedValue.type === 'datetime') && parsedValue.detectedFormat) {
+              newCell.formatting = {
+                dateFormat: parsedValue.detectedFormat,
+              };
+            }
+            
+            newCells.set(key, newCell);
+          }
+        });
+        
+        return {
+          cells: newCells,
+          rowCount: maxRow,
+          colCount: maxCol,
+        };
+      });
+    },
+  }), [getSelectedCells, gridData.cells, clipboardData, selectedCell, onClipboardChange, gridData.colCount, gridData.rowCount, parseCellValue]);
 
   return (
     <Paper elevation={3} sx={{ p: 2, position: 'relative', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
@@ -2138,7 +2288,7 @@ function ExcelGridComponent(
             <TableFilterDialog
               open={filterDialog.open}
               onClose={() => setFilterDialog(null)}
-              onApply={(selectedValues) => applyFilter(filterDialog.tableId, filterDialog.column, selectedValues)}
+              onApply={(selectedValues) => handleApplyFilter(filterDialog.tableId, filterDialog.column, selectedValues)}
               columnName={filterDialog.columnName}
               values={values}
               currentFilter={table.filters?.get(filterDialog.column)}

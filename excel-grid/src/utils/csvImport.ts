@@ -28,7 +28,7 @@ export interface CSVImportResult {
 }
 
 /**
- * Parse CSV content and convert to cell data
+ * Parse CSV content and convert to cell data with optimized single-pass processing
  */
 export const parseCSV = (
   csvContent: string,
@@ -50,47 +50,63 @@ export const parseCSV = (
   let maxColCount = 0;
   let actualRowCount = 0;
 
-  lines.forEach((line, lineIndex) => {
+  // Pre-compute header formatting if needed
+  const headerFormatting = applyTableStyle ? {
+    bold: true,
+    fillColor: '#e3f2fd',
+    borderStyle: {
+      top: { width: 1, color: '#1976d2', style: 'solid' as const },
+      right: { width: 1, color: '#1976d2', style: 'solid' as const },
+      bottom: { width: 2, color: '#1976d2', style: 'solid' as const },
+      left: { width: 1, color: '#1976d2', style: 'solid' as const },
+    },
+    textAlign: 'center' as const,
+  } : undefined;
+
+  const dataFormatting = applyTableStyle ? {
+    borderStyle: {
+      top: { width: 1, color: '#90caf9', style: 'solid' as const },
+      right: { width: 1, color: '#90caf9', style: 'solid' as const },
+      bottom: { width: 1, color: '#90caf9', style: 'solid' as const },
+      left: { width: 1, color: '#90caf9', style: 'solid' as const },
+    },
+  } : undefined;
+
+  // Single-pass processing: parse and create cells in one iteration
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex];
+
     // Skip empty lines if configured
     if (skipEmptyLines && line.trim() === '') {
-      return;
+      continue;
     }
 
     const values = parseCSVLine(line, delimiter);
+    const isHeaderRow = hasHeader && lineIndex === 0;
     
     // Handle header row
-    if (hasHeader && lineIndex === 0) {
+    if (isHeaderRow) {
       headers = trimValues ? values.map(v => v.trim()) : values;
       
-      // Create header cells with styling if table style is enabled
+      // Create header cells directly if table style is enabled
       if (applyTableStyle) {
-        values.forEach((value, colIndex) => {
-          const targetCol = startCol + colIndex;
+        for (let colIndex = 0; colIndex < values.length; colIndex++) {
+          const value = values[colIndex];
           const processedValue = trimValues ? value.trim() : value;
+          const targetCol = startCol + colIndex;
           const key = getCellKey(startRow, targetCol);
-          const cellValue = inferCellValue(processedValue);
 
           cells.set(key, {
             row: startRow,
             col: targetCol,
-            value: cellValue,
-            formatting: {
-              bold: true,
-              fillColor: '#e3f2fd',
-              borderStyle: {
-                top: { width: 1, color: '#1976d2', style: 'solid' },
-                right: { width: 1, color: '#1976d2', style: 'solid' },
-                bottom: { width: 2, color: '#1976d2', style: 'solid' },
-                left: { width: 1, color: '#1976d2', style: 'solid' },
-              },
-              textAlign: 'center',
-            },
+            value: inferCellValue(processedValue),
+            formatting: headerFormatting,
           });
-        });
-        maxColCount = Math.max(maxColCount, values.length);
+        }
+        maxColCount = values.length;
         actualRowCount = 1;
       }
-      return;
+      continue;
     }
 
     // Calculate target row (accounting for header and start position)
@@ -98,42 +114,34 @@ export const parseCSV = (
     actualRowCount++;
 
     // Update max column count
-    maxColCount = Math.max(maxColCount, values.length);
+    if (values.length > maxColCount) {
+      maxColCount = values.length;
+    }
 
-    // Create cells for each value
-    values.forEach((value, colIndex) => {
-      const targetCol = startCol + colIndex;
+    // Create cells for each value in single pass
+    for (let colIndex = 0; colIndex < values.length; colIndex++) {
+      const value = values[colIndex];
       const processedValue = trimValues ? value.trim() : value;
       
       // Skip empty cells if desired
       if (processedValue === '' && skipEmptyLines) {
-        return;
+        continue;
       }
 
+      const targetCol = startCol + colIndex;
       const key = getCellKey(targetRow, targetCol);
-      const cellValue = inferCellValue(processedValue);
 
-      // Apply table styling if enabled
       const cell: Cell = {
         row: targetRow,
         col: targetCol,
-        value: cellValue,
+        value: inferCellValue(processedValue),
       };
-
-      if (applyTableStyle) {
-        cell.formatting = {
-          borderStyle: {
-            top: { width: 1, color: '#90caf9', style: 'solid' },
-            right: { width: 1, color: '#90caf9', style: 'solid' },
-            bottom: { width: 1, color: '#90caf9', style: 'solid' },
-            left: { width: 1, color: '#90caf9', style: 'solid' },
-          },
-        };
+      if (dataFormatting) {
+        cell.formatting = dataFormatting;
       }
-
       cells.set(key, cell);
-    });
-  });
+    }
+  }
 
   const tableMetadata = applyTableStyle ? {
     startRow,
@@ -155,10 +163,11 @@ export const parseCSV = (
 
 /**
  * Parse a single CSV line, handling quoted values with delimiters
+ * Optimized with array-based string concatenation
  */
 const parseCSVLine = (line: string, delimiter: string): string[] => {
   const values: string[] = [];
-  let currentValue = '';
+  const currentValueChars: string[] = [];
   let insideQuotes = false;
   let i = 0;
 
@@ -169,7 +178,7 @@ const parseCSVLine = (line: string, delimiter: string): string[] => {
     if (char === '"') {
       if (insideQuotes && nextChar === '"') {
         // Escaped quote
-        currentValue += '"';
+        currentValueChars.push('"');
         i += 2;
         continue;
       } else {
@@ -182,18 +191,18 @@ const parseCSVLine = (line: string, delimiter: string): string[] => {
 
     if (char === delimiter && !insideQuotes) {
       // End of value
-      values.push(currentValue);
-      currentValue = '';
+      values.push(currentValueChars.join(''));
+      currentValueChars.length = 0;
       i++;
       continue;
     }
 
-    currentValue += char;
+    currentValueChars.push(char);
     i++;
   }
 
   // Add the last value
-  values.push(currentValue);
+  values.push(currentValueChars.join(''));
 
   return values;
 };
