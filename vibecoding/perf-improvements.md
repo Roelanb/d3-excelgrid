@@ -144,53 +144,57 @@ All 5 quick win optimizations have been successfully implemented:
 
 ### 13. Replace Full SVG Re-render with D3 Update Pattern
 - **File**: [src/components/ExcelGrid.tsx](cci:7://file:///media/bart/Development/dev/github/d3-excelgrid/excel-grid/src/components/ExcelGrid.tsx:0:0-0:0)
-- **Lines**: 535-1071
+- **Lines**: 616-1200
 - **Issue**: Full SVG re-render on every state change (`.selectAll().remove()`)
 - **Solution**: Implement D3 update pattern with `.data().join()` to preserve DOM nodes
 - **Impact**: Reduce render time by 60-80% for large grids
 - **Complexity**: High
 - **Effort**: 4-6 hours
-- **Status**: ⏳ Pending
-- **Notes**: This is the highest impact optimization. Requires careful refactoring of render logic.
+- **Status**: ✅ Completed
+- **Implementation**: Replaced `.enter().append()` with `.join()` for column headers, row headers, and grid cells. Used key functions for data binding to ensure proper element reuse. Added `.selectAll('*').remove()` in `.each()` to clear old children during updates. Preserved defs and main group elements across renders instead of recreating them.
 
 ### 14. Implement Lazy Grid Initialization
 - **File**: [src/components/ExcelGrid.tsx](cci:7://file:///media/bart/Development/dev/github/d3-excelgrid/excel-grid/src/components/ExcelGrid.tsx:0:0-0:0)
-- **Lines**: 149
+- **Lines**: 79-80, 559-582, 601, 625
 - **Issue**: Initial grid is 1000×500 cells, creating massive DOM
 - **Solution**: Only create visible cells initially, add cells on demand
 - **Impact**: Faster initial load time
 - **Complexity**: High
 - **Effort**: 3-4 hours
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
+- **Implementation**: Start with 100×50 grid instead of full 500×260. Added expandGridIfNeeded() callback that monitors viewport and expands grid by 100 rows/50 cols when approaching bounds. Track max grid dimensions in refs to support full expansion. Updated importCells to update max dimensions when importing data.
 
 ### 15. Convert Position Caches to Flat Arrays
 - **File**: [src/components/ExcelGrid.tsx](cci:7://file:///media/bart/Development/dev/github/d3-excelgrid/excel-grid/src/components/ExcelGrid.tsx:0:0-0:0)
-- **Lines**: 104-122, 420-473
+- **Lines**: 200-227, 503-557
 - **Issue**: Map lookups slower than array access for position caching
 - **Solution**: Use flat arrays for column/row positions with binary search
 - **Impact**: Faster position lookups and viewport calculations
 - **Complexity**: High
 - **Effort**: 2-3 hours
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
+- **Implementation**: Replaced Map<number, number> with number[] for columnPositions and rowPositions. Updated getColumnX and getRowY to use array indexing with nullish coalescing. Updated binary search in calculateViewport to use array access instead of Map.get().
 
 ### 16. Implement Virtual Scrolling
 - **File**: [src/components/ExcelGrid.tsx](cci:7://file:///media/bart/Development/dev/github/d3-excelgrid/excel-grid/src/components/ExcelGrid.tsx:0:0-0:0)
+- **Lines**: 503-564, 962-1004
 - **Issue**: Large grids render all cells even if not visible
 - **Solution**: Implement virtual scrolling to only render visible cells
 - **Impact**: Enable grids with millions of cells
 - **Complexity**: Very High
 - **Effort**: 8-10 hours
-- **Status**: ⏳ Pending
-- **Notes**: Consider using a library like `react-window` or `react-virtualized`
+- **Status**: ✅ Completed
+- **Implementation**: Virtual scrolling already implemented using viewport-based rendering. Optimized buffer sizes: COL_BUFFER_BEFORE=2, COL_BUFFER_AFTER=8, ROW_BUFFER_BEFORE=3, ROW_BUFFER_AFTER=15. Uses binary search on position caches to calculate visible viewport. Only renders cells within viewport + buffer zones to prevent flickering. D3 update pattern ensures efficient DOM management.
 
 ### 17. Use CSS Animations Instead of SVG Animations
-- **File**: [src/components/ExcelGrid.tsx](cci:7://file:///media/bart/Development/dev/github/d3-excelgrid/excel-grid/src/components/ExcelGrid.tsx:0:0-0:0)
-- **Lines**: 893-899
+- **File**: [src/components/ExcelGrid.tsx](cci:7://file:///media/bart/Development/dev/github/d3-excelgrid/excel-grid/src/components/ExcelGrid.tsx:0:0-0:0), [src/App.css](cci:7://file:///media/bart/Development/dev/github/d3-excelgrid/excel-grid/src/App.css:0:0-0:0)
+- **Lines**: 1038-1050 (ExcelGrid.tsx), 44-66 (App.css)
 - **Issue**: SVG animations on clipboard cells run on every render
 - **Solution**: Use CSS animations for clipboard border animation
 - **Impact**: Better performance, smoother animations
 - **Complexity**: Medium
-- **Status**: ⏳ Pending
+- **Status**: ✅ Completed
+- **Implementation**: Created CSS keyframe animation `clipboard-border-animation` that animates stroke-dashoffset. Added two CSS classes: `clipboard-border-cut` (red #ff6b6b) and `clipboard-border-copy` (blue #2196f3). Replaced SVG animate elements with CSS class assignment. Animation runs on GPU, not on every render cycle.
 
 ---
 

@@ -40,3 +40,27 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Clipboard border animations */
+@keyframes clipboard-border-animation {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 20;
+  }
+}
+
+.clipboard-border {
+  animation: clipboard-border-animation 1s linear infinite;
+}
+
+.clipboard-border-cut {
+  stroke: #ff6b6b;
+  animation: clipboard-border-animation 1s linear infinite;
+}
+
+.clipboard-border-copy {
+  stroke: #2196f3;
+  animation: clipboard-border-animation 1s linear infinite;
+}

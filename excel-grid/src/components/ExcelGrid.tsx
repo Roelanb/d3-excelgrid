@@ -76,10 +76,12 @@ function ExcelGridComponent(
   } = props;
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const maxGridRowsRef = useRef(initialRows);
+  const maxGridColsRef = useRef(initialCols);
   const [gridData, setGridData] = useState<GridData>({
     cells: new Map(),
-    rowCount: initialRows,
-    colCount: initialCols,
+    rowCount: Math.min(100, initialRows),
+    colCount: Math.min(50, initialCols),
   });
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
   const [selectionRange, setSelectionRange] = useState<SelectionRange | null>(null);
@@ -195,33 +197,33 @@ function ExcelGridComponent(
   const getColumnWidth = useCallback((col: number): number => columnWidths.get(col) || cellWidth, [columnWidths, cellWidth]);
   const getRowHeight = useCallback((row: number): number => rowHeights.get(row) || cellHeight, [rowHeights, cellHeight]);
 
-  // Memoized position caches for efficient lookups
+  // Memoized position caches as flat arrays for efficient lookups
   const columnPositions = useMemo(() => {
-    const positions = new Map<number, number>();
+    const positions: number[] = [];
     let x = headerWidth;
     for (let i = 0; i < gridData.colCount; i++) {
-      positions.set(i, x);
+      positions[i] = x;
       x += (columnWidths.get(i) || cellWidth);
     }
     return positions;
   }, [gridData.colCount, columnWidths, cellWidth, headerWidth]);
 
   const rowPositions = useMemo(() => {
-    const positions = new Map<number, number>();
+    const positions: number[] = [];
     let y = headerHeight;
     for (let i = 0; i < gridData.rowCount; i++) {
-      positions.set(i, y);
+      positions[i] = y;
       y += (rowHeights.get(i) || cellHeight);
     }
     return positions;
   }, [gridData.rowCount, rowHeights, cellHeight, headerHeight]);
 
   const getColumnX = useCallback((col: number): number => {
-    return columnPositions.get(col) || headerWidth;
+    return columnPositions[col] ?? headerWidth;
   }, [columnPositions, headerWidth]);
 
   const getRowY = useCallback((row: number): number => {
-    return rowPositions.get(row) || headerHeight;
+    return rowPositions[row] ?? headerHeight;
   }, [rowPositions, headerHeight]);
 
   // Check if a cell is in the selection range
@@ -499,13 +501,20 @@ function ExcelGridComponent(
   }, [resizing]);
 
   // Optimized viewport calculation using binary search on position caches
+  // Virtual scrolling: only render cells within viewport + buffer zones
   const calculateViewport = useCallback((scrollLeft: number, scrollTop: number, viewportWidth: number, viewportHeight: number) => {
+    // Buffer sizes to prevent flickering during fast scrolling
+    const COL_BUFFER_BEFORE = 2;
+    const COL_BUFFER_AFTER = 8;
+    const ROW_BUFFER_BEFORE = 3;
+    const ROW_BUFFER_AFTER = 15;
+
     // Binary search for start column
     let startCol = 0;
     let left = 0, right = gridData.colCount - 1;
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
-      const x = columnPositions.get(mid) || 0;
+      const x = columnPositions[mid] ?? 0;
       if (x < scrollLeft) {
         startCol = mid;
         left = mid + 1;
@@ -513,17 +522,17 @@ function ExcelGridComponent(
         right = mid - 1;
       }
     }
-    startCol = Math.max(0, startCol - 1); // Add buffer before
+    startCol = Math.max(0, startCol - COL_BUFFER_BEFORE);
 
     // Find end column
     let endCol = startCol;
     const scrollRight = scrollLeft + viewportWidth;
     while (endCol < gridData.colCount) {
-      const x = columnPositions.get(endCol) || 0;
+      const x = columnPositions[endCol] ?? 0;
       if (x > scrollRight) break;
       endCol++;
     }
-    endCol = Math.min(endCol + 5, gridData.colCount); // Add buffer after
+    endCol = Math.min(endCol + COL_BUFFER_AFTER, gridData.colCount);
 
     // Binary search for start row
     let startRow = 0;
@@ -531,7 +540,7 @@ function ExcelGridComponent(
     right = gridData.rowCount - 1;
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
-      const y = rowPositions.get(mid) || 0;
+      const y = rowPositions[mid] ?? 0;
       if (y < scrollTop) {
         startRow = mid;
         left = mid + 1;
@@ -539,20 +548,45 @@ function ExcelGridComponent(
         right = mid - 1;
       }
     }
-    startRow = Math.max(0, startRow - 1); // Add buffer before
+    startRow = Math.max(0, startRow - ROW_BUFFER_BEFORE);
 
     // Find end row
     let endRow = startRow;
     const scrollBottom = scrollTop + viewportHeight;
     while (endRow < gridData.rowCount) {
-      const y = rowPositions.get(endRow) || 0;
+      const y = rowPositions[endRow] ?? 0;
       if (y > scrollBottom) break;
       endRow++;
     }
-    endRow = Math.min(endRow + 10, gridData.rowCount); // Add buffer after
+    endRow = Math.min(endRow + ROW_BUFFER_AFTER, gridData.rowCount);
 
     return { startRow, endRow, startCol, endCol };
   }, [gridData.colCount, gridData.rowCount, columnPositions, rowPositions]);
+
+  // Lazy expand grid when scrolling beyond current bounds
+  const expandGridIfNeeded = useCallback((viewport: { startRow: number; endRow: number; startCol: number; endCol: number }) => {
+    let needsExpansion = false;
+    let newRowCount = gridData.rowCount;
+    let newColCount = gridData.colCount;
+
+    if (viewport.endRow >= gridData.rowCount - 10 && gridData.rowCount < maxGridRowsRef.current) {
+      newRowCount = Math.min(gridData.rowCount + 100, maxGridRowsRef.current);
+      needsExpansion = true;
+    }
+
+    if (viewport.endCol >= gridData.colCount - 5 && gridData.colCount < maxGridColsRef.current) {
+      newColCount = Math.min(gridData.colCount + 50, maxGridColsRef.current);
+      needsExpansion = true;
+    }
+
+    if (needsExpansion) {
+      setGridData(prev => ({
+        ...prev,
+        rowCount: newRowCount,
+        colCount: newColCount,
+      }));
+    }
+  }, [gridData.rowCount, gridData.colCount]);
 
   // Handle scroll to update viewport with throttling
   useEffect(() => {
@@ -571,6 +605,7 @@ function ExcelGridComponent(
         const viewportHeight = container.clientHeight;
 
         const newViewport = calculateViewport(scrollLeft, scrollTop, viewportWidth, viewportHeight);
+        expandGridIfNeeded(newViewport);
         
         setViewport(prev => {
           // Only update if viewport actually changed
@@ -594,7 +629,7 @@ function ExcelGridComponent(
         cancelAnimationFrame(renderRequestRef.current);
       }
     };
-  }, [calculateViewport]);
+  }, [calculateViewport, expandGridIfNeeded]);
 
   // Calculate total dimensions
   const totalWidth = useMemo(() => {
@@ -618,33 +653,47 @@ function ExcelGridComponent(
     if (!svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
-    svg.selectAll('*').remove();
 
     svg.attr('width', totalWidth).attr('height', totalHeight);
 
-    // Create defs for clip paths
-    const defs = svg.append('defs');
+    // Ensure defs and main group exist (create once, reuse)
+    let defs = svg.select<SVGDefsElement>('defs');
+    if (defs.empty()) {
+      defs = svg.append('defs');
+    } else {
+      defs.selectAll('*').remove();
+    }
 
-    // Create main group
-    const g = svg.append('g');
+    let g = svg.select<SVGGElement>('g.main-grid');
+    if (g.empty()) {
+      g = svg.append('g').attr('class', 'main-grid');
+    } else {
+      g.selectAll('.col-header, .row-header, .row').remove();
+    }
 
-    // Draw column headers (only visible columns)
+    // Draw column headers (only visible columns) using D3 update pattern
     const visibleCols = d3.range(viewport.startCol, Math.min(viewport.endCol, gridData.colCount));
     const colHeaders = g
-      .selectAll('.col-header')
-      .data(visibleCols)
-      .enter()
-      .append('g')
-      .attr('class', 'col-header')
+      .selectAll<SVGGElement, number>('.col-header')
+      .data(visibleCols, (d: number) => d)
+      .join(
+        (enter) =>
+          enter
+            .append('g')
+            .attr('class', 'col-header'),
+        (update) => update,
+        (exit) => exit.remove()
+      )
       .attr('transform', (d) => `translate(${getColumnX(d)}, 0)`);
 
     colHeaders
-      .append('rect')
+      .selectAll<SVGRectElement, number>('rect.col-header-bg')
+      .data((d) => [d], (d) => d)
+      .join((enter) => enter.append('rect').attr('class', 'col-header-bg'))
       .attr('width', (d) => getColumnWidth(d))
       .attr('height', headerHeight)
       .attr('fill', (d) => {
         if (selectionType === 'column') {
-          // Check multi-ranges first
           if (selectionRanges.length > 0) {
             for (const range of selectionRanges) {
               const minCol = Math.min(range.start.col, range.end.col);
@@ -671,7 +720,9 @@ function ExcelGridComponent(
       });
 
     colHeaders
-      .append('text')
+      .selectAll<SVGTextElement, number>('text.col-header-label')
+      .data((d) => [d], (d) => d)
+      .join((enter) => enter.append('text').attr('class', 'col-header-label'))
       .attr('x', (d) => getColumnWidth(d) / 2)
       .attr('y', headerHeight / 2)
       .attr('text-anchor', 'middle')
@@ -683,8 +734,9 @@ function ExcelGridComponent(
 
     // Add column resize handles
     colHeaders
-      .append('rect')
-      .attr('class', 'col-resize-handle')
+      .selectAll<SVGRectElement, number>('rect.col-resize-handle')
+      .data((d) => [d], (d) => d)
+      .join((enter) => enter.append('rect').attr('class', 'col-resize-handle'))
       .attr('x', (d) => getColumnWidth(d) - 5)
       .attr('y', 0)
       .attr('width', 10)
@@ -793,23 +845,29 @@ function ExcelGridComponent(
         });
       });
 
-    // Draw row headers (only visible rows)
+    // Draw row headers (only visible rows) using D3 update pattern
     const visibleRows = d3.range(viewport.startRow, Math.min(viewport.endRow, gridData.rowCount));
     const rowHeaders = g
-      .selectAll('.row-header')
-      .data(visibleRows)
-      .enter()
-      .append('g')
-      .attr('class', 'row-header')
+      .selectAll<SVGGElement, number>('.row-header')
+      .data(visibleRows, (d: number) => d)
+      .join(
+        (enter) =>
+          enter
+            .append('g')
+            .attr('class', 'row-header'),
+        (update) => update,
+        (exit) => exit.remove()
+      )
       .attr('transform', (d) => `translate(0, ${getRowY(d)})`);
 
     rowHeaders
-      .append('rect')
+      .selectAll<SVGRectElement, number>('rect.row-header-bg')
+      .data((d) => [d], (d) => d)
+      .join((enter) => enter.append('rect').attr('class', 'row-header-bg'))
       .attr('width', headerWidth)
       .attr('height', (d) => getRowHeight(d))
       .attr('fill', (d) => {
         if (selectionType === 'row') {
-          // Check multi-ranges first
           if (selectionRanges.length > 0) {
             for (const range of selectionRanges) {
               const minRow = Math.min(range.start.row, range.end.row);
@@ -836,7 +894,9 @@ function ExcelGridComponent(
       });
 
     rowHeaders
-      .append('text')
+      .selectAll<SVGTextElement, number>('text.row-header-label')
+      .data((d) => [d], (d) => d)
+      .join((enter) => enter.append('text').attr('class', 'row-header-label'))
       .attr('x', headerWidth / 2)
       .attr('y', (d) => getRowHeight(d) / 2)
       .attr('text-anchor', 'middle')
@@ -848,8 +908,9 @@ function ExcelGridComponent(
 
     // Add row resize handles
     rowHeaders
-      .append('rect')
-      .attr('class', 'row-resize-handle')
+      .selectAll<SVGRectElement, number>('rect.row-resize-handle')
+      .data((d) => [d], (d) => d)
+      .join((enter) => enter.append('rect').attr('class', 'row-resize-handle'))
       .attr('x', 0)
       .attr('y', (d) => getRowHeight(d) - 5)
       .attr('width', headerWidth)
@@ -898,13 +959,20 @@ function ExcelGridComponent(
         });
       });
 
-    // Draw grid cells (only visible cells, considering filters)
+    // Virtual scrolling: Draw only visible grid cells + buffer zones
+    // This enables rendering grids with millions of cells by only creating DOM for visible area
+    // Buffer zones prevent flickering during fast scrolling
     const rows = g
-      .selectAll('.row')
-      .data(visibleRows)
-      .enter()
-      .append('g')
-      .attr('class', 'row')
+      .selectAll<SVGGElement, number>('.row')
+      .data(visibleRows, (d: number) => d)
+      .join(
+        (enter) =>
+          enter
+            .append('g')
+            .attr('class', 'row'),
+        (update) => update,
+        (exit) => exit.remove()
+      )
       .attr('transform', (d) => `translate(${headerWidth}, ${getRowY(d)})`)
       .style('display', (d) => {
         // Check if row is in a filtered table
@@ -917,20 +985,28 @@ function ExcelGridComponent(
       });
 
     rows
-      .selectAll('.cell')
-      .data((row) =>
-        visibleCols.map((col) => ({
-          row,
-          col,
-          key: getCellKey(row, col),
-        }))
+      .selectAll<SVGGElement, any>('.cell')
+      .data(
+        (row) =>
+          visibleCols.map((col) => ({
+            row,
+            col,
+            key: getCellKey(row, col),
+          })),
+        (d) => d.key
       )
-      .enter()
-      .append('g')
-      .attr('class', 'cell')
+      .join(
+        (enter) =>
+          enter
+            .append('g')
+            .attr('class', 'cell'),
+        (update) => update,
+        (exit) => exit.remove()
+      )
       .attr('transform', (d) => `translate(${getColumnX(d.col) - headerWidth}, 0)`)
       .each(function (d) {
         const cellGroup = d3.select(this);
+        cellGroup.selectAll('*').remove();
         const cell = gridData.cells.get(d.key);
         const isSelected = selectedCell?.row === d.row && selectedCell?.col === d.col;
         const isInRange = isCellInSelection(d.row, d.col);
@@ -959,26 +1035,18 @@ function ExcelGridComponent(
           .attr('stroke-width', isInRange || isSelected ? 2 : 1)
           .style('cursor', 'cell');
 
-        // Add animated dashed border for copied/cut cells
+        // Add animated dashed border for copied/cut cells using CSS animation
         if (isInClipboard) {
-          const clipboardRect = cellGroup
+          const clipboardClass = clipboardData?.isCut ? 'clipboard-border-cut' : 'clipboard-border-copy';
+          cellGroup
             .append('rect')
             .attr('width', colWidth)
             .attr('height', rowHeight)
             .attr('fill', 'none')
-            .attr('stroke', clipboardData?.isCut ? '#ff6b6b' : '#2196f3')
             .attr('stroke-width', 2)
             .attr('stroke-dasharray', '6,4')
+            .attr('class', clipboardClass)
             .style('pointer-events', 'none');
-
-          // Animate the dashed border
-          clipboardRect
-            .append('animate')
-            .attr('attributeName', 'stroke-dashoffset')
-            .attr('from', '0')
-            .attr('to', '20')
-            .attr('dur', '1s')
-            .attr('repeatCount', 'indefinite');
         }
 
         // Draw borders if specified
@@ -2153,6 +2221,10 @@ function ExcelGridComponent(
             maxCol = Math.max(maxCol, cell.col + 1);
           });
         }
+        
+        // Update max grid dimensions for lazy expansion
+        maxGridRowsRef.current = Math.max(maxGridRowsRef.current, maxRow);
+        maxGridColsRef.current = Math.max(maxGridColsRef.current, maxCol);
         
         // Add imported cells to the grid
         cells.forEach((cell, key) => {
