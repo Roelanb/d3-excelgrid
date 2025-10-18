@@ -33,7 +33,15 @@ Improve the logic for determining the datatype of the cell. Following formats ar
 - 15 Jan 2024
 - 15 Jan 2024 14:30
 
+Improve the logic for determining the datatype of the cell. Following formats are for innstance phone nrs:
+- +31 6 12345678
+- +31612345678
+- 0612345678
+-(041)737-3846
+- +32 (0)417373846
+- +32 417373846
 
+Improve the logic for determining the datatype of the cell. Following formats are for instancce dates:
 Add an option to further specify the date format. The cell should then be formatted according to the selected format.
 
 Extend the cell format dropdown with formats for numbers (thousands separator, decimal separator, etc.), percentage and currency.

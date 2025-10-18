@@ -77,6 +77,7 @@ function ExcelGridComponent(
   const [clipboardData, setClipboardData] = useState<ClipboardData | null>(null);
   const [tables, setTables] = useState<Map<string, TableMetadata>>(new Map());
   const [filterDialog, setFilterDialog] = useState<{ open: boolean; tableId: string; column: number; columnName: string } | null>(null);
+  const [tableHeaderCellKeys, setTableHeaderCellKeys] = useState<Map<string, string>>(new Map());
 
   const selectionRangeRef = useRef<SelectionRange | null>(selectionRange);
   const selectionRangesRef = useRef<SelectionRange[]>(selectionRanges);
@@ -175,16 +176,36 @@ function ExcelGridComponent(
     return row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
   };
 
+  // Check if a cell is in the clipboard
+  const isCellInClipboard = (row: number, col: number): boolean => {
+    if (!clipboardData) return false;
+    const key = getCellKey(row, col);
+    return clipboardData.cellKeys.has(key);
+  };
+
   // Check if a cell is a table header
   const isTableHeader = (row: number, col: number): TableMetadata | null => {
-    for (const table of tables.values()) {
-      if (table.hasHeader && table.headerRow === row && 
-          col >= table.startCol && col <= table.endCol) {
-        return table;
-      }
+    const key = getCellKey(row, col);
+    const tableId = tableHeaderCellKeys.get(key);
+    if (tableId) {
+      return tables.get(tableId) || null;
     }
     return null;
   };
+
+  // Update table header cell keys cache when tables change
+  useEffect(() => {
+    const newHeaderKeys = new Map<string, string>();
+    for (const [tableId, table] of tables.entries()) {
+      if (table.hasHeader && table.headerRow !== undefined) {
+        for (let col = table.startCol; col <= table.endCol; col++) {
+          const key = getCellKey(table.headerRow, col);
+          newHeaderKeys.set(key, tableId);
+        }
+      }
+    }
+    setTableHeaderCellKeys(newHeaderKeys);
+  }, [tables]);
 
   // Open filter dialog for column
   const openFilterDialog = useCallback((tableId: string, column: number) => {
@@ -847,6 +868,7 @@ function ExcelGridComponent(
         const isSelected = selectedCell?.row === d.row && selectedCell?.col === d.col;
         const isInRange = isCellInSelection(d.row, d.col);
         const isEditing = editingCell?.row === d.row && editingCell?.col === d.col;
+        const isInClipboard = isCellInClipboard(d.row, d.col);
         const colWidth = getColumnWidth(d.col);
         const rowHeight = getRowHeight(d.row);
         const formatting = cell?.formatting;
@@ -869,6 +891,28 @@ function ExcelGridComponent(
           .attr('stroke', '#ccc')
           .attr('stroke-width', isInRange || isSelected ? 2 : 1)
           .style('cursor', 'cell');
+
+        // Add animated dashed border for copied/cut cells
+        if (isInClipboard) {
+          const clipboardRect = cellGroup
+            .append('rect')
+            .attr('width', colWidth)
+            .attr('height', rowHeight)
+            .attr('fill', 'none')
+            .attr('stroke', clipboardData?.isCut ? '#ff6b6b' : '#2196f3')
+            .attr('stroke-width', 2)
+            .attr('stroke-dasharray', '6,4')
+            .style('pointer-events', 'none');
+
+          // Animate the dashed border
+          clipboardRect
+            .append('animate')
+            .attr('attributeName', 'stroke-dashoffset')
+            .attr('from', '0')
+            .attr('to', '20')
+            .attr('dur', '1s')
+            .attr('repeatCount', 'indefinite');
+        }
 
         // Draw borders if specified
         if (formatting?.borderStyle) {
@@ -1039,7 +1083,7 @@ function ExcelGridComponent(
       .attr('fill', '#e0e0e0')
       .attr('stroke', '#ccc')
       .attr('stroke-width', 1);
-  }, [gridData.cells, selectedCell, selectionRange, selectionRanges, selectionType, editingCell, headerWidth, headerHeight, viewport, getColumnWidth, getRowHeight, getColumnX, getRowY, totalWidth, totalHeight, tables, isTableHeader, isRowVisible, openFilterDialog]);
+  }, [gridData.cells, selectedCell, selectionRange, selectionRanges, selectionType, editingCell, headerWidth, headerHeight, viewport, getColumnWidth, getRowHeight, getColumnX, getRowY, totalWidth, totalHeight, tables, tableHeaderCellKeys, isTableHeader, isRowVisible, openFilterDialog]);
 
   const formatCellValue = (value: CellValue, formatting?: CellFormatting): string => {
     return formatCellValueUtil(value, formatting);
@@ -1242,8 +1286,6 @@ function ExcelGridComponent(
       const isShift = event?.shiftKey || false;
       const isCtrlOrMeta = event?.ctrlKey || event?.metaKey || false;
 
-      console.log('mousedown', row, col, 'selected:', selectedCell, 'range:', selectionRange);
-
       // Shift-click: extend selection from anchor
       if (isShift && selectionType === 'cell') {
         const anchor = selectionRanges.length > 0 ? selectionRanges[0] : selectionRange;
@@ -1275,7 +1317,6 @@ function ExcelGridComponent(
       }
 
       // Start new selection/drag
-      console.log('Starting new selection');
       const newRange: SelectionRange = { start: { row, col }, end: { row, col } };
       selectionRangeRef.current = newRange;
       isDraggingRef.current = true;
@@ -1340,7 +1381,6 @@ function ExcelGridComponent(
 
   const handleCellClick = useCallback(
     (row: number, col: number) => {
-      console.log('click', row, col);
 
       // Check if this is a table header cell
       const tableHeader = isTableHeader(row, col);
@@ -1572,7 +1612,18 @@ function ExcelGridComponent(
           return { ...prev, cells: newCells };
         });
 
-        if (clipboardData.isCut) {
+        // Always clear clipboard data after paste
+        setClipboardData(null);
+        if (onClipboardChange) {
+          onClipboardChange(false);
+        }
+        return;
+      }
+
+      // Handle ESC key to clear clipboard
+      if (event.key === 'Escape') {
+        if (clipboardData) {
+          event.preventDefault();
           setClipboardData(null);
           if (onClipboardChange) {
             onClipboardChange(false);
@@ -1854,12 +1905,10 @@ function ExcelGridComponent(
         return { ...prev, cells: newCells };
       });
 
-      // Clear clipboard if it was a cut operation
-      if (clipboardData.isCut) {
-        setClipboardData(null);
-        if (onClipboardChange) {
-          onClipboardChange(false);
-        }
+      // Always clear clipboard data after paste
+      setClipboardData(null);
+      if (onClipboardChange) {
+        onClipboardChange(false);
       }
     },
     copyDown: () => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   AppBar,
   Toolbar as MuiToolbar,
@@ -81,7 +81,7 @@ const CELL_TYPES: CellType[] = [
   'guid',
 ];
 
-export const Toolbar: React.FC<ToolbarProps> = ({
+const ToolbarComponent: React.FC<ToolbarProps> = ({
   onCut,
   onCopy,
   onPaste,
@@ -96,61 +96,61 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 }) => {
   const [collapsed, setCollapsed] = useState(false);
 
-  const handleFontFamilyChange = (event: SelectChangeEvent<string>) => {
+  const handleFontFamilyChange = useCallback((event: SelectChangeEvent<string>) => {
     onFormat({ fontFamily: event.target.value });
-  };
+  }, [onFormat]);
 
-  const handleFontSizeChange = (event: SelectChangeEvent<number>) => {
+  const handleFontSizeChange = useCallback((event: SelectChangeEvent<number>) => {
     onFormat({ fontSize: event.target.value as number });
-  };
+  }, [onFormat]);
 
-  const handleCellTypeChange = (event: SelectChangeEvent<string>) => {
+  const handleCellTypeChange = useCallback((event: SelectChangeEvent<string>) => {
     if (onCellTypeChange) {
       onCellTypeChange(event.target.value as CellType);
     }
-  };
+  }, [onCellTypeChange, onFormat]);
 
-  const handleDateFormatChange = (event: SelectChangeEvent<string>) => {
+  const handleDateFormatChange = useCallback((event: SelectChangeEvent<string>) => {
     onFormat({ dateFormat: event.target.value });
-  };
+  }, [onFormat]);
 
-  const handleNumberFormatChange = (event: SelectChangeEvent<string>) => {
+  const handleNumberFormatChange = useCallback((event: SelectChangeEvent<string>) => {
     onFormat({ numberFormat: event.target.value });
-  };
+  }, [onFormat]);
 
-  const handleBoldToggle = () => {
+  const handleBoldToggle = useCallback(() => {
     onFormat({ bold: !currentFormatting?.bold });
-  };
+  }, [onFormat, currentFormatting?.bold]);
 
-  const handleItalicToggle = () => {
+  const handleItalicToggle = useCallback(() => {
     onFormat({ italic: !currentFormatting?.italic });
-  };
+  }, [onFormat, currentFormatting?.italic]);
 
-  const handleUnderlineToggle = () => {
+  const handleUnderlineToggle = useCallback(() => {
     onFormat({ underline: !currentFormatting?.underline });
-  };
+  }, [onFormat, currentFormatting?.underline]);
 
-  const handleAlignLeft = () => {
+  const handleAlignLeft = useCallback(() => {
     onFormat({ textAlign: 'left' });
-  };
+  }, [onFormat]);
 
-  const handleAlignCenter = () => {
+  const handleAlignCenter = useCallback(() => {
     onFormat({ textAlign: 'center' });
-  };
+  }, [onFormat]);
 
-  const handleAlignRight = () => {
+  const handleAlignRight = useCallback(() => {
     onFormat({ textAlign: 'right' });
-  };
+  }, [onFormat]);
 
-  const handleTextColorChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTextColorChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     onFormat({ textColor: event.target.value });
-  };
+  }, [onFormat]);
 
-  const handleFillColorChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFillColorChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     onFormat({ fillColor: event.target.value });
-  };
+  }, [onFormat]);
 
-  const handleBorderStyle = (borderType: string) => {
+  const handleBorderStyle = useCallback((borderType: string) => {
     const defaultBorder = { width: 1, color: '#000000', style: 'solid' as BorderLineStyle };
     
     switch (borderType) {
@@ -208,7 +208,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         });
         break;
     }
-  };
+  }, [onFormat]);
+
+  const allOptions = useMemo(() => [...DATE_FORMAT_OPTIONS, ...NUMBER_FORMAT_OPTIONS], []);
 
   return (
     <AppBar position="static" color="default" elevation={1} sx={{ mb: 2 }}>
@@ -323,7 +325,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               displayEmpty
               renderValue={(value) => {
                 if (!value) return <span style={{ color: '#999' }}>Format</span>;
-                const allOptions = [...DATE_FORMAT_OPTIONS, ...NUMBER_FORMAT_OPTIONS];
                 const option = allOptions.find((opt) => opt.value === value);
                 return option?.label || value;
               }}
@@ -568,3 +569,5 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     </AppBar>
   );
 };
+
+export const Toolbar = React.memo(ToolbarComponent);

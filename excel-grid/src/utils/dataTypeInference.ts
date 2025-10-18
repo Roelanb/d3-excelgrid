@@ -358,10 +358,23 @@ export const inferCellValue = (input: string): CellValue => {
     return { type: additionalDate.type, value: additionalDate.date, rawValue: input, detectedFormat };
   }
 
-  // Phone number (various formats: +1-234-567-8900, (123) 456-7890, 123-456-7890, etc.)
-  const phonePattern = /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,4}[-\s\.]?[0-9]{1,9}$/;
-  if (phonePattern.test(trimmed.replace(/\s/g, ''))) {
-    return { type: 'phone', value: trimmed, rawValue: input };
+  // Phone number - comprehensive pattern for international formats
+  // Supports: +31 6 12345678, +31612345678, 0612345678, (041)737-3846, +32 (0)417373846, +32 417373846
+  // Remove all spaces, dashes, dots, and parentheses for validation
+  const cleanedPhone = trimmed.replace(/[\s\-\.\(\)]/g, '');
+  
+  // Check if it's a valid phone number:
+  // - Must contain only digits and optionally start with +
+  // - Must have between 7 and 15 digits (international standard)
+  // - Original must contain at least one digit
+  if (/^\+?\d{7,15}$/.test(cleanedPhone) && /\d/.test(trimmed)) {
+    // Additional check: ensure it's not just a regular number
+    // Phone numbers typically have formatting characters or start with + or 0
+    const hasPhoneFormatting = /[\s\-\.\(\)]/.test(trimmed) || trimmed.startsWith('+') || trimmed.startsWith('0');
+    
+    if (hasPhoneFormatting) {
+      return { type: 'phone', value: trimmed, rawValue: input };
+    }
   }
 
   // Percentage (e.g., 25%, 0.25%)

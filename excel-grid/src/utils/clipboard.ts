@@ -2,6 +2,7 @@ import type { Cell } from '../types/cell';
 
 export interface ClipboardData {
   cells: Cell[];
+  cellKeys: Set<string>;
   minRow: number;
   minCol: number;
   maxRow: number;
@@ -13,6 +14,7 @@ export const copyCellsToClipboard = (cells: Map<string, Cell>, selectedCells: { 
   if (selectedCells.length === 0) return null;
 
   const cellsToCopy: Cell[] = [];
+  const cellKeys = new Set<string>();
   let minRow = Infinity;
   let minCol = Infinity;
   let maxRow = -Infinity;
@@ -20,6 +22,7 @@ export const copyCellsToClipboard = (cells: Map<string, Cell>, selectedCells: { 
 
   selectedCells.forEach(({ row, col }) => {
     const key = `${row}-${col}`;
+    cellKeys.add(key);
     const cell = cells.get(key);
     
     if (cell) {
@@ -41,6 +44,7 @@ export const copyCellsToClipboard = (cells: Map<string, Cell>, selectedCells: { 
 
   return {
     cells: cellsToCopy,
+    cellKeys,
     minRow,
     minCol,
     maxRow,

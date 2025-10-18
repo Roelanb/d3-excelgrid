@@ -27,12 +27,18 @@ function App() {
   };
 
   const handlePerformanceTest = () => {
-     for (let j = 0; j < 20; j++) {
+    const cells = new Map<string, Cell>();
+    for (let j = 0; j < 20; j++) {
       for (let i = 0; i < 50; i++) {
-        gridRef.current?.setCellValue(i, j, String(counter + i));
+        const key = `${i}-${j}`;
+        cells.set(key, {
+          row: i,
+          col: j,
+          value: { type: 'text', value: String(counter + i), rawValue: String(counter + i) },
+        });
       }
-      
     }
+    gridRef.current?.importCells(cells, false);
     setCounter(counter + 20);
   };
 
