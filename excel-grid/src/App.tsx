@@ -78,6 +78,14 @@ function App() {
     gridRef.current?.copyRight();
   };
 
+  const handleAddRows = () => {
+    gridRef.current?.addRows(10);
+  };
+
+  const handleAddColumns = () => {
+    gridRef.current?.addColumns(5);
+  };
+
   const handleFormat = (formatting: Partial<CellFormatting>) => {
     gridRef.current?.formatCells(formatting);
   };
@@ -131,6 +139,12 @@ function App() {
         </Button>
         <Button variant="contained" color="success" onClick={handlePerformanceTest}>
           Performance Test (C1:C20)
+        </Button>
+        <Button variant="outlined" color="info" onClick={handleAddRows}>
+          Add 10 Rows
+        </Button>
+        <Button variant="outlined" color="info" onClick={handleAddColumns}>
+          Add 5 Columns
         </Button>
         <Button variant="outlined" color="secondary" onClick={handleClear}>
           Clear Grid

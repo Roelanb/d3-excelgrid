@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useImperativeHandle, f
 import * as d3 from 'd3';
 import { Box, Paper, TextField } from '@mui/material';
 import type { Cell, CellValue, GridData, CellFormatting, CellType, TableMetadata, SortDirection } from '../types/cell';
+import { ContextMenu } from './ContextMenu';
 import { getCellKey, getColumnLabel } from '../types/cell';
 import { copyCellsToClipboard, cutCellsToClipboard, pasteCellsFromClipboard, getSelectedCellsInRange, type ClipboardData } from '../utils/clipboard';
 import { inferCellValue, formatCellValue as formatCellValueUtil } from '../utils/dataTypeInference';
@@ -30,6 +31,8 @@ export interface ExcelGridHandle {
   setCellType: (cellType: CellType) => void;
   importCells: (cells: Map<string, Cell>, autoExpand?: boolean, tableMetadata?: any) => void;
   batchUpdateCells: (updates: Array<{ row: number; col: number; value: string }>) => void;
+  addRows: (count: number) => void;
+  addColumns: (count: number) => void;
 }
 
 interface ExcelGridProps {
@@ -100,6 +103,7 @@ function ExcelGridComponent(
   const [tableHeaderCellKeys, setTableHeaderCellKeys] = useState<Map<string, string>>(new Map());
   const [selectionCellKeys, setSelectionCellKeys] = useState<Set<string>>(new Set());
   const [visibleRowsCache, setVisibleRowsCache] = useState<Map<string, Set<number>>>(new Map());
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const selectionRangeRef = useRef<SelectionRange | null>(selectionRange);
   const selectionRangesRef = useRef<SelectionRange[]>(selectionRanges);
@@ -1248,6 +1252,48 @@ function ExcelGridComponent(
         const tableHeader = isTableHeader(row, col);
         if (tableHeader) {
           openFilterDialog(tableHeader.id, col);
+        } else {
+          // Show context menu for regular cells
+          setContextMenu({ x: event.clientX, y: event.clientY });
+          
+          // Check if the right-clicked cell is in the current selection
+          let isCellInCurrentSelection = false;
+          
+          // Check multi-range selections
+          if (selectionRangesRef.current.length > 0) {
+            for (const range of selectionRangesRef.current) {
+              const minRow = Math.min(range.start.row, range.end.row);
+              const maxRow = Math.max(range.start.row, range.end.row);
+              const minCol = Math.min(range.start.col, range.end.col);
+              const maxCol = Math.max(range.start.col, range.end.col);
+              if (row >= minRow && row <= maxRow && col >= minCol && col <= maxCol) {
+                isCellInCurrentSelection = true;
+                break;
+              }
+            }
+          } else if (selectionRangeRef.current) {
+            // Check single range selection
+            const range = selectionRangeRef.current;
+            const minRow = Math.min(range.start.row, range.end.row);
+            const maxRow = Math.max(range.start.row, range.end.row);
+            const minCol = Math.min(range.start.col, range.end.col);
+            const maxCol = Math.max(range.start.col, range.end.col);
+            if (row >= minRow && row <= maxRow && col >= minCol && col <= maxCol) {
+              isCellInCurrentSelection = true;
+            }
+          }
+          
+          // Only select the cell if it's not already in the current selection
+          if (!isCellInCurrentSelection) {
+            // Cell is not in selection, select only this cell
+            setSelectedCell({ row, col });
+            const range: SelectionRange = { start: { row, col }, end: { row, col } };
+            setSelectionRange(range);
+            setSelectionRanges([range]);
+            selectionRangeRef.current = range;
+            selectionRangesRef.current = [range];
+          }
+          // If cell is already in selection, keep the current selection and just show the menu
         }
       }
     });
@@ -1902,12 +1948,27 @@ function ExcelGridComponent(
         return;
       }
 
+      // Handle Delete key to clear selected cells
+      if (event.key === 'Delete') {
+        event.preventDefault();
+        const selectedCells = getSelectedCells();
+        
+        setGridData((prev) => {
+          const newCells = new Map(prev.cells);
+          selectedCells.forEach((cell) => {
+            const key = getCellKey(cell.row, cell.col);
+            newCells.delete(key);
+          });
+          return { ...prev, cells: newCells };
+        });
+        return;
+      }
+
       if (event.ctrlKey || event.metaKey || event.altKey) return;
 
       const isCharacterKey = event.key.length === 1;
       const isBackspace = event.key === 'Backspace';
-      const isDelete = event.key === 'Delete';
-      if (!isCharacterKey && !isBackspace && !isDelete) return;
+      if (!isCharacterKey && !isBackspace) return;
 
       event.preventDefault();
       const initialValue = isCharacterKey ? event.key : '';
@@ -1939,6 +2000,378 @@ function ExcelGridComponent(
       height: getRowHeight(editingCell.row),
     };
   };
+
+  // Context menu handlers
+  const handleContextMenuClose = () => setContextMenu(null);
+
+  const handleDeleteRows = useCallback(() => {
+    if (!selectedCell) return;
+    const range = selectionRange || { start: selectedCell, end: selectedCell };
+    const minRow = Math.min(range.start.row, range.end.row);
+    const maxRow = Math.max(range.start.row, range.end.row);
+    const rowsToDelete = maxRow - minRow + 1;
+
+    setGridData((prev) => {
+      const newCells = new Map<string, Cell>();
+      const newRowCount = Math.max(1, prev.rowCount - rowsToDelete);
+
+      // Copy cells before deletion point
+      prev.cells.forEach((cell) => {
+        if (cell.row < minRow) {
+          const key = getCellKey(cell.row, cell.col);
+          newCells.set(key, cell);
+        }
+      });
+
+      // Copy cells after deletion point, shifted up
+      prev.cells.forEach((cell) => {
+        if (cell.row > maxRow) {
+          const newCell: Cell = {
+            ...cell,
+            row: cell.row - rowsToDelete,
+          };
+          const newKey = getCellKey(newCell.row, newCell.col);
+          newCells.set(newKey, newCell);
+        }
+      });
+
+      return {
+        ...prev,
+        cells: newCells,
+        rowCount: newRowCount,
+      };
+    });
+  }, [selectedCell, selectionRange]);
+
+  const handleDeleteColumns = useCallback(() => {
+    if (!selectedCell) return;
+    const range = selectionRange || { start: selectedCell, end: selectedCell };
+    const minCol = Math.min(range.start.col, range.end.col);
+    const maxCol = Math.max(range.start.col, range.end.col);
+    const colsToDelete = maxCol - minCol + 1;
+
+    setGridData((prev) => {
+      const newCells = new Map<string, Cell>();
+      const newColCount = Math.max(1, prev.colCount - colsToDelete);
+
+      // Copy cells before deletion point
+      prev.cells.forEach((cell) => {
+        if (cell.col < minCol) {
+          const key = getCellKey(cell.row, cell.col);
+          newCells.set(key, cell);
+        }
+      });
+
+      // Copy cells after deletion point, shifted left
+      prev.cells.forEach((cell) => {
+        if (cell.col > maxCol) {
+          const newCell: Cell = {
+            ...cell,
+            col: cell.col - colsToDelete,
+          };
+          const newKey = getCellKey(newCell.row, newCell.col);
+          newCells.set(newKey, newCell);
+        }
+      });
+
+      return {
+        ...prev,
+        cells: newCells,
+        colCount: newColCount,
+      };
+    });
+  }, [selectedCell, selectionRange]);
+
+  const handleInsertRowsAbove = useCallback(() => {
+    if (!selectedCell) return;
+    const insertAtRow = selectedCell.row;
+
+    setGridData((prev) => {
+      const newCells = new Map<string, Cell>();
+      const newRowCount = prev.rowCount + 10;
+
+      prev.cells.forEach((cell) => {
+        if (cell.row < insertAtRow) {
+          const key = getCellKey(cell.row, cell.col);
+          newCells.set(key, cell);
+        }
+      });
+
+      prev.cells.forEach((cell) => {
+        if (cell.row >= insertAtRow) {
+          const newCell: Cell = {
+            ...cell,
+            row: cell.row + 10,
+          };
+          const newKey = getCellKey(newCell.row, newCell.col);
+          newCells.set(newKey, newCell);
+        }
+      });
+
+      maxGridRowsRef.current = Math.max(maxGridRowsRef.current, newRowCount);
+      return {
+        ...prev,
+        cells: newCells,
+        rowCount: newRowCount,
+      };
+    });
+  }, [selectedCell]);
+
+  const handleInsertRowsBelow = useCallback(() => {
+    if (!selectedCell) return;
+    const insertAtRow = selectedCell.row + 1;
+
+    setGridData((prev) => {
+      const newCells = new Map<string, Cell>();
+      const newRowCount = prev.rowCount + 10;
+
+      prev.cells.forEach((cell) => {
+        if (cell.row < insertAtRow) {
+          const key = getCellKey(cell.row, cell.col);
+          newCells.set(key, cell);
+        }
+      });
+
+      prev.cells.forEach((cell) => {
+        if (cell.row >= insertAtRow) {
+          const newCell: Cell = {
+            ...cell,
+            row: cell.row + 10,
+          };
+          const newKey = getCellKey(newCell.row, newCell.col);
+          newCells.set(newKey, newCell);
+        }
+      });
+
+      maxGridRowsRef.current = Math.max(maxGridRowsRef.current, newRowCount);
+      return {
+        ...prev,
+        cells: newCells,
+        rowCount: newRowCount,
+      };
+    });
+  }, [selectedCell]);
+
+  const handleInsertColumnsLeft = useCallback(() => {
+    if (!selectedCell) return;
+    const insertAtCol = selectedCell.col;
+
+    setGridData((prev) => {
+      const newCells = new Map<string, Cell>();
+      const newColCount = prev.colCount + 5;
+
+      prev.cells.forEach((cell) => {
+        if (cell.col < insertAtCol) {
+          const key = getCellKey(cell.row, cell.col);
+          newCells.set(key, cell);
+        }
+      });
+
+      prev.cells.forEach((cell) => {
+        if (cell.col >= insertAtCol) {
+          const newCell: Cell = {
+            ...cell,
+            col: cell.col + 5,
+          };
+          const newKey = getCellKey(newCell.row, newCell.col);
+          newCells.set(newKey, newCell);
+        }
+      });
+
+      maxGridColsRef.current = Math.max(maxGridColsRef.current, newColCount);
+      return {
+        ...prev,
+        cells: newCells,
+        colCount: newColCount,
+      };
+    });
+  }, [selectedCell]);
+
+  const handleInsertColumnsRight = useCallback(() => {
+    if (!selectedCell) return;
+    const insertAtCol = selectedCell.col + 1;
+
+    setGridData((prev) => {
+      const newCells = new Map<string, Cell>();
+      const newColCount = prev.colCount + 5;
+
+      prev.cells.forEach((cell) => {
+        if (cell.col < insertAtCol) {
+          const key = getCellKey(cell.row, cell.col);
+          newCells.set(key, cell);
+        }
+      });
+
+      prev.cells.forEach((cell) => {
+        if (cell.col >= insertAtCol) {
+          const newCell: Cell = {
+            ...cell,
+            col: cell.col + 5,
+          };
+          const newKey = getCellKey(newCell.row, newCell.col);
+          newCells.set(newKey, newCell);
+        }
+      });
+
+      maxGridColsRef.current = Math.max(maxGridColsRef.current, newColCount);
+      return {
+        ...prev,
+        cells: newCells,
+        colCount: newColCount,
+      };
+    });
+  }, [selectedCell]);
+
+  const handleSelectAll = useCallback(() => {
+    const newRange: SelectionRange = {
+      start: { row: 0, col: 0 },
+      end: { row: gridData.rowCount - 1, col: gridData.colCount - 1 },
+    };
+    setSelectionRange(newRange);
+    setSelectionRanges([newRange]);
+    selectionRangeRef.current = newRange;
+    selectionRangesRef.current = [newRange];
+    setSelectedCell({ row: 0, col: 0 });
+  }, [gridData.rowCount, gridData.colCount]);
+
+  const handleClearFormatting = useCallback(() => {
+    const selectedCells = getSelectedCells();
+    if (selectedCells.length === 0) return;
+
+    setGridData((prev) => {
+      const newCells = new Map(prev.cells);
+      selectedCells.forEach(({ row, col }) => {
+        const key = getCellKey(row, col);
+        const existingCell = newCells.get(key);
+        if (existingCell) {
+          newCells.set(key, {
+            ...existingCell,
+            formatting: undefined,
+          });
+        }
+      });
+      return { ...prev, cells: newCells };
+    });
+  }, [getSelectedCells]);
+
+  const handleFormatCells = useCallback(() => {
+    // This would typically open a formatting dialog
+    // For now, we'll just close the context menu
+    handleContextMenuClose();
+  }, []);
+
+  const handleDelete = useCallback(() => {
+    const selectedCells = getSelectedCells();
+    setGridData((prev) => {
+      const newCells = new Map(prev.cells);
+      selectedCells.forEach((cell) => {
+        const key = getCellKey(cell.row, cell.col);
+        newCells.delete(key);
+      });
+      return { ...prev, cells: newCells };
+    });
+  }, [getSelectedCells]);
+
+  const handleCut = useCallback(() => {
+    const selectedCells = getSelectedCells();
+    const data = cutCellsToClipboard(gridData.cells, selectedCells);
+    setClipboardData(data);
+    if (onClipboardChange) {
+      onClipboardChange(data !== null);
+    }
+  }, [getSelectedCells, gridData.cells, onClipboardChange]);
+
+  const handleCopy = useCallback(() => {
+    const selectedCells = getSelectedCells();
+    const data = copyCellsToClipboard(gridData.cells, selectedCells);
+    setClipboardData(data);
+    if (onClipboardChange) {
+      onClipboardChange(data !== null);
+    }
+  }, [getSelectedCells, gridData.cells, onClipboardChange]);
+
+  const handlePaste = useCallback(() => {
+    if (!clipboardData || !selectedCell) return;
+    const pastedCells = pasteCellsFromClipboard(clipboardData, selectedCell.row, selectedCell.col);
+    setGridData((prev) => {
+      const newCells = new Map(prev.cells);
+      if (clipboardData.isCut) {
+        clipboardData.cells.forEach((cell) => {
+          const key = getCellKey(cell.row, cell.col);
+          newCells.delete(key);
+        });
+      }
+      pastedCells.forEach((cell) => {
+        const key = getCellKey(cell.row, cell.col);
+        newCells.set(key, cell);
+      });
+      return { ...prev, cells: newCells };
+    });
+    setClipboardData(null);
+    if (onClipboardChange) {
+      onClipboardChange(false);
+    }
+  }, [clipboardData, selectedCell, onClipboardChange]);
+
+  const handleCopyDown = useCallback(() => {
+    const range = selectionRange || (selectedCell ? { start: selectedCell, end: selectedCell } : null);
+    if (!range) return;
+    const minRow = Math.min(range.start.row, range.end.row);
+    const maxRow = Math.max(range.start.row, range.end.row);
+    const minCol = Math.min(range.start.col, range.end.col);
+    const maxCol = Math.max(range.start.col, range.end.col);
+    if (minRow === maxRow) return;
+    setGridData((prev) => {
+      const newCells = new Map(prev.cells);
+      for (let col = minCol; col <= maxCol; col++) {
+        const sourceKey = getCellKey(minRow, col);
+        const sourceCell = prev.cells.get(sourceKey);
+        for (let row = minRow + 1; row <= maxRow; row++) {
+          const targetKey = getCellKey(row, col);
+          if (sourceCell) {
+            newCells.set(targetKey, {
+              ...sourceCell,
+              row,
+              col,
+            });
+          } else {
+            newCells.delete(targetKey);
+          }
+        }
+      }
+      return { ...prev, cells: newCells };
+    });
+  }, [selectionRange, selectedCell]);
+
+  const handleCopyRight = useCallback(() => {
+    const range = selectionRange || (selectedCell ? { start: selectedCell, end: selectedCell } : null);
+    if (!range) return;
+    const minRow = Math.min(range.start.row, range.end.row);
+    const maxRow = Math.max(range.start.row, range.end.row);
+    const minCol = Math.min(range.start.col, range.end.col);
+    const maxCol = Math.max(range.start.col, range.end.col);
+    if (minCol === maxCol) return;
+    setGridData((prev) => {
+      const newCells = new Map(prev.cells);
+      for (let row = minRow; row <= maxRow; row++) {
+        const sourceKey = getCellKey(row, minCol);
+        const sourceCell = prev.cells.get(sourceKey);
+        for (let col = minCol + 1; col <= maxCol; col++) {
+          const targetKey = getCellKey(row, col);
+          if (sourceCell) {
+            newCells.set(targetKey, {
+              ...sourceCell,
+              row,
+              col,
+            });
+          } else {
+            newCells.delete(targetKey);
+          }
+        }
+      }
+      return { ...prev, cells: newCells };
+    });
+  }, [selectionRange, selectedCell]);
 
   // Expose API methods via ref
   useImperativeHandle(ref, () => ({
@@ -2298,6 +2731,80 @@ function ExcelGridComponent(
         };
       });
     },
+    addRows: (count: number) => {
+      if (count <= 0 || !selectedCell) return;
+      
+      const insertAtRow = selectedCell.row;
+      
+      setGridData((prev) => {
+        const newCells = new Map<string, Cell>();
+        const newRowCount = prev.rowCount + count;
+        
+        // Copy cells before insertion point
+        prev.cells.forEach((cell) => {
+          if (cell.row < insertAtRow) {
+            const key = getCellKey(cell.row, cell.col);
+            newCells.set(key, cell);
+          }
+        });
+        
+        // Copy cells after insertion point, shifted down
+        prev.cells.forEach((cell) => {
+          if (cell.row >= insertAtRow) {
+            const newCell: Cell = {
+              ...cell,
+              row: cell.row + count,
+            };
+            const newKey = getCellKey(newCell.row, newCell.col);
+            newCells.set(newKey, newCell);
+          }
+        });
+        
+        maxGridRowsRef.current = Math.max(maxGridRowsRef.current, newRowCount);
+        return {
+          ...prev,
+          cells: newCells,
+          rowCount: newRowCount,
+        };
+      });
+    },
+    addColumns: (count: number) => {
+      if (count <= 0 || !selectedCell) return;
+      
+      const insertAtCol = selectedCell.col;
+      
+      setGridData((prev) => {
+        const newCells = new Map<string, Cell>();
+        const newColCount = prev.colCount + count;
+        
+        // Copy cells before insertion point
+        prev.cells.forEach((cell) => {
+          if (cell.col < insertAtCol) {
+            const key = getCellKey(cell.row, cell.col);
+            newCells.set(key, cell);
+          }
+        });
+        
+        // Copy cells after insertion point, shifted right
+        prev.cells.forEach((cell) => {
+          if (cell.col >= insertAtCol) {
+            const newCell: Cell = {
+              ...cell,
+              col: cell.col + count,
+            };
+            const newKey = getCellKey(newCell.row, newCell.col);
+            newCells.set(newKey, newCell);
+          }
+        });
+        
+        maxGridColsRef.current = Math.max(maxGridColsRef.current, newColCount);
+        return {
+          ...prev,
+          cells: newCells,
+          colCount: newColCount,
+        };
+      });
+    },
   }), [getSelectedCells, gridData.cells, clipboardData, selectedCell, onClipboardChange, gridData.colCount, gridData.rowCount, parseCellValue]);
 
   return (
@@ -2367,6 +2874,31 @@ function ExcelGridComponent(
             />
           );
         })()}
+        {contextMenu && (
+          <ContextMenu
+            open={true}
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={handleContextMenuClose}
+            onCut={handleCut}
+            onCopy={handleCopy}
+            onPaste={handlePaste}
+            onDelete={handleDelete}
+            onInsertRowsAbove={handleInsertRowsAbove}
+            onInsertRowsBelow={handleInsertRowsBelow}
+            onInsertColumnsLeft={handleInsertColumnsLeft}
+            onInsertColumnsRight={handleInsertColumnsRight}
+            onDeleteRows={handleDeleteRows}
+            onDeleteColumns={handleDeleteColumns}
+            onFormatCells={handleFormatCells}
+            onClearFormatting={handleClearFormatting}
+            onCopyDown={handleCopyDown}
+            onCopyRight={handleCopyRight}
+            onSelectAll={handleSelectAll}
+            hasSelection={selectedCell !== null}
+            hasClipboard={clipboardData !== null}
+          />
+        )}
       </Box>
     </Paper>
   );
