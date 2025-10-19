@@ -2,6 +2,8 @@
 
 A high-performance, feature-rich Excel-like grid component built with React, TypeScript, D3.js, and Material-UI.
 
+**🌐 [Live Demo](https://d3-excel.hideterms.com/)**
+
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![React](https://img.shields.io/badge/React-19.1.1-blue.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-blue.svg)
@@ -16,9 +18,11 @@ A high-performance, feature-rich Excel-like grid component built with React, Typ
 - ✅ **Data Types**: Text, numbers, dates (YYYY-MM-DD), booleans
 - ✅ **Cell Selection**: Single cell, range, row, and column selection
 - ✅ **Multi-Selection**: Ctrl+Click and Shift+Click support
-- ✅ **Keyboard Navigation**: Arrow keys, Enter, Escape, Tab
+- ✅ **Keyboard Navigation**: Arrow keys, Enter, Escape, Tab, Delete
 - ✅ **Resizable Columns/Rows**: Drag to resize with visual feedback
 - ✅ **Multi-Resize**: Resize multiple selected columns/rows simultaneously
+- ✅ **Delete Key**: Clear cell contents with Delete key
+- ✅ **Right-Click Context Menu**: Full-featured context menu for cell operations
 
 ### Formatting Toolbar
 - ✅ **Font Formatting**: Family selection, size (8-36px), bold, italic, underline
@@ -28,6 +32,8 @@ A high-performance, feature-rich Excel-like grid component built with React, Typ
 - ✅ **Clipboard Operations**: Cut, copy, paste with formatting preservation
 - ✅ **Keyboard Shortcuts**: Ctrl+C/X/V for clipboard operations
 - ✅ **Collapsible Toolbar**: Save screen space when not needed
+- ✅ **Row/Column Operations**: Insert rows/columns above/below/left/right
+- ✅ **Delete Operations**: Delete selected rows and columns with shift
 
 ### CSV Import
 - ✅ **File Import**: Browse and select CSV files
@@ -222,12 +228,17 @@ interface CellFormatting {
 | `Ctrl+C` | Copy selected cells |
 | `Ctrl+X` | Cut selected cells |
 | `Ctrl+V` | Paste cells |
+| `Ctrl+D` | Fill down (copy from first row to all rows in selection) |
+| `Ctrl+R` | Fill right (copy from first column to all columns in selection) |
+| `Ctrl+A` | Select all cells |
+| `Delete` | Clear cell contents |
 | `Enter` | Edit cell / Move down |
 | `Escape` | Cancel edit |
 | `Tab` | Move to next cell |
 | `Arrow Keys` | Navigate cells |
 | `Shift+Click` | Extend selection |
 | `Ctrl+Click` | Add to selection |
+| `Right-Click` | Open context menu |
 
 ## 📁 Project Structure
 
@@ -284,6 +295,9 @@ A sample CSV file with 10 rows is included: `sample-data.csv`
 5. Resize multiple columns/rows
 6. Test keyboard navigation
 7. Test selection modes
+8. Right-click context menu operations
+9. Delete key functionality
+10. Insert/delete rows and columns
 
 ## 📝 Documentation
 
@@ -294,6 +308,7 @@ Detailed documentation is available in the repository:
 - [Loading Indicator](./CSV_LOADING_INDICATOR.md) - Progress indicator details
 - [Auto Grid Expansion](./AUTO_GRID_EXPANSION.md) - Grid expansion feature
 - [Multi-Resize Feature](./MULTI_RESIZE_FEATURE.md) - Multi-resize documentation
+- [Delete Key Feature](./vibecoding/delete-key.md) - Delete key functionality
 - [Implementation Summary](./IMPLEMENTATION_SUMMARY.md) - Overall summary
 
 ## 🤝 Contributing
@@ -330,13 +345,14 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - [ ] Export to CSV/Excel
 - [ ] Cell merge/split
 - [ ] Conditional formatting
-- [ ] Sorting and filtering
+- [ ] Sorting and filtering (partially implemented)
 - [ ] Search and replace
 - [ ] Cell comments
 - [ ] Data validation
 - [ ] Freeze panes
 - [ ] Print support
 - [ ] Themes and customization
+- [ ] Web Worker support for CSV parsing
 
 ### Performance Improvements
 - [ ] Web Workers for CSV parsing
@@ -369,11 +385,13 @@ For questions, issues, or feature requests:
 
 ## 🔗 Links
 
+- [Live Demo](https://d3-excel.hideterms.com/)
 - [GitHub Repository](https://github.com/Roelanb/d3-excelgrid)
 - [Issue Tracker](https://github.com/Roelanb/d3-excelgrid/issues)
 - [D3.js Documentation](https://d3js.org/)
 - [Material-UI Documentation](https://mui.com/)
 - [React Documentation](https://react.dev/)
+- [Cloudflare Pages Deployment](https://pages.cloudflare.com/)
 
 ---
 
