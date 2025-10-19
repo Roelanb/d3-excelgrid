@@ -1,10 +1,8 @@
 name = "excel-grid"
 compatibility_date = "2025-10-19"
-main = "src/worker.ts"  # Adjust to your Worker entrypoint file (create if missing; see below)
+main = "src/worker.ts"
 
 [build]
-command = "pnpm run build"  # Ensures Vite builds static assets before deploy
+command = "pnpm run build"
 
-[[assets]]
-directory = "dist"
-binding = "ASSETS"  # This binds your static files; reference in Worker code
+assets = { directory = "dist", binding = "ASSETS" }
