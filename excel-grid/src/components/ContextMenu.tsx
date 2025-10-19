@@ -77,7 +77,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     <Menu
       open={open}
       onClose={onClose}
-      anchorPosition={anchorPosition}
+      anchorPosition={anchorPosition || undefined}
       anchorReference="anchorPosition"
       slotProps={{
         paper: {
