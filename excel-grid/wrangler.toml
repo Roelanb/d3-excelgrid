@@ -5,7 +5,9 @@ main = "src/worker.ts"
 [build]
 command = "pnpm run build"
 
-assets = { directory = "dist", binding = "ASSETS" }
+[assets]
+directory = "dist"
+binding = "ASSETS"
 
 [observability]
 [observability.logs]
