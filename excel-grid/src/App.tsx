@@ -1,4 +1,5 @@
 import { Container, Typography, Box, Button, Stack, Snackbar, Alert } from '@mui/material';
+import { GitHub } from '@mui/icons-material';
 import { useRef, useState } from 'react';
 import { ExcelGrid, type ExcelGridHandle } from './components/ExcelGrid';
 import { Toolbar } from './components/Toolbar';
@@ -115,21 +116,58 @@ function App() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 1 }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Excel Grid Component
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Click to select a cell, double-click to edit. Supports text, numbers, dates (YYYY-MM-DD), and booleans (true/false).
-          <br />
-          <strong>Tip:</strong> Select multiple columns by clicking column headers, then resize any selected column to resize all of them together.
-          <br />
-          <strong>New:</strong> Use the toolbar to format cells with fonts, colors, and borders. Use Ctrl+C/X/V for clipboard operations.
-          <br />
-          <strong>CSV Import:</strong> Select a cell first, then import CSV to place data at that position with optional table styling.
-        </Typography>
+    <>
+      <Box
+        sx={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          py: 4,
+          mb: 4,
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+        }}
+      >
+        <Container maxWidth="xl">
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 3 }}>
+            <Box>
+              <Typography variant="h3" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                Excel Grid Component
+              </Typography>
+              <Typography variant="body1" sx={{ opacity: 0.95 }}>
+                A high-performance, feature-rich Excel-like grid built with React, TypeScript, and D3.js
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              startIcon={<GitHub />}
+              href="https://github.com/Roelanb/d3-excelgrid"
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                },
+                whiteSpace: 'nowrap',
+              }}
+            >
+              View on GitHub
+            </Button>
+          </Box>
+        </Container>
       </Box>
+      <Container maxWidth="xl" sx={{ py: 1 }}>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="body2" color="text.secondary">
+            Click to select a cell, double-click to edit. Supports text, numbers, dates (YYYY-MM-DD), and booleans (true/false).
+            <br />
+            <strong>Tip:</strong> Select multiple columns by clicking column headers, then resize any selected column to resize all of them together.
+            <br />
+            <strong>New:</strong> Use the toolbar to format cells with fonts, colors, and borders. Use Ctrl+C/X/V for clipboard operations.
+            <br />
+            <strong>CSV Import:</strong> Select a cell first, then import CSV to place data at that position with optional table styling.
+          </Typography>
+        </Box>
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
         <Button variant="contained" color="primary" onClick={() => setCsvDialogOpen(true)}>
           Import CSV
@@ -194,6 +232,7 @@ function App() {
         </Alert>
       </Snackbar>
     </Container>
+    </>
   );
 }
 
