@@ -1,0 +1,54 @@
+@base = http://localhost:5000
+
+###
+# AUTHENTICATION REQUIRED
+# First, run the login request in auth.http to get a token
+# Then set the @token variable below with the token from the response
+
+# Set your bearer token here (get it from auth.http)
+@token = your_token_here
+
+###
+
+### Test Error Handling
+
+# Test invalid table (should return 400/500 error)
+GET {{base}}/api/invalid/table
+Authorization: Bearer {{token}}
+
+###
+
+# Test invalid schema (should return 400/500 error)
+GET {{base}}/api/nonexistent/person
+Authorization: Bearer {{token}}
+
+###
+
+# Test SQL error - invalid filter (should return 400/500 error)
+GET {{base}}/api/person/person?filters[0][field]=InvalidColumn&filters[0][operator]=eq&filters[0][value]=test
+Authorization: Bearer {{token}}
+
+###
+
+# Test missing ID for dynamic endpoint (should return 400 error)
+PUT {{base}}/api/person/person/
+Authorization: Bearer {{token}}
+
+###
+
+# Test valid request (should work)
+GET {{base}}/api/person/person
+Authorization: Bearer {{token}}
+
+###
+
+# Test unauthorized request (no auth header - should return 401)
+GET {{base}}/api/person/person
+
+###
+
+# Test with invalid token (should return 401)
+GET {{base}}/api/person/person
+Authorization: Bearer invalid_token_here
+
+###

@@ -1,0 +1,74 @@
+@base = http://localhost:5000
+
+###
+# AUTHENTICATION REQUIRED
+# First, run the login request in auth.http to get a token
+# Then set the @token variable below with the token from the response
+
+# Set your bearer token here (get it from auth.http)
+@token = your_token_here
+
+###
+
+### Get List of Available Tables
+GET {{base}}/api/tables
+Authorization: Bearer {{token}}
+
+###
+
+### Get List of Available Tables (with detailed response headers)
+GET {{base}}/api/tables
+Accept: application/json
+Authorization: Bearer {{token}}
+
+###
+
+# Example Response:
+# {
+#   "tables": [
+#     {
+#       "schema": "dbo",
+#       "name": "Customers",
+#       "fullName": "dbo.Customers"
+#     },
+#     {
+#       "schema": "dbo",
+#       "name": "Orders",
+#       "fullName": "dbo.Orders"
+#     },
+#     {
+#       "schema": "production",
+#       "name": "Product",
+#       "fullName": "production.Product"
+#     }
+#   ],
+#   "totalCount": 3
+# }
+
+###
+
+# Using curl to get tables with authentication:
+# curl -X GET "http://localhost:5000/api/tables" \
+#      -H "Accept: application/json" \
+#      -H "Authorization: Bearer YOUR_TOKEN_HERE"
+
+###
+
+# Using PowerShell to get tables with authentication:
+# $headers = @{
+#     "Authorization" = "Bearer YOUR_TOKEN_HERE"
+# }
+# Invoke-RestMethod -Uri "http://localhost:5000/api/tables" -Method Get -Headers $headers
+
+###
+
+# Using JavaScript/fetch to get tables with authentication:
+# fetch('http://localhost:5000/api/tables', {
+#   headers: {
+#     'Authorization': 'Bearer YOUR_TOKEN_HERE'
+#   }
+# })
+#   .then(response => response.json())
+#   .then(data => console.log(data));
+
+###

@@ -29,6 +29,13 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 
+# SQL REST API environment files
+sqlrest/.env
+sqlrest/.env.local
+sqlrest/.env.development.local
+sqlrest/.env.test.local
+sqlrest/.env.production.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -46,4 +53,55 @@ Thumbs.db
 dist-ssr
 *.local
 
+# .NET
+## Binaries and executables
+bin/
+obj/
+*.exe
+*.dll
+*.pdb
+*.exe.config
 
+## Build outputs
+[Bb]in/
+[Oo]bj/
+
+## NuGet packages
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+
+## User-specific files
+*.user
+*.suo
+*.cache
+
+## IDE files
+.vs/
+.vscode/settings.json
+*.tmp
+*.tmp_proj
+
+## Test results
+TestResults/
+*.trx
+
+## Publish outputs
+publish/
+*.publishproj
+
+## Runtime data
+*.db
+*.db-shm
+*.db-wal
+
+## Logs
+logs/
+*.log
+
+# SQL REST API - Sensitive configuration files
+sqlrest/appsettings.json
+sqlrest/appsettings.Development.json
+sqlrest/appsettings.Test.json
+sqlrest/appsettings.Production.json

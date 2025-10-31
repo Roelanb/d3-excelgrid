@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { ExcelGrid, type ExcelGridHandle } from './components/ExcelGrid';
 import { Toolbar } from './components/Toolbar';
 import { CSVImportDialog } from './components/CSVImportDialog';
+import { SQLConnectionDialog } from './components/SQLConnectionDialog';
 import type { CellFormatting, Cell, CellType } from './types/cell';
 import './App.css';
 
@@ -15,6 +16,7 @@ function App() {
   const [currentCellType, setCurrentCellType] = useState<CellType | undefined>(undefined);
   const [hasClipboard, setHasClipboard] = useState(false);
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
+  const [sqlDialogOpen, setSqlDialogOpen] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
@@ -115,6 +117,12 @@ function App() {
     }
   };
 
+  const handleSQLImport = (cells: Map<string, Cell>, rowCount: number, colCount: number) => {
+    gridRef.current?.importCells(cells, false);
+    setSnackbarMessage(`Imported ${cells.size} cells from database`);
+    setSnackbarOpen(true);
+  };
+
   return (
     <>
       <Box
@@ -172,6 +180,9 @@ function App() {
         <Button variant="contained" color="primary" onClick={() => setCsvDialogOpen(true)}>
           Import CSV
         </Button>
+        <Button variant="contained" color="primary" onClick={() => setSqlDialogOpen(true)}>
+          Connect to Database
+        </Button>
         <Button variant="contained" color="primary" onClick={handlePopulateTest}>
           Populate B2:B15 with 'test'
         </Button>
@@ -214,6 +225,12 @@ function App() {
         open={csvDialogOpen}
         onClose={() => setCsvDialogOpen(false)}
         onImport={handleCSVImport}
+        selectedCell={gridRef.current?.getSelectedCell() ?? null}
+      />
+      <SQLConnectionDialog
+        open={sqlDialogOpen}
+        onClose={() => setSqlDialogOpen(false)}
+        onImport={handleSQLImport}
         selectedCell={gridRef.current?.getSelectedCell() ?? null}
       />
       <Snackbar

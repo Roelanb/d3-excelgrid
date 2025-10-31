@@ -1,0 +1,23 @@
+{
+    "sqltools.connections": [
+        {
+            "connectionTimeout": 15,
+            "mssqlOptions": {
+                "appName": "SQLTools",
+                "useUTC": true,
+                "encrypt": true,
+                "trustServerCertificate": true
+            },
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "192.168.0.148",
+            "port": 1433,
+            "driver": "MSSQL",
+            "name": "local",
+            "group": "test",
+            "database": "AdventureWorks2022",
+            "username": "report",
+            "password": "6315"
+        }
+    ]
+}

@@ -1,0 +1,11 @@
+@base = http://localhost:5000
+
+###
+# Health Check Endpoint
+# Tests the health status of the API
+GET {{base}}/api/health
+
+###
+# Test Endpoint
+# Basic test endpoint to verify API is working
+GET {{base}}/api/test
