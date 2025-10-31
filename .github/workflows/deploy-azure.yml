@@ -28,10 +28,10 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
     - name: Restore dependencies
-      run: dotnet restore ./sqlrest/sqlrest.csproj
+      run: dotnet restore ./sqlrest/SqlRest.csproj
 
     - name: Build
-      run: dotnet build --no-restore --configuration Release ./sqlrest/sqlrest.csproj
+      run: dotnet build --no-restore --configuration Release ./sqlrest/SqlRest.csproj
 
     - name: Publish
       run: dotnet publish --configuration Release --output ./output ./sqlrest/sqlrest.csproj
@@ -47,7 +47,7 @@ jobs:
       uses: azure/webapps-deploy@v3
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        package: './output/sqlrest/sqlrest.dll'
+        package: './output'
 
     - name: Logout from Azure
       run: az logout
