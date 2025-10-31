@@ -34,7 +34,7 @@ jobs:
       run: dotnet build --no-restore --configuration Release ./sqlrest/SqlRest.csproj
 
     - name: Publish
-      run: dotnet publish --configuration Release --output ./output ./sqlrest/sqlrest.csproj
+      run: dotnet publish --configuration Release --output ./output ./sqlrest/SqlRest.csproj
 
     - name: Login to Azure
       uses: azure/login@v2
