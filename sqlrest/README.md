@@ -70,6 +70,7 @@ Content-Type: application/json
   "password": "admin"
 }
 ```
+az ad sp create --id fe8fcd46-f44c-4912-8e19-f7fed862c10a
 
 **Response**:
 ```json

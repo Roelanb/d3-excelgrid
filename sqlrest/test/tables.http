@@ -6,7 +6,7 @@
 # Then set the @token variable below with the token from the response
 
 # Set your bearer token here (get it from auth.http)
-@token = your_token_here
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiYWRtaW4iLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOiJVc2VyIiwianRpIjoiNTNiYzQ5MDYtMmM0Yi00NjRhLWI3NmQtMzllYTkzZmM3NzQ5IiwiZXhwIjoxNzYxOTE3MjE5LCJpc3MiOiJTcWxSZXN0QXBpIiwiYXVkIjoiU3FsUmVzdEFwaSJ9.CwWHmygziu8zDeMnL7XaTK5uOra60WmjZHVRaOxSji8
 
 ###
 

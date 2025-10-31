@@ -25,6 +25,8 @@ public class DatabaseService : IDatabaseService
     {
         _connectionString = configuration.GetConnectionString("AdventureWorks") 
             ?? throw new InvalidOperationException("Connection string 'AdventureWorks' not found.");
+        
+        Console.WriteLine($"Database Connection String: {_connectionString}");
     }
 
     private SqlConnection GetConnection()
