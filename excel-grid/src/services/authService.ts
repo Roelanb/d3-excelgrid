@@ -23,7 +23,7 @@ export interface AuthState {
 class AuthService {
   private token: string | null = null;
   private tokenExpiry: number | null = null;
-  private refreshTimer: NodeJS.Timeout | null = null;
+  private refreshTimer: number | null = null;
   private listeners: Set<() => void> = new Set();
 
   constructor() {
@@ -33,7 +33,7 @@ class AuthService {
   // Add listener for auth state changes
   addListener(listener: () => void) {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    return () => { this.listeners.delete(listener); };
   }
 
   // Notify all listeners of auth state change
@@ -46,7 +46,6 @@ class AuthService {
     try {
       const storedToken = localStorage.getItem('jwt_token');
       const storedExpiry = localStorage.getItem('jwt_expiry');
-      const storedUsername = localStorage.getItem('auth_username');
 
       if (storedToken && storedExpiry) {
         const expiry = parseInt(storedExpiry);

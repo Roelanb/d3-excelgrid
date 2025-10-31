@@ -117,7 +117,7 @@ function App() {
     }
   };
 
-  const handleSQLImport = (cells: Map<string, Cell>, rowCount: number, colCount: number) => {
+  const handleSQLImport = (cells: Map<string, Cell>, _rowCount: number, _colCount: number) => {
     gridRef.current?.importCells(cells, false);
     setSnackbarMessage(`Imported ${cells.size} cells from database`);
     setSnackbarOpen(true);

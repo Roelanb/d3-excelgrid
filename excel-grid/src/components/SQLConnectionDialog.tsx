@@ -18,9 +18,7 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
-  Divider,
   Chip,
-  TextField,
   Tabs,
   Tab,
 } from '@mui/material';
@@ -69,11 +67,11 @@ export const SQLConnectionDialog: React.FC<SQLConnectionDialogProps> = ({
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
   const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [error, setError] = useState<string>('');
-  const [pageSize, setPageSize] = useState<number>(100);
+  const [pageSize] = useState<number>(100);
   const [previewData, setPreviewData] = useState<PaginatedResponse<Record<string, any>> | null>(null);
-  
+
   // Authentication state
-  const { isAuthenticated, login, logout } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<number>(0);
   const [loginDialogOpen, setLoginDialogOpen] = useState<boolean>(false);
 
@@ -443,9 +441,9 @@ export const SQLConnectionDialog: React.FC<SQLConnectionDialogProps> = ({
                       </Typography>
                       <List dense sx={{ maxHeight: 200, overflow: 'auto', border: 1, borderColor: 'divider', borderRadius: 1 }}>
                         {availableTables.map((table) => (
-                          <ListItem key={table.fullName} disablePadding>
+                          <ListItem key={`${table.schema}.${table.table}`} disablePadding>
                             <ListItemButton
-                              selected={selectedTable?.fullName === table.fullName}
+                              selected={selectedTable?.schema === table.schema && selectedTable?.table === table.table}
                               onClick={() => handleTableSelect(table)}
                             >
                               <ListItemText
