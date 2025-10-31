@@ -28,13 +28,13 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
     - name: Restore dependencies
-      run: dotnet restore ./excel-grid
+      run: dotnet restore ./sqlrest/sqlrest.csproj
 
     - name: Build
-      run: dotnet build --no-restore --configuration Release ./excel-grid
+      run: dotnet build --no-restore --configuration Release ./sqlrest/sqlrest.csproj
 
     - name: Publish
-      run: dotnet publish --configuration Release --output ./output ./excel-grid
+      run: dotnet publish --configuration Release --output ./output ./sqlrest/sqlrest.csproj
 
     - name: Login to Azure
       uses: azure/login@v2
@@ -47,7 +47,7 @@ jobs:
       uses: azure/webapps-deploy@v3
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        package: './output'
+        package: './output/sqlrest/sqlrest.dll'
 
     - name: Logout from Azure
       run: az logout
