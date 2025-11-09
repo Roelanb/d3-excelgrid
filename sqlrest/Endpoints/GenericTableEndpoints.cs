@@ -49,12 +49,11 @@ public class GenericGetTableEndpoint : EndpointWithoutRequest<PaginatedResponse<
 
         try
         {
-            var (whereClause, whereParams) = await BuildWhereClauseAsync(schema, table, search);
             var orderBy = BuildOrderByClause(null, false); // For now, ignore sorting from query params
 
             var skip = (page - 1) * pageSize;
-            var data = await _dbService.GetAsync(schema, table, whereClause, whereParams, orderBy, skip, pageSize);
-            var totalCount = await _dbService.CountAsync(schema, table, whereClause, whereParams);
+            var data = await _dbService.GetAsync(schema, table, search, orderBy, skip, pageSize);
+            var totalCount = await _dbService.CountAsync(schema, table, search);
 
             // Convert spatial types to prevent JSON serialization errors
             var processedData = ConvertSpatialTypes(data);
@@ -78,34 +77,7 @@ public class GenericGetTableEndpoint : EndpointWithoutRequest<PaginatedResponse<
         }
     }
 
-    private async Task<(string? whereClause, object? whereParams)> BuildWhereClauseAsync(string schema, string table, string? search)
-    {
-        if (string.IsNullOrEmpty(search))
-        {
-            return (null, null);
-        }
 
-        // Get actual columns from the table to validate against
-        var columns = await _dbService.GetTableSchemaAsync(schema, table);
-        var validColumnNames = columns.Select(c => c.ColumnName).ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        // Only search across string columns that actually exist in the table
-        var searchableColumns = new[] { "FirstName", "LastName", "MiddleName", "Name", "Title", "Email", "Description" };
-        var existingSearchableColumns = searchableColumns.Where(col => validColumnNames.Contains(col)).ToList();
-
-        if (!existingSearchableColumns.Any())
-        {
-            return (null, null);
-        }
-
-        // Build parameterized query
-        var searchConditions = existingSearchableColumns.Select(col => $"[{col}] LIKE @SearchParam");
-        var whereClause = $"({string.Join(" OR ", searchConditions)})";
-
-        var whereParams = new { SearchParam = $"%{search}%" };
-
-        return (whereClause, whereParams);
-    }
 
     private string? BuildOrderByClause(string? sortBy, bool sortDesc)
     {

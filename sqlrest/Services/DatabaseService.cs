@@ -10,11 +10,11 @@ public interface IDatabaseService
     Task<List<string>> GetTableNamesAsync(string schema);
     Task<Dictionary<string, List<string>>> GetAllSchemasAndTablesAsync();
     Task<dynamic?> GetByIdAsync(string schema, string table, object id);
-    Task<IEnumerable<dynamic>> GetAsync(string schema, string table, string? whereClause = null, object? whereParams = null, string? orderBy = null, int? skip = null, int? take = null);
+    Task<IEnumerable<dynamic>> GetAsync(string schema, string table, string? search = null, string? orderBy = null, int? skip = null, int? take = null);
+    Task<int> CountAsync(string schema, string table, string? search = null);
     Task<int> InsertAsync(string schema, string table, Dictionary<string, object> data);
     Task<int> UpdateAsync(string schema, string table, object id, Dictionary<string, object> data);
     Task<int> DeleteAsync(string schema, string table, object id);
-    Task<int> CountAsync(string schema, string table, string? whereClause = null, object? whereParams = null);
 }
 
 public class DatabaseService : IDatabaseService
@@ -112,7 +112,7 @@ public class DatabaseService : IDatabaseService
         return await connection.QuerySingleOrDefaultAsync(sql, new { id });
     }
 
-    public async Task<IEnumerable<dynamic>> GetAsync(string schema, string table, string? whereClause = null, object? whereParams = null, string? orderBy = null, int? skip = null, int? take = null)
+    public async Task<IEnumerable<dynamic>> GetAsync(string schema, string table, string? search = null, string? orderBy = null, int? skip = null, int? take = null)
     {
         using var connection = GetConnection();
 
@@ -121,9 +121,23 @@ public class DatabaseService : IDatabaseService
 
         var sql = $"SELECT * FROM [{schema}].[{table}]";
 
-        if (!string.IsNullOrEmpty(whereClause))
+        var parameters = new DynamicParameters();
+
+        if (!string.IsNullOrEmpty(search))
         {
-            sql += $" WHERE {whereClause}";
+            var columns = await GetTableSchemaAsync(schema, table);
+            var searchableColumns = columns.Where(c => c.DataType.Contains("char") || c.DataType.Contains("text")).Select(c => c.ColumnName).ToList();
+            
+            if (searchableColumns.Any())
+            {
+                var whereClauses = new List<string>();
+                foreach (var col in searchableColumns)
+                {
+                    whereClauses.Add($"[{col}] LIKE @SearchParam");
+                }
+                sql += " WHERE " + string.Join(" OR ", whereClauses);
+                parameters.Add("SearchParam", $"%{search}%");
+            }
         }
 
         if (!string.IsNullOrEmpty(orderBy))
@@ -155,7 +169,6 @@ public class DatabaseService : IDatabaseService
             sql += $" FETCH FIRST @Take ROWS ONLY";
         }
 
-        var parameters = new DynamicParameters(whereParams);
         if (skip.HasValue) parameters.Add("Skip", skip.Value);
         if (take.HasValue) parameters.Add("Take", take.Value);
 
@@ -203,7 +216,7 @@ public class DatabaseService : IDatabaseService
         return await connection.ExecuteAsync(sql, new { id });
     }
 
-    public async Task<int> CountAsync(string schema, string table, string? whereClause = null, object? whereParams = null)
+    public async Task<int> CountAsync(string schema, string table, string? search = null)
     {
         using var connection = GetConnection();
 
@@ -212,12 +225,26 @@ public class DatabaseService : IDatabaseService
 
         var sql = $"SELECT COUNT(*) FROM [{schema}].[{table}]";
 
-        if (!string.IsNullOrEmpty(whereClause))
+        var parameters = new DynamicParameters();
+
+        if (!string.IsNullOrEmpty(search))
         {
-            sql += $" WHERE {whereClause}";
+            var columns = await GetTableSchemaAsync(schema, table);
+            var searchableColumns = columns.Where(c => c.DataType.Contains("char") || c.DataType.Contains("text")).Select(c => c.ColumnName).ToList();
+
+            if (searchableColumns.Any())
+            {
+                var whereClauses = new List<string>();
+                foreach (var col in searchableColumns)
+                {
+                    whereClauses.Add($"[{col}] LIKE @SearchParam");
+                }
+                sql += " WHERE " + string.Join(" OR ", whereClauses);
+                parameters.Add("SearchParam", $"%{search}%");
+            }
         }
 
-        return await connection.QuerySingleAsync<int>(sql, whereParams);
+        return await connection.QuerySingleAsync<int>(sql, parameters);
     }
 
     /// <summary>
