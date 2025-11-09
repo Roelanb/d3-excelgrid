@@ -14,4 +14,8 @@ binding = "ASSETS"
 enabled = false
 head_sampling_rate = 1
 invocation_logs = true
+
+# Environment variables for API endpoint
+[vars]
+VITE_API_BASE_URL = "https://sqlrest.bart-c9c.workers.dev"
 persist = true
