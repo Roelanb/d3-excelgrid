@@ -74,6 +74,32 @@ pnpm dev
 
 The application will be available at `http://localhost:5173`
 
+### Backend API (Optional)
+
+The Excel Grid can connect to a SQL REST API for data persistence. The backend is built with Cloudflare Workers:
+
+```bash
+# Navigate to backend directory
+cd ../sqlrest/workers
+
+# Install dependencies and setup
+npm install
+./setup-dev.sh
+
+# Start the API server
+npm run dev
+```
+
+The API will be available at `http://localhost:8787`
+
+**Features:**
+- Dynamic CRUD endpoints for any SQL table
+- JWT authentication
+- Cloudflare D1 database support
+- Global edge deployment
+
+For full backend documentation, see [sqlrest/README.md](./sqlrest/README.md)
+
 ### Build for Production
 
 ```bash
