@@ -12,9 +12,10 @@ declare global {
 
 // Helper function to get API base URL
 function getApiBaseUrl(): string {
-  return (typeof window !== 'undefined' && window.__RUNTIME_CONFIG__?.VITE_API_BASE_URL) ||
-    import.meta.env.VITE_API_BASE_URL || 
-    'http://localhost:5000';
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8787';
+  }
+  return import.meta.env.VITE_API_BASE_URL;
 }
 
 // Use runtime config if available (production), otherwise fall back to build-time env (development)
