@@ -37,6 +37,7 @@ import {
   getTablesForSchema,
   fetchTableData,
   fetchTablesFromApi,
+  getApiBaseUrl,
   type SchemaTable,
   type PaginatedResponse,
 } from '../services/sqlRestApi';
@@ -167,7 +168,7 @@ export const SQLConnectionDialog: React.FC<SQLConnectionDialogProps> = ({
       const isConnected = await testConnection();
       if (!isConnected) {
         setConnectionStatus('error');
-        setError('Failed to connect to SQL REST API at http://localhost:5000');
+        setError(`Failed to connect to SQL REST API at ${getApiBaseUrl()}`);
         return;
       }
       

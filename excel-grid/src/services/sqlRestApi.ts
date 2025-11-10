@@ -10,12 +10,19 @@ declare global {
   }
 }
 
+// Helper function to get API base URL
+function getApiBaseUrl(): string {
+  return (typeof window !== 'undefined' && window.__RUNTIME_CONFIG__?.VITE_API_BASE_URL) ||
+    import.meta.env.VITE_API_BASE_URL || 
+    'http://localhost:5000';
+}
+
 // Use runtime config if available (production), otherwise fall back to build-time env (development)
-const API_BASE_URL = 
-  (typeof window !== 'undefined' && window.__RUNTIME_CONFIG__?.VITE_API_BASE_URL) ||
-  import.meta.env.VITE_API_BASE_URL || 
-  'http://localhost:5000';
+const API_BASE_URL = getApiBaseUrl();
 const SWAGGER_URL = `${API_BASE_URL}/swagger/v1/swagger.json`;
+
+// Export for use in other components
+export { getApiBaseUrl };
 
 export interface PaginatedResponse<T> {
   data: T[];

@@ -1,6 +1,22 @@
 // JWT Authentication Service for Excel Grid
 // Handles login, token storage, and authenticated API requests
 
+// Runtime config injected by Cloudflare Worker
+declare global {
+  interface Window {
+    __RUNTIME_CONFIG__?: {
+      VITE_API_BASE_URL: string;
+    };
+  }
+}
+
+// Helper function to get API base URL
+function getApiBaseUrl(): string {
+  return (typeof window !== 'undefined' && window.__RUNTIME_CONFIG__?.VITE_API_BASE_URL) ||
+    import.meta.env.VITE_API_BASE_URL || 
+    'http://localhost:5000';
+}
+
 export interface AuthResponse {
   token: string;
   expiresIn: number;
@@ -116,7 +132,7 @@ class AuthService {
   // Login with username and password
   async login(username: string, password: string): Promise<AuthResponse> {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/login`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
