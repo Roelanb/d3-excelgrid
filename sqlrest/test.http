@@ -1,0 +1,116 @@
+### SQL REST API - ASP.NET Core Test File
+### Use with VS Code REST Client extension
+
+### Variables
+@baseUrl = http://localhost:5000
+@prodUrl = https://restapi-excelgrid.azurewebsites.net
+@username = admin
+@password = admin
+
+# Replace with token from login response
+@token = YOUR_TOKEN_HERE
+
+###############################################################################
+### 1. Health Check (Public)
+###############################################################################
+GET {{baseUrl}}/api/health
+
+###############################################################################
+### 2. Login (Public) - Get JWT Token
+###############################################################################
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}"
+}
+
+###############################################################################
+### 3. Get All Tables (Protected)
+###############################################################################
+GET {{baseUrl}}/api/tables
+Authorization: Bearer {{token}}
+
+###############################################################################
+### 4. Get Table Schema (Protected)
+### Replace {schema} and {table} with actual values from your database
+###############################################################################
+GET {{baseUrl}}/api/tables/dbo/Customers/schema
+Authorization: Bearer {{token}}
+
+###############################################################################
+### 5. Get Records with Pagination (Protected)
+### Query params: page, pageSize, search
+###############################################################################
+GET {{baseUrl}}/api/dbo/Customers?page=1&pageSize=10
+Authorization: Bearer {{token}}
+
+###############################################################################
+### 6. Get Records with Search (Protected)
+###############################################################################
+GET {{baseUrl}}/api/dbo/Customers?page=1&pageSize=10&search=john
+Authorization: Bearer {{token}}
+
+###############################################################################
+### 7. Get Specific Record by ID (Protected)
+### Replace {id} with actual record ID
+###############################################################################
+GET {{baseUrl}}/api/dbo/Customers/1
+Authorization: Bearer {{token}}
+
+###############################################################################
+### 8. Create New Record (Protected)
+###############################################################################
+POST {{baseUrl}}/api/dbo/Customers
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "FirstName": "John",
+  "LastName": "Doe",
+  "Email": "john.doe@example.com",
+  "Phone": "555-1234"
+}
+
+###############################################################################
+### 9. Update Record (Protected)
+### Replace {id} with actual record ID
+###############################################################################
+PUT {{baseUrl}}/api/dbo/Customers/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "FirstName": "Jane",
+  "LastName": "Doe",
+  "Email": "jane.doe@example.com",
+  "Phone": "555-5678"
+}
+
+###############################################################################
+### 10. Delete Record (Protected)
+### Replace {id} with actual record ID
+###############################################################################
+DELETE {{baseUrl}}/api/dbo/Customers/1
+Authorization: Bearer {{token}}
+
+###############################################################################
+### PRODUCTION TESTS (Azure)
+###############################################################################
+
+### Production Health Check
+GET {{prodUrl}}/api/health
+
+### Production Login
+POST {{prodUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}"
+}
+
+### Production Get Tables
+GET {{prodUrl}}/api/tables
+Authorization: Bearer {{token}}
