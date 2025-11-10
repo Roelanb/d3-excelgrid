@@ -12,10 +12,18 @@ declare global {
 
 // Helper function to get API base URL
 function getApiBaseUrl(): string {
+  // In development, use local server
   if (import.meta.env.DEV) {
     return 'http://localhost:8787';
   }
-  return import.meta.env.API_BASE_URL;
+  
+  // In production, use runtime config injected by Cloudflare Worker
+  if (typeof window !== 'undefined' && window.__RUNTIME_CONFIG__?.VITE_API_BASE_URL) {
+    return window.__RUNTIME_CONFIG__.VITE_API_BASE_URL;
+  }
+  
+  // Fallback to build-time env var (shouldn't happen in production)
+  return import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 }
 
 export interface AuthResponse {
