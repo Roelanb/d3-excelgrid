@@ -1,7 +1,20 @@
 // SQL REST API service
 import { authService } from './authService';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+// Runtime config injected by Cloudflare Worker
+declare global {
+  interface Window {
+    __RUNTIME_CONFIG__?: {
+      VITE_API_BASE_URL: string;
+    };
+  }
+}
+
+// Use runtime config if available (production), otherwise fall back to build-time env (development)
+const API_BASE_URL = 
+  (typeof window !== 'undefined' && window.__RUNTIME_CONFIG__?.VITE_API_BASE_URL) ||
+  import.meta.env.VITE_API_BASE_URL || 
+  'http://localhost:5000';
 const SWAGGER_URL = `${API_BASE_URL}/swagger/v1/swagger.json`;
 
 export interface PaginatedResponse<T> {
