@@ -7,6 +7,12 @@ using SqlRest.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure logging
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+builder.Logging.SetMinimumLevel(LogLevel.Information);
+
 // Load configuration from environment variables
 builder.Configuration.AddEnvironmentVariables();
 

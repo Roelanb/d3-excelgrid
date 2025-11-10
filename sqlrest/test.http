@@ -2,13 +2,13 @@
 ### Use with VS Code REST Client extension
 
 ### Variables
-@baseUrl = http://localhost:5000
+@baseUrl = https://restapi-excelgrid-ekc3gfh2hyfmezhg.northeurope-01.azurewebsites.net
 @prodUrl = https://restapi-excelgrid.azurewebsites.net
 @username = admin
 @password = admin
 
 # Replace with token from login response
-@token = YOUR_TOKEN_HERE
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiIzNmNmNTI1ZS1hMDY2LTQxMDYtOWIxOC1jMTM2NWZjM2Y0N2UiLCJleHAiOjE3NjI3ODE0OTAsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.R55lTUAqTkAJ-aBp8gRIbqNbMixCcvlj-MGkpV9RoT8
 
 ###############################################################################
 ### 1. Health Check (Public)

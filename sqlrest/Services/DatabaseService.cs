@@ -6,8 +6,9 @@ namespace SqlRest.Services;
 public class DatabaseService
 {
     private readonly string _connectionString;
+    private readonly ILogger<DatabaseService> _logger;
 
-    public DatabaseService(IConfiguration configuration)
+    public DatabaseService(IConfiguration configuration, ILogger<DatabaseService> logger)
     {
         var server = configuration["DB_SERVER"] ?? throw new InvalidOperationException("DB_SERVER not configured");
         var database = configuration["DB_NAME"] ?? throw new InvalidOperationException("DB_NAME not configured");
@@ -16,20 +17,37 @@ public class DatabaseService
         var trustCert = configuration["DB_TRUST_CERT"] ?? "true";
 
         _connectionString = $"Server={server};Database={database};User Id={user};Password={password};TrustServerCertificate={trustCert};";
+        _logger = logger;
+        
+        _logger.LogInformation("DatabaseService initialized with Server={Server}, Database={Database}", server, database);
     }
 
     public async Task<SqlConnection> GetConnectionAsync()
     {
-        var connection = new SqlConnection(_connectionString);
-        await connection.OpenAsync();
-        return connection;
+        try
+        {
+            _logger.LogInformation("Attempting to open database connection");
+            var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+            _logger.LogInformation("Database connection opened successfully");
+            return connection;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open database connection. Connection string (sanitized): Server={Server}", 
+                new SqlConnectionStringBuilder(_connectionString).DataSource);
+            throw;
+        }
     }
 
     public async Task<List<TableInfo>> GetAllTablesAsync()
     {
-        var tables = new List<TableInfo>();
-        
-        using var connection = await GetConnectionAsync();
+        try
+        {
+            _logger.LogInformation("Getting all tables from database");
+            var tables = new List<TableInfo>();
+            
+            using var connection = await GetConnectionAsync();
         using var command = new SqlCommand(@"
             SELECT 
                 TABLE_SCHEMA,
@@ -38,18 +56,25 @@ public class DatabaseService
             WHERE TABLE_TYPE = 'BASE TABLE'
             ORDER BY TABLE_SCHEMA, TABLE_NAME", connection);
 
-        using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            tables.Add(new TableInfo
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
-                Schema = reader.GetString(0),
-                Name = reader.GetString(1),
-                FullName = $"{reader.GetString(0)}.{reader.GetString(1)}"
-            });
-        }
+                tables.Add(new TableInfo
+                {
+                    Schema = reader.GetString(0),
+                    Name = reader.GetString(1),
+                    FullName = $"{reader.GetString(0)}.{reader.GetString(1)}"
+                });
+            }
 
-        return tables;
+            _logger.LogInformation("Successfully retrieved {TableCount} tables from database", tables.Count);
+            return tables;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving tables from database");
+            throw;
+        }
     }
 
     public async Task<List<ColumnInfo>> GetTableColumnsAsync(string schema, string table)

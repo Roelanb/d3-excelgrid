@@ -7,10 +7,12 @@ namespace SqlRest.Endpoints;
 public class GetTablesEndpoint : EndpointWithoutRequest
 {
     private readonly DatabaseService _dbService;
+    private readonly ILogger<GetTablesEndpoint> _logger;
 
-    public GetTablesEndpoint(DatabaseService dbService)
+    public GetTablesEndpoint(DatabaseService dbService, ILogger<GetTablesEndpoint> logger)
     {
         _dbService = dbService;
+        _logger = logger;
     }
 
     public override void Configure()
@@ -20,8 +22,18 @@ public class GetTablesEndpoint : EndpointWithoutRequest
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var tables = await _dbService.GetAllTablesAsync();
-        await SendAsync(new { Tables = tables, TotalCount = tables.Count }, cancellation: ct);
+        try
+        {
+            _logger.LogInformation("GetTablesEndpoint called");
+            var tables = await _dbService.GetAllTablesAsync();
+            _logger.LogInformation("Returning {Count} tables", tables.Count);
+            await SendAsync(new { Tables = tables, TotalCount = tables.Count }, cancellation: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetTablesEndpoint");
+            await SendAsync(new { Error = ex.Message, Details = ex.ToString() }, 500, ct);
+        }
     }
 }
 
