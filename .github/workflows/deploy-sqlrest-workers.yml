@@ -1,0 +1,45 @@
+name: Deploy SQL REST API to Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'sqlrest/workers/**'
+      - '.github/workflows/deploy-sqlrest-workers.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy SQL REST Workers
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: ./sqlrest/workers
+        run: npm install
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: ./sqlrest/workers
+          command: deploy
+          secrets: |
+            JWT_KEY
+            AUTH_USERNAME
+            AUTH_PASSWORD
+            DB_CONNECTION_STRING
+        env:
+          JWT_KEY: ${{ secrets.JWT_KEY }}
+          AUTH_USERNAME: ${{ secrets.AUTH_USERNAME }}
+          AUTH_PASSWORD: ${{ secrets.AUTH_PASSWORD }}
+          DB_CONNECTION_STRING: ${{ secrets.DB_CONNECTION_STRING }}

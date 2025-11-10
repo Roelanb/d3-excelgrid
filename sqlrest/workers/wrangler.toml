@@ -18,8 +18,3 @@ CORS_ORIGINS = "http://localhost:5173,http://localhost:3000,http://localhost:517
 # AUTH_USERNAME
 # AUTH_PASSWORD
 
-# Optional: D1 Database (if using Cloudflare D1 instead of external SQL)
-[[d1_databases]]
-binding = "DB"
-database_name = "sqlrest-dev-db"
-database_id = "86b7a642-104c-430b-8e78-c027bdff9a8e"

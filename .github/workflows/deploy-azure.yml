@@ -48,6 +48,74 @@ jobs:
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         package: './output'
+    
+    - name: Set Azure App Settings
+      uses: azure/appservice-settings@v1
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        app-settings-json: |
+          [
+            {
+              "name": "DB_SERVER",
+              "value": "${{ secrets.DB_SERVER }}",
+              "slotSetting": false
+            },
+            {
+              "name": "DB_NAME",
+              "value": "${{ secrets.DB_NAME }}",
+              "slotSetting": false
+            },
+            {
+              "name": "DB_USER",
+              "value": "${{ secrets.DB_USER }}",
+              "slotSetting": false
+            },
+            {
+              "name": "DB_PASSWORD",
+              "value": "${{ secrets.DB_PASSWORD }}",
+              "slotSetting": false
+            },
+            {
+              "name": "DB_TRUST_CERT",
+              "value": "${{ secrets.DB_TRUST_CERT }}",
+              "slotSetting": false
+            },
+            {
+              "name": "JWT_KEY",
+              "value": "${{ secrets.JWT_KEY }}",
+              "slotSetting": false
+            },
+            {
+              "name": "JWT_ISSUER",
+              "value": "SqlRestApi",
+              "slotSetting": false
+            },
+            {
+              "name": "JWT_AUDIENCE",
+              "value": "SqlRestApi",
+              "slotSetting": false
+            },
+            {
+              "name": "JWT_EXPIRY_MINUTES",
+              "value": "60",
+              "slotSetting": false
+            },
+            {
+              "name": "AUTH_USERNAME",
+              "value": "${{ secrets.AUTH_USERNAME }}",
+              "slotSetting": false
+            },
+            {
+              "name": "AUTH_PASSWORD",
+              "value": "${{ secrets.AUTH_PASSWORD }}",
+              "slotSetting": false
+            },
+            {
+              "name": "CORS_ALLOWED_ORIGINS",
+              "value": "http://localhost:5173,http://localhost:3000,http://localhost:5174,https://excel-grid.bart-c9c.workers.dev,https://d3-excel.hideterms.com",
+              "slotSetting": false
+            }
+          ]
 
     - name: Logout from Azure
       run: az logout
