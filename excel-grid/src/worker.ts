@@ -9,24 +9,28 @@ export default {
   async fetch(request: WorkerRequest, env: Env): Promise<WorkerResponse> {
     // Serve static assets (e.g., /, /assets/index-*.js)
     const url = new URL(request.url);
-    if (url.pathname === '/' || url.pathname.startsWith('/assets/')) {
-      // Fetch the asset from the static files
+    
+    // Handle root path - inject runtime config
+    if (url.pathname === '/') {
       const response = await env.ASSETS.fetch(request);
       
-      // If it's the HTML page, inject runtime environment variables
-      if (url.pathname === '/' && response.headers.get('content-type')?.includes('text/html')) {
-        // Clone the response so we can modify it
+      // Check if it's HTML
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('text/html')) {
         const html = await response.text();
         
-        // Inject runtime config script before the closing </head> tag
-        const runtimeConfig = `
-          <script>
-            window.__RUNTIME_CONFIG__ = {
-              VITE_API_BASE_URL: "${env.VITE_API_BASE_URL}"
-            };
-          </script>
-        `;
-        const modifiedHtml = html.replace('</head>', `${runtimeConfig}</head>`);
+        // Inject runtime config script in the <head> section
+        const runtimeConfig = `<script>window.__RUNTIME_CONFIG__={VITE_API_BASE_URL:"${env.VITE_API_BASE_URL || ''}"}</script>`;
+        
+        // Try multiple injection points
+        let modifiedHtml = html;
+        if (html.includes('</head>')) {
+          modifiedHtml = html.replace('</head>', `${runtimeConfig}</head>`);
+        } else if (html.includes('<head>')) {
+          modifiedHtml = html.replace('<head>', `<head>${runtimeConfig}`);
+        } else if (html.includes('<body>')) {
+          modifiedHtml = html.replace('<body>', `<body>${runtimeConfig}`);
+        }
         
         // Copy headers to plain object
         const headers: Record<string, string> = {};
@@ -42,6 +46,21 @@ export default {
       }
       
       return response;
+    }
+    
+    // Handle other assets
+    if (url.pathname.startsWith('/assets/')) {
+      return env.ASSETS.fetch(request);
+    }
+
+    // Debug endpoint to check environment variables
+    if (url.pathname === '/debug-env') {
+      return new Response(JSON.stringify({ 
+        VITE_API_BASE_URL: env.VITE_API_BASE_URL,
+        hasEnv: !!env.VITE_API_BASE_URL
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+      }) as unknown as WorkerResponse;
     }
 
     // Add dynamic logic here, e.g., API endpoints
