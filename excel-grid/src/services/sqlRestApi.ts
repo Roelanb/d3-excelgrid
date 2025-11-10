@@ -15,7 +15,7 @@ function getApiBaseUrl(): string {
   if (import.meta.env.DEV) {
     return 'http://localhost:8787';
   }
-  return import.meta.env.VITE_API_BASE_URL;
+  return import.meta.env.API_BASE_URL;
 }
 
 // Use runtime config if available (production), otherwise fall back to build-time env (development)
