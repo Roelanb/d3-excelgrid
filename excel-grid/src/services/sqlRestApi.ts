@@ -11,7 +11,7 @@ declare global {
 }
 
 // Helper function to get API base URL
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
   // In development, use local server
   if (import.meta.env.DEV) {
     return 'http://localhost:8787';
@@ -25,13 +25,6 @@ function getApiBaseUrl(): string {
   // Fallback to build-time env var (shouldn't happen in production)
   return import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 }
-
-// Use runtime config if available (production), otherwise fall back to build-time env (development)
-const API_BASE_URL = getApiBaseUrl();
-const SWAGGER_URL = `${API_BASE_URL}/swagger/v1/swagger.json`;
-
-// Export for use in other components
-export { getApiBaseUrl };
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -88,7 +81,7 @@ export async function fetchTablesFromApi(): Promise<SchemaTable[]> {
       throw new Error('Authentication required');
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/tables`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/tables`, {
       headers: {
         'Content-Type': 'application/json',
         ...authHeader,
@@ -151,7 +144,7 @@ export async function discoverSchemasAndTables(): Promise<SchemaTable[]> {
 
   // Fallback to Swagger parsing
   try {
-    const response = await fetch(SWAGGER_URL);
+    const response = await fetch(`${getApiBaseUrl()}/swagger/v1/swagger.json`);
     if (!response.ok) {
       throw new Error(`Failed to fetch Swagger spec: ${response.statusText}`);
     }
@@ -202,7 +195,7 @@ export async function fetchTableData(
   page: number = 1,
   pageSize: number = 100
 ): Promise<PaginatedResponse<Record<string, any>>> {
-  const url = `${API_BASE_URL}/api/${schema}/${table}?page=${page}&pageSize=${pageSize}`;
+  const url = `${getApiBaseUrl()}/api/${schema}/${table}?page=${page}&pageSize=${pageSize}`;
 
   const authHeader = authService.getAuthHeader();
   if (!authHeader.Authorization) {
@@ -229,7 +222,7 @@ export async function fetchTableData(
 
 export async function testConnection(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/health`);
+    const response = await fetch(`${getApiBaseUrl()}/api/health`);
     return response.ok;
   } catch (error) {
     return false;
