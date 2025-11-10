@@ -22,28 +22,46 @@ public class LoginResponse
 public class AuthEndpoint : Endpoint<LoginRequest, LoginResponse>
 {
     private readonly IConfiguration _configuration;
+    private readonly ILogger<AuthEndpoint> _logger;
 
-    public AuthEndpoint(IConfiguration configuration)
+    public AuthEndpoint(IConfiguration configuration, ILogger<AuthEndpoint> logger)
     {
         _configuration = configuration;
+        _logger = logger;
     }
 
     public override void Configure()
     {
         Post("/auth/login");
         AllowAnonymous();
+        Options(x => x
+            .Accepts<LoginRequest>("application/json")
+            .Produces<LoginResponse>(200, "application/json")
+            .ProducesProblemDetails(400)
+            .ProducesProblemDetails(401));
     }
 
     public override async Task HandleAsync(LoginRequest req, CancellationToken ct)
     {
-        var validUsername = _configuration["AUTH_USERNAME"] ?? "admin";
-        var validPassword = _configuration["AUTH_PASSWORD"] ?? "admin";
-
-        if (req.Username != validUsername || req.Password != validPassword)
+        try
         {
-            await SendUnauthorizedAsync(ct);
-            return;
-        }
+            _logger.LogInformation("Login attempt for user: {Username}", req?.Username ?? "null");
+            
+            if (req == null || string.IsNullOrEmpty(req.Username) || string.IsNullOrEmpty(req.Password))
+            {
+                _logger.LogWarning("Invalid login request - missing username or password");
+                ThrowError("Username and password are required");
+            }
+
+            var validUsername = _configuration["AUTH_USERNAME"] ?? "admin";
+            var validPassword = _configuration["AUTH_PASSWORD"] ?? "admin";
+
+            if (req.Username != validUsername || req.Password != validPassword)
+            {
+                _logger.LogWarning("Login failed for user: {Username} - invalid credentials", req.Username);
+                await SendUnauthorizedAsync(ct);
+                return;
+            }
 
         var jwtKey = _configuration["JWT_KEY"] ?? throw new InvalidOperationException("JWT_KEY not configured");
         var jwtIssuer = _configuration["JWT_ISSUER"] ?? "SqlRestApi";
@@ -70,12 +88,19 @@ public class AuthEndpoint : Endpoint<LoginRequest, LoginResponse>
 
         var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
 
-        await SendAsync(new LoginResponse
+            _logger.LogInformation("Login successful for user: {Username}", req.Username);
+            await SendAsync(new LoginResponse
+            {
+                Token = tokenString,
+                ExpiresIn = jwtExpiryMinutes * 60,
+                TokenType = "Bearer"
+            }, cancellation: ct);
+        }
+        catch (Exception ex)
         {
-            Token = tokenString,
-            ExpiresIn = jwtExpiryMinutes * 60,
-            TokenType = "Bearer"
-        }, cancellation: ct);
+            _logger.LogError(ex, "Error during login");
+            ThrowError(ex.Message);
+        }
     }
 }
 

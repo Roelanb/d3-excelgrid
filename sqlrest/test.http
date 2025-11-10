@@ -36,14 +36,14 @@ Authorization: Bearer {{token}}
 ### 4. Get Table Schema (Protected)
 ### Replace {schema} and {table} with actual values from your database
 ###############################################################################
-GET {{baseUrl}}/api/tables/dbo/Customers/schema
+GET {{baseUrl}}/api/tables/SalesLT/Address/schema
 Authorization: Bearer {{token}}
 
 ###############################################################################
 ### 5. Get Records with Pagination (Protected)
 ### Query params: page, pageSize, search
 ###############################################################################
-GET {{baseUrl}}/api/dbo/Customers?page=1&pageSize=10
+GET {{baseUrl}}/api/SalesLT/Address?page=1&pageSize=10
 Authorization: Bearer {{token}}
 
 ###############################################################################
