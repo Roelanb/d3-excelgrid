@@ -11,7 +11,7 @@ export default {
     const url = new URL(request.url);
 
     // Handle static assets first (before HTML injection)
-    if (url.pathname.startsWith('/assets/')) {
+    if (url.pathname.startsWith('/assets/') || url.pathname.endsWith('.svg') || url.pathname.endsWith('.ico')) {
       return env.ASSETS.fetch(request);
     }
 
@@ -33,7 +33,21 @@ export default {
     }
 
     // For all other paths (including SPA routes), serve index.html with injected config
-    const response = await env.ASSETS.fetch(request);
+    // Create a new request for index.html
+    const indexUrl = new URL(request.url);
+    indexUrl.pathname = '/index.html';
+    
+    // Convert headers to plain object to avoid type incompatibility
+    const headersInit: Record<string, string> = {};
+    request.headers.forEach((value, key) => {
+      headersInit[key] = value;
+    });
+    
+    const indexRequest = new Request(indexUrl.toString(), {
+      method: request.method,
+      headers: headersInit,
+    });
+    const response = await env.ASSETS.fetch(indexRequest as unknown as WorkerRequest);
 
     // Check if it's HTML
     const contentType = response.headers.get('content-type') || '';
