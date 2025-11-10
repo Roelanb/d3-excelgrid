@@ -12,9 +12,9 @@ declare global {
 
 // Helper function to get API base URL
 function getApiBaseUrl(): string {
-  // In development, use local server
+  // In development, use local ASP.NET Core server
   if (import.meta.env.DEV) {
-    return 'http://localhost:8787';
+    return 'http://localhost:5000';
   }
   
   // In production, use runtime config injected by Cloudflare Worker

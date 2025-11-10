@@ -30,15 +30,7 @@ app.use('/*', async (c: Context<Env>, next: Next) => {
 
 // Health check endpoint (public)
 app.get('/api/health', (c: Context<Env>) => {
-  return c.json({ status: 'healthy', timestamp: new Date().toISOString(),
-    dbConnectionString: c.env.DB_CONNECTION_STRING || 'N/A',
-    jwtKey: c.env.JWT_KEY || 'N/A',
-    authUsername: c.env.AUTH_USERNAME || 'N/A',
-    authPassword: c.env.AUTH_PASSWORD || 'N/A',
-    corsOrigins: c.env.CORS_ORIGINS || 'N/A',
-    jwtIssuer: c.env.JWT_ISSUER || 'N/A',
-    jwtAudience: c.env.JWT_AUDIENCE || 'N/A',
-    jwtExpiryMinutes: c.env.JWT_EXPIRY_MINUTES || 'N/A' });
+  return c.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
 // JWT middleware for protected routes

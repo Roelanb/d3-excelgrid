@@ -27,9 +27,7 @@ export class DynamicCrudEndpoints {
         
         return c.json({
           tables,
-          totalCount,
-          message: 'Tables retrieved successfully',
-          env: c.env
+          totalCount
         });
       } catch (error) {
         console.error('Error getting tables:', error);
