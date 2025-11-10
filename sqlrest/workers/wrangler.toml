@@ -10,7 +10,7 @@ name = "sqlrest-api-production"
 JWT_ISSUER = "SqlRestApi"
 JWT_AUDIENCE = "SqlRestApi"
 JWT_EXPIRY_MINUTES = "60"
-CORS_ORIGINS = "http://localhost:5173,http://localhost:3000,http://localhost:5174"
+CORS_ORIGINS = "http://localhost:5173,http://localhost:3000,http://localhost:5174,https://excel-grid.bart-c9c.workers.dev,https://d3-excel.hideterms.com"
 
 # Secrets (to be set with wrangler secret put)
 # JWT_KEY
