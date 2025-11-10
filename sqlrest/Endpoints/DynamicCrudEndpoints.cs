@@ -17,7 +17,7 @@ public class GetTablesEndpoint : EndpointWithoutRequest
 
     public override void Configure()
     {
-        Get("/tables");
+        Get("/api/tables");
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -55,7 +55,7 @@ public class GetTableSchemaEndpoint : Endpoint<GetTableSchemaRequest>
 
     public override void Configure()
     {
-        Get("/tables/{Schema}/{Table}/schema");
+        Get("/api/tables/{Schema}/{Table}/schema");
     }
 
     public override async Task HandleAsync(GetTableSchemaRequest req, CancellationToken ct)
@@ -86,7 +86,7 @@ public class GetRecordsEndpoint : Endpoint<GetRecordsRequest>
 
     public override void Configure()
     {
-        Get("/{Schema}/{Table}");
+        Get("/api/{Schema}/{Table}");
     }
 
     public override async Task HandleAsync(GetRecordsRequest req, CancellationToken ct)
@@ -115,7 +115,7 @@ public class GetRecordByIdEndpoint : Endpoint<GetRecordByIdRequest>
 
     public override void Configure()
     {
-        Get("/{Schema}/{Table}/{Id}");
+        Get("/api/{Schema}/{Table}/{Id}");
     }
 
     public override async Task HandleAsync(GetRecordByIdRequest req, CancellationToken ct)
@@ -149,7 +149,7 @@ public class CreateRecordEndpoint : Endpoint<CreateRecordRequest>
 
     public override void Configure()
     {
-        Post("/{Schema}/{Table}");
+        Post("/api/{Schema}/{Table}");
     }
 
     public override async Task HandleAsync(CreateRecordRequest req, CancellationToken ct)
@@ -179,7 +179,7 @@ public class UpdateRecordEndpoint : Endpoint<UpdateRecordRequest>
 
     public override void Configure()
     {
-        Put("/{Schema}/{Table}/{Id}");
+        Put("/api/{Schema}/{Table}/{Id}");
     }
 
     public override async Task HandleAsync(UpdateRecordRequest req, CancellationToken ct)
@@ -208,7 +208,7 @@ public class DeleteRecordEndpoint : Endpoint<DeleteRecordRequest>
 
     public override void Configure()
     {
-        Delete("/{Schema}/{Table}/{Id}");
+        Delete("/api/{Schema}/{Table}/{Id}");
     }
 
     public override async Task HandleAsync(DeleteRecordRequest req, CancellationToken ct)
