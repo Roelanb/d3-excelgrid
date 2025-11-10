@@ -1,0 +1,140 @@
+### SQL REST API - Cloudflare Workers Test File
+### Use with VS Code REST Client extension or curl commands
+
+@baseUrl = https://sqlrest.bart-c9c.workers.dev
+@prodUrl = https://sqlrest-api.your-subdomain.workers.dev
+@username = admin
+@password = admin
+
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJpYXQiOjE3NjI3NjcxNjYsImV4cCI6MTc2Mjc3MDc2NiwiaXNzIjoiU3FsUmVzdEFwaSIsImF1ZCI6IlNxbFJlc3RBcGkifQ.xvqMA7IUCLzubfKt0J9xhUJWKoa-bQcWmDeB10gvyrg
+
+### 1. Health Check (Public)
+GET {{baseUrl}}/api/health
+
+### 2. Login (Public) - Get JWT Token
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}"
+}
+
+### 3. Validate Token (Protected)
+# Note: Replace YOUR_TOKEN_HERE with actual token from login response
+GET {{baseUrl}}/api/auth/validate
+Authorization: Bearer {{token}}
+
+### 4. Get All Tables (Protected)
+# Note: Replace YOUR_TOKEN_HERE with actual token from login response
+GET {{baseUrl}}/api/tables
+Authorization: Bearer {{token}}
+
+### 5. Get Table Schema (Protected)
+GET {{baseUrl}}/api/main/customers/schema
+Authorization: Bearer {{token}}
+
+### 6. Get All Customers (Protected) - Paginated
+GET {{baseUrl}}/api/main/customers?page=1&pageSize=5
+Authorization: Bearer {{token}}
+
+### 7. Search Customers (Protected)
+GET {{baseUrl}}/api/main/customers?search=john
+Authorization: Bearer {{token}}
+
+### 8. Get Specific Customer (Protected)
+GET {{baseUrl}}/api/main/customers/1
+Authorization: Bearer {{token}}
+
+### 9. Create New Customer (Protected)
+POST {{baseUrl}}/api/main/customers
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "New Test Customer",
+  "email": "newcustomer@example.com",
+  "phone": "555-1234",
+  "address": "123 Test Street",
+  "city": "Test City",
+  "country": "Test Country"
+}
+
+### 10. Update Customer (Protected)
+PUT {{baseUrl}}/api/main/customers/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "phone": "555-9999",
+  "city": "Updated City"
+}
+
+### 11. Get All Products (Protected)
+GET {{baseUrl}}/api/main/products?page=1&pageSize=10
+Authorization: Bearer {{token}}
+
+### 12. Create New Product (Protected)
+POST {{baseUrl}}/api/main/products
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Test Product",
+  "sku": "TEST-001",
+  "price": 99.99,
+  "description": "This is a test product",
+  "category": "Test Category",
+  "stock_quantity": 100
+}
+
+### 13. Get All Orders (Protected)
+GET {{baseUrl}}/api/main/orders?page=1&pageSize=5
+Authorization: Bearer {{token}}
+
+### 14. Create New Order (Protected)
+POST {{baseUrl}}/api/main/orders
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "customer_id": 1,
+  "status": "pending",
+  "total_amount": 199.98
+}
+
+### 15. Delete Customer (Protected) - Use with caution!
+DELETE {{baseUrl}}/api/main/customers/999
+Authorization: Bearer {{token}}
+
+### 16. Error Handling Tests
+
+### Invalid login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "invalid",
+  "password": "invalid"
+}
+
+### Missing token
+GET {{baseUrl}}/api/tables
+
+### Invalid table
+GET {{baseUrl}}/api/main/nonexistent
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### Invalid record ID
+GET {{baseUrl}}/api/main/customers/99999
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### 17. Production Tests (Update @prodUrl first)
+# GET {{prodUrl}}/api/health
+# POST {{prodUrl}}/api/auth/login
+# Content-Type: application/json
+# 
+# {
+#   "username": "your_prod_username",
+#   "password": "your_prod_password"
+# }
