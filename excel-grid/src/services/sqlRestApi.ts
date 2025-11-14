@@ -14,7 +14,7 @@ declare global {
 export function getApiBaseUrl(): string {
   // In development, use local ASP.NET Core server
   if (import.meta.env.DEV) {
-    return 'http://localhost:5000';
+    return 'https://restapi-excelgrid-ekc3gfh2hyfmezhg.northeurope-01.azurewebsites.net';
   }
   
   // In production, use runtime config injected by Cloudflare Worker

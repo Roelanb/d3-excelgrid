@@ -2,13 +2,14 @@
 ### Use with VS Code REST Client extension
 
 ### Variables
-@baseUrl = https://restapi-excelgrid-ekc3gfh2hyfmezhg.northeurope-01.azurewebsites.net
-@prodUrl = https://restapi-excelgrid.azurewebsites.net
+#@baseUrl = https://restapi-excelgrid-ekc3gfh2hyfmezhg.northeurope-01.azurewebsites.net
+@baseUrl = http://localhost:5000
 @username = admin
 @password = admin
 
+
 # Replace with token from login response
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiIzNmNmNTI1ZS1hMDY2LTQxMDYtOWIxOC1jMTM2NWZjM2Y0N2UiLCJleHAiOjE3NjI3ODE0OTAsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.R55lTUAqTkAJ-aBp8gRIbqNbMixCcvlj-MGkpV9RoT8
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiJmN2FkODEwYy1iNmI5LTQ4OTQtOTIyMi1kZWI4ZjE4ODMwNGQiLCJleHAiOjE3NjMxMDc1MjgsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.5ssbX0QdgXdiESxiowHBUlL1jE9N60TqKcgU80blpjI
 
 ###############################################################################
 ### 1. Health Check (Public)
@@ -95,22 +96,3 @@ Content-Type: application/json
 DELETE {{baseUrl}}/api/dbo/Customers/1
 Authorization: Bearer {{token}}
 
-###############################################################################
-### PRODUCTION TESTS (Azure)
-###############################################################################
-
-### Production Health Check
-GET {{prodUrl}}/api/health
-
-### Production Login
-POST {{prodUrl}}/api/auth/login
-Content-Type: application/json
-
-{
-  "username": "{{username}}",
-  "password": "{{password}}"
-}
-
-### Production Get Tables
-GET {{prodUrl}}/api/tables
-Authorization: Bearer {{token}}
