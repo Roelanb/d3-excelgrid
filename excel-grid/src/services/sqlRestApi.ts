@@ -83,7 +83,6 @@ export async function fetchTablesFromApi(): Promise<SchemaTable[]> {
 
     const response = await fetch(`${getApiBaseUrl()}/api/tables`, {
       headers: {
-        'Content-Type': 'application/json',
         ...authHeader,
       },
     });
@@ -204,7 +203,6 @@ export async function fetchTableData(
 
   const response = await fetch(url, {
     headers: {
-      'Content-Type': 'application/json',
       ...authHeader,
     },
   });

@@ -2,14 +2,14 @@
 ### Use with VS Code REST Client extension
 
 ### Variables
-#@baseUrl = https://restapi-excelgrid-ekc3gfh2hyfmezhg.northeurope-01.azurewebsites.net
-@baseUrl = http://localhost:5000
+@baseUrl = https://restapi-excelgrid-ekc3gfh2hyfmezhg.northeurope-01.azurewebsites.net
+#@baseUrl = http://localhost:5000
 @username = admin
 @password = admin
 
 
 # Replace with token from login response
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiJmN2FkODEwYy1iNmI5LTQ4OTQtOTIyMi1kZWI4ZjE4ODMwNGQiLCJleHAiOjE3NjMxMDc1MjgsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.5ssbX0QdgXdiESxiowHBUlL1jE9N60TqKcgU80blpjI
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiI3YzlhMGU4Mi02ZjQ1LTRhZmQtYmJiMS0xMWZlMWFiNmZkM2EiLCJleHAiOjE3NjMxMDk1MzMsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.MhLHXuJfjEPD9at9KKtoJLiQwf6vdCUFMXNfAICAMSI
 
 ###############################################################################
 ### 1. Health Check (Public)
@@ -45,6 +45,13 @@ Authorization: Bearer {{token}}
 ### Query params: page, pageSize, search
 ###############################################################################
 GET {{baseUrl}}/api/SalesLT/Address?page=1&pageSize=10
+Authorization: Bearer {{token}}
+
+###############################################################################
+### 5. Get Records with Pagination (Protected)
+### Replace {schema} and {table} with actual values from your database
+###############################################################################
+GET {{baseUrl}}/api/SalesLT/Customer?page=1&pageSize=10
 Authorization: Bearer {{token}}
 
 ###############################################################################
