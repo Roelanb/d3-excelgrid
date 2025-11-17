@@ -1015,7 +1015,7 @@ function ExcelGridComponent(
         (update) => update,
         (exit) => exit.remove()
       )
-      .attr('transform', (d) => `translate(${headerWidth - 14}, 8)`)
+      .attr('transform', () => `translate(${headerWidth - 14}, 8)`)
       .style('cursor', 'pointer')
       .style('pointer-events', 'all')
       .on('mousedown', function(event) {
