@@ -1,0 +1,34 @@
+{
+  "profiles": {
+    "LocalVm": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "localvm",
+        "DB_SERVER": "192.168.0.150",
+        "DB_NAME": "AdventureWorks2022",
+        "DB_USER": "report",
+        "DB_PASSWORD": "report",
+        "DB_TRUST_CERT": "true",
+        "JWT_KEY": "JckiQ1xD7TfXZy24SI9NNOxWiXLt/AkZJ8JewT0JT3U=",
+        "JWT_ISSUER": "SqlRestApi",
+        "JWT_AUDIENCE": "SqlRestApi",
+        "JWT_EXPIRY_MINUTES": "60",
+        "AUTH_USERNAME": "admin",
+        "AUTH_PASSWORD": "admin",
+        "CORS_ALLOWED_ORIGINS": "http://localhost:5173,http://localhost:3000,http://localhost:5174,https://excel-grid.bart-c9c.workers.dev,https://d3-excel.hideterms.com"
+      }
+    },
+    "Development": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}

@@ -44,11 +44,12 @@ import {
 import { useAuth } from '../services/authService';
 import { LoginDialog } from './LoginDialog';
 import type { Cell } from '../types/cell';
+import type { DatabaseMetadata } from '../types/cell';
 
 interface SQLConnectionDialogProps {
   open: boolean;
   onClose: () => void;
-  onImport: (cells: Map<string, Cell>, rowCount: number, colCount: number) => void;
+  onImport: (cells: Map<string, Cell>, rowCount: number, colCount: number, databaseMetadata?: DatabaseMetadata) => void;
   selectedCell?: { row: number; col: number } | null;
 }
 
@@ -321,9 +322,30 @@ export const SQLConnectionDialog: React.FC<SQLConnectionDialogProps> = ({
       const rowCount = data.data.length + 1; // +1 for header
       const colCount = columns.length;
 
+      // Create database metadata
+      const databaseMetadata: DatabaseMetadata = {
+        id: `db-${Date.now()}`,
+        schema: selectedTable.schema,
+        table: selectedTable.table,
+        displayName: selectedTable.displayName,
+        importTime: new Date(),
+        apiBaseUrl: getApiBaseUrl(),
+        isAuthenticated: isAuthenticated,
+        startRow: startRow,
+        startCol: startCol,
+      };
+
+      // Attach metadata to every imported cell so the grid can track edits
+      cells.forEach((cell, key) => {
+        cells.set(key, {
+          ...cell,
+          databaseMetadata,
+        });
+      });
+
       // Brief delay before closing
       setTimeout(() => {
-        onImport(cells, rowCount, colCount);
+        onImport(cells, rowCount, colCount, databaseMetadata);
         handleClose();
       }, 500);
     } catch (err) {

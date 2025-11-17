@@ -8,8 +8,8 @@ using DotNetEnv;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Load .env file
-Env.Load();
+// Load .env file (commented out to use launch profile environment variables)
+// Env.Load();
 
 // Configure logging
 builder.Logging.ClearProviders();

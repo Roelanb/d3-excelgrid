@@ -1,0 +1,62 @@
+
+### CRUD Operations for Person.Address
+### Generated on 2025-11-15 08:27:41 UTC
+
+@baseUrl = http://localhost:5000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiI4OGIwOTY0MC01YjEwLTQ4YjQtYmJjNC05ODQzMGZjMGY4ODgiLCJleHAiOjE3NjMyMDI1NjgsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.WhcNR-gDgsj0YPzLDJn9SWnHnZ62XwYc5eL_gybyKZE
+
+### 1. Get All Records (Paginated)
+GET {{baseUrl}}/api/Person/Address?page=1&pageSize=100
+Authorization: Bearer {{token}}
+
+### 2. Get Record by ID
+GET {{baseUrl}}/api/Person/Address/1
+Authorization: Bearer {{token}}
+
+### 3. Create New Record
+POST {{baseUrl}}/api/Person/Address
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "AddressLine1": "123 Main St",
+  "City": "New York",
+  "StateProvinceID": 79,
+  "PostalCode": "10001",
+  "rowguid": "67837c93-efa9-4cc5-aeb5-5e7cd816f5f0",
+  "ModifiedDate": "2025-11-15"
+}
+
+### 4. Update Existing Record
+PUT {{baseUrl}}/api/Person/Address/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "AddressLine1": "456 Updated St",
+  "City": "Los Angeles",
+  "StateProvinceID": 9,
+  "PostalCode": "90001",
+  "ModifiedDate": "2025-11-16"
+}
+
+### 5. Delete Record
+DELETE {{baseUrl}}/api/Person/Address/1
+Authorization: Bearer {{token}}
+
+### 6. Get Authentication Token (Run this first!)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin"
+}
+
+###
+### Notes:
+### - Primary Key: AddressID
+### - Replace '1' in URLs with actual record IDs
+### - Run the authentication request first to get a token
+### - Copy the token from the response and update @token variable
+### - Adjust example values as needed for your data

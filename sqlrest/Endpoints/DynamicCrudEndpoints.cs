@@ -132,14 +132,7 @@ public class GetRecordByIdEndpoint : Endpoint<GetRecordByIdRequest>
 }
 
 // Create new record
-public class CreateRecordRequest
-{
-    public required string Schema { get; set; }
-    public required string Table { get; set; }
-    public required Dictionary<string, object?> Data { get; set; }
-}
-
-public class CreateRecordEndpoint : Endpoint<CreateRecordRequest>
+public class CreateRecordEndpoint : Endpoint<Dictionary<string, object?>>
 {
     private readonly DatabaseService _dbService;
 
@@ -151,25 +144,43 @@ public class CreateRecordEndpoint : Endpoint<CreateRecordRequest>
     public override void Configure()
     {
         Post("/{Schema}/{Table}");
+        AllowAnonymous(); // Remove if you want authentication
     }
 
-    public override async Task HandleAsync(CreateRecordRequest req, CancellationToken ct)
+    public override async Task HandleAsync(Dictionary<string, object?> data, CancellationToken ct)
     {
-        var record = await _dbService.CreateRecordAsync(req.Schema, req.Table, req.Data);
-        await SendAsync(record, 201, ct);
+        // Schema and Table come from route, data comes from body
+        var schema = Route<string>("Schema")!;
+        var table = Route<string>("Table")!;
+        
+        try
+        {
+            var record = await _dbService.CreateRecordAsync(schema, table, data);
+            await SendAsync(record, 201, ct);
+        }
+        catch (InvalidOperationException ex) when (ex.InnerException is Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            // Handle SQL Server errors with appropriate HTTP status codes
+            var errorMessage = sqlEx.Number switch
+            {
+                2627 => $"Duplicate key error: A record with this key already exists. {sqlEx.Message}",
+                2601 => $"Duplicate key error: Cannot insert duplicate key. {sqlEx.Message}",
+                515 => $"Required field missing: {sqlEx.Message}",
+                547 => $"Foreign key constraint violation: {sqlEx.Message}",
+                _ => $"Database error: {sqlEx.Message}"
+            };
+            
+            await SendAsync(new { error = errorMessage }, 400, ct);
+        }
+        catch (Exception ex)
+        {
+            await SendAsync(new { error = $"An error occurred: {ex.Message}" }, 500, ct);
+        }
     }
 }
 
 // Update record
-public class UpdateRecordRequest
-{
-    public required string Schema { get; set; }
-    public required string Table { get; set; }
-    public required string Id { get; set; }
-    public required Dictionary<string, object?> Data { get; set; }
-}
-
-public class UpdateRecordEndpoint : Endpoint<UpdateRecordRequest>
+public class UpdateRecordEndpoint : Endpoint<Dictionary<string, object?>>
 {
     private readonly DatabaseService _dbService;
 
@@ -181,12 +192,41 @@ public class UpdateRecordEndpoint : Endpoint<UpdateRecordRequest>
     public override void Configure()
     {
         Put("/{Schema}/{Table}/{Id}");
+        AllowAnonymous(); // Remove if you want authentication
     }
 
-    public override async Task HandleAsync(UpdateRecordRequest req, CancellationToken ct)
+    public override async Task HandleAsync(Dictionary<string, object?> data, CancellationToken ct)
     {
-        var record = await _dbService.UpdateRecordAsync(req.Schema, req.Table, req.Id, req.Data);
-        await SendAsync(record, cancellation: ct);
+        // Schema, Table, and Id come from route, data comes from body
+        var schema = Route<string>("Schema")!;
+        var table = Route<string>("Table")!;
+        var id = Route<string>("Id")!;
+        
+        try
+        {
+            var record = await _dbService.UpdateRecordAsync(schema, table, id, data);
+            await SendAsync(record, cancellation: ct);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            await SendAsync(new { error = $"Record not found with ID: {id}" }, 404, ct);
+        }
+        catch (InvalidOperationException ex) when (ex.InnerException is Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            var errorMessage = sqlEx.Number switch
+            {
+                2627 => $"Duplicate key error: A record with this key already exists. {sqlEx.Message}",
+                2601 => $"Duplicate key error: Cannot insert duplicate key. {sqlEx.Message}",
+                547 => $"Foreign key constraint violation: {sqlEx.Message}",
+                _ => $"Database error: {sqlEx.Message}"
+            };
+            
+            await SendAsync(new { error = errorMessage }, 400, ct);
+        }
+        catch (Exception ex)
+        {
+            await SendAsync(new { error = $"An error occurred: {ex.Message}" }, 500, ct);
+        }
     }
 }
 
@@ -214,7 +254,28 @@ public class DeleteRecordEndpoint : Endpoint<DeleteRecordRequest>
 
     public override async Task HandleAsync(DeleteRecordRequest req, CancellationToken ct)
     {
-        await _dbService.DeleteRecordAsync(req.Schema, req.Table, req.Id);
-        await SendNoContentAsync(ct);
+        try
+        {
+            await _dbService.DeleteRecordAsync(req.Schema, req.Table, req.Id);
+            await SendNoContentAsync(ct);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            await SendAsync(new { error = $"Record not found with ID: {req.Id}" }, 404, ct);
+        }
+        catch (InvalidOperationException ex) when (ex.InnerException is Microsoft.Data.SqlClient.SqlException sqlEx)
+        {
+            var errorMessage = sqlEx.Number switch
+            {
+                547 => $"Foreign key constraint violation: Cannot delete record because it is referenced by other records. {sqlEx.Message}",
+                _ => $"Database error: {sqlEx.Message}"
+            };
+            
+            await SendAsync(new { error = errorMessage }, 400, ct);
+        }
+        catch (Exception ex)
+        {
+            await SendAsync(new { error = $"An error occurred: {ex.Message}" }, 500, ct);
+        }
     }
 }

@@ -1,0 +1,56 @@
+
+### CRUD Operations for Production.UnitMeasure
+### Generated on 2025-11-15 08:32:19 UTC
+
+@baseUrl = http://localhost:5000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiI4OGIwOTY0MC01YjEwLTQ4YjQtYmJjNC05ODQzMGZjMGY4ODgiLCJleHAiOjE3NjMyMDI1NjgsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.WhcNR-gDgsj0YPzLDJn9SWnHnZ62XwYc5eL_gybyKZE
+
+### 1. Get All Records (Paginated)
+GET {{baseUrl}}/api/Production/UnitMeasure?page=1&pageSize=10
+Authorization: Bearer {{token}}
+
+### 2. Get Record by ID
+GET {{baseUrl}}/api/Production/UnitMeasure/TST
+Authorization: Bearer {{token}}
+
+### 3. Create New Record
+POST {{baseUrl}}/api/Production/UnitMeasure
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "UnitMeasureCode": "TST",
+  "Name": "Test Unit",
+  "ModifiedDate": "2025-11-15"
+}
+
+### 4. Update Existing Record
+PUT {{baseUrl}}/api/Production/UnitMeasure/BOX
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "Name": "Updated Box Name",
+  "ModifiedDate": "2025-11-16"
+}
+
+### 5. Delete Record
+DELETE {{baseUrl}}/api/Production/UnitMeasure/TST
+Authorization: Bearer {{token}}
+
+### 6. Get Authentication Token (Run this first!)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin"
+}
+
+###
+### Notes:
+### - Primary Key: UnitMeasureCode
+### - Replace '1' in URLs with actual record IDs
+### - Run the authentication request first to get a token
+### - Copy the token from the response and update @token variable
+### - Adjust example values as needed for your data

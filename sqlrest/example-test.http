@@ -1,0 +1,22 @@
+### Example: Generate test file for a table
+### This endpoint generates a complete test.http file with example CRUD operations
+
+@baseUrl = http://localhost:5000
+
+### Generate test file for Products table
+GET {{baseUrl}}/api/tables/production/products/generate-tests
+
+###
+
+### Generate test file for Customers table  
+GET {{baseUrl}}/api/tables/sales/customers/generate-tests
+
+###
+
+### Instructions:
+### 1. Run the generate-tests endpoint for your table
+### 2. Copy the response content
+### 3. Save it as a new .http file (e.g., products-test.http)
+### 4. Run the authentication request first to get a token
+### 5. Update the @token variable with the received token
+### 6. Run the other requests to test CRUD operations

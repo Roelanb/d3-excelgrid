@@ -106,6 +106,13 @@ public class AuthEndpoint : Endpoint<LoginRequest, LoginResponse>
 
 public class HealthEndpoint : EndpointWithoutRequest
 {
+    private readonly IConfiguration _configuration;
+
+    public HealthEndpoint(IConfiguration configuration)
+    {
+        _configuration = configuration;
+    }
+
     public override void Configure()
     {
         Get("/health");
@@ -114,10 +121,13 @@ public class HealthEndpoint : EndpointWithoutRequest
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        var serverName = _configuration["DB_SERVER"] ?? "Not configured";
+        
         await SendAsync(new
         {
             Status = "healthy",
-            Timestamp = DateTime.UtcNow
+            Timestamp = DateTime.UtcNow,
+            ServerName = serverName
         }, cancellation: ct);
     }
 }

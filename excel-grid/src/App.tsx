@@ -5,7 +5,7 @@ import { ExcelGrid, type ExcelGridHandle } from './components/ExcelGrid';
 import { Toolbar } from './components/Toolbar';
 import { CSVImportDialog } from './components/CSVImportDialog';
 import { SQLConnectionDialog } from './components/SQLConnectionDialog';
-import type { CellFormatting, Cell, CellType } from './types/cell';
+import type { CellFormatting, Cell, CellType, DatabaseMetadata } from './types/cell';
 import './App.css';
 
 function App() {
@@ -19,6 +19,10 @@ function App() {
   const [sqlDialogOpen, setSqlDialogOpen] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('success');
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [hasDatabase, setHasDatabase] = useState(false);
+  const [currentDatabaseId, setCurrentDatabaseId] = useState<string | null>(null);
 
   const handleClear = () => {
     gridRef.current?.clearGrid();
@@ -117,9 +121,87 @@ function App() {
     }
   };
 
-  const handleSQLImport = (cells: Map<string, Cell>, _rowCount: number, _colCount: number) => {
-    gridRef.current?.importCells(cells, false);
+  const handleSQLImport = (cells: Map<string, Cell>, _rowCount: number, _colCount: number, databaseMetadata?: DatabaseMetadata) => {
+    gridRef.current?.importCells(cells, false, undefined, databaseMetadata);
+    if (databaseMetadata) {
+      setHasDatabase(true);
+      setCurrentDatabaseId(databaseMetadata.id);
+    }
     setSnackbarMessage(`Imported ${cells.size} cells from database`);
+    setSnackbarSeverity('success');
+    setSnackbarOpen(true);
+  };
+
+  const handleEditModeChange = (editMode: boolean) => {
+    setIsEditMode(editMode);
+  };
+
+  const handleEnterEditMode = async () => {
+    if (!currentDatabaseId) {
+      setSnackbarMessage('No database table loaded');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    try {
+      await gridRef.current?.enterEditMode(currentDatabaseId);
+      setSnackbarMessage('Edit mode activated');
+      setSnackbarSeverity('info');
+      setSnackbarOpen(true);
+    } catch (error) {
+      setSnackbarMessage(error instanceof Error ? error.message : 'Failed to enter edit mode');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  };
+
+  const handleSaveChanges = async () => {
+    try {
+      const result = await gridRef.current?.saveChanges();
+      if (!result) return;
+
+      if (result.failed === 0) {
+        setSnackbarMessage(`Successfully saved ${result.success} changes`);
+        setSnackbarSeverity('success');
+      } else {
+        setSnackbarMessage(`Saved ${result.success} changes, ${result.failed} failed. Check console for details.`);
+        setSnackbarSeverity('warning');
+        console.error('Save errors:', result.errors);
+      }
+      setSnackbarOpen(true);
+    } catch (error) {
+      setSnackbarMessage(error instanceof Error ? error.message : 'Failed to save changes');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  };
+
+  const handleExitEditMode = async (save: boolean) => {
+    try {
+      await gridRef.current?.exitEditMode(save);
+      const message = save ? 'Edit mode exited, changes saved' : 'Edit mode exited, changes discarded';
+      setSnackbarMessage(message);
+      setSnackbarSeverity('info');
+      setSnackbarOpen(true);
+    } catch (error) {
+      setSnackbarMessage(error instanceof Error ? error.message : 'Failed to exit edit mode');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
+  };
+
+  const handleAddNewRow = () => {
+    gridRef.current?.addNewRow();
+    setSnackbarMessage('New row added');
+    setSnackbarSeverity('success');
+    setSnackbarOpen(true);
+  };
+
+  const handleDeleteRows = () => {
+    gridRef.current?.deleteSelectedRows();
+    setSnackbarMessage('Selected rows marked for deletion');
+    setSnackbarSeverity('warning');
     setSnackbarOpen(true);
   };
 
@@ -199,6 +281,35 @@ function App() {
           Clear Grid
         </Button>
       </Stack>
+
+      {/* Edit Mode Controls */}
+      {hasDatabase && (
+        <Stack direction="row" spacing={2} sx={{ mb: 2, p: 2, bgcolor: isEditMode ? '#fff3e0' : '#e3f2fd', borderRadius: 1 }}>
+          <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
+            {isEditMode ? '✏️ Edit Mode Active' : '📊 Database Table Loaded'}
+          </Typography>
+          {!isEditMode ? (
+            <Button variant="contained" color="warning" onClick={handleEnterEditMode}>
+              Enter Edit Mode
+            </Button>
+          ) : (
+            <>
+              <Button variant="contained" color="success" onClick={handleSaveChanges}>
+                Save Changes
+              </Button>
+              <Button variant="outlined" color="error" onClick={() => handleExitEditMode(false)}>
+                Cancel
+              </Button>
+              <Button variant="outlined" color="primary" onClick={handleAddNewRow}>
+                Add Row
+              </Button>
+              <Button variant="outlined" color="error" onClick={handleDeleteRows} disabled={!hasSelection}>
+                Delete Selected Rows
+              </Button>
+            </>
+          )}
+        </Stack>
+      )}
       <Toolbar
         onCut={handleCut}
         onCopy={handleCopy}
@@ -220,6 +331,7 @@ function App() {
         cellHeight={30}
         onSelectionChange={handleSelectionChange}
         onClipboardChange={handleClipboardChange}
+        onEditModeChange={handleEditModeChange}
       />
       <CSVImportDialog
         open={csvDialogOpen}
@@ -241,7 +353,7 @@ function App() {
       >
         <Alert
           onClose={() => setSnackbarOpen(false)}
-          severity="success"
+          severity={snackbarSeverity}
           variant="filled"
           sx={{ width: '100%' }}
         >

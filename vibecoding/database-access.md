@@ -49,3 +49,11 @@ const tables = await discoverSchemasAndTables();
 The implementation now uses the `/api/tables` endpoint as the primary method for discovering available database tables, with Swagger parsing as a reliable fallback.
 
 Update the database access in the excel grid with first login in and then getting the list of tables
+
+
+
+When data is imported from a database table, add at the top,left cell a corner access to show the details of the database table connection.
+This should open a new window with the database table connection details.
+
+When doing a database crud action (like a delete record), I cann be that the rest endpoint returns an error (like on a foreign key constraint). 
+In that case, add an indicator on the record (red ?), when the user clicks on the indicator, show the error message as tooltip.

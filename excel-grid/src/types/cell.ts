@@ -53,6 +53,31 @@ export interface CellFormatting {
 
 export type SortDirection = 'asc' | 'desc' | null;
 
+export interface DatabaseMetadata {
+  id: string;
+  schema: string;
+  table: string;
+  displayName: string;
+  importTime: Date;
+  apiBaseUrl: string;
+  isAuthenticated: boolean;
+  startRow: number;
+  startCol: number;
+  primaryKeyColumn?: string;
+  columns?: ColumnInfo[];
+}
+
+export type DatabaseChangeOperation = 'insert' | 'update' | 'delete';
+
+export interface DatabaseChangeLogEntry {
+  id: string;
+  timestamp: Date;
+  operation: DatabaseChangeOperation;
+  primaryKey?: string | number | null;
+  rowIndex?: number;
+  details?: Record<string, any>;
+}
+
 export interface TableMetadata {
   id: string;
   startRow: number;
@@ -66,11 +91,44 @@ export interface TableMetadata {
   filters?: Map<number, Set<string>>; // column index -> set of visible values
 }
 
+export interface ColumnInfo {
+  name: string;
+  type: string;
+  isNullable: boolean;
+  isPrimaryKey: boolean;
+}
+
 export interface Cell {
   row: number;
   col: number;
   value: CellValue;
   formatting?: CellFormatting;
+  // Edit mode tracking
+  isDirty?: boolean;
+  isNew?: boolean;
+  isDeleted?: boolean;
+  originalValue?: CellValue;
+  databaseMetadata?: DatabaseMetadata;
+}
+
+export interface EditModeState {
+  isActive: boolean;
+  schema: string;
+  table: string;
+  databaseId: string;
+  columns: ColumnInfo[];
+  primaryKeyColumn: string;
+  dirtyRows: Set<number>;
+  newRows: Set<number>;
+  deletedRows: Set<number>;
+  originalData: Map<string, CellValue>;
+}
+
+export interface RowOperation {
+  row: number;
+  type: 'insert' | 'update' | 'delete';
+  data?: Record<string, any>;
+  id?: string | number;
 }
 
 export interface GridData {

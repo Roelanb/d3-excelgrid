@@ -1,12 +1,29 @@
 import React, { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef, useMemo } from 'react';
 import * as d3 from 'd3';
 import { Box, Paper, TextField } from '@mui/material';
-import type { Cell, CellValue, GridData, CellFormatting, CellType, TableMetadata, SortDirection } from '../types/cell';
+import type { Cell, CellValue, GridData, CellFormatting, CellType, TableMetadata, SortDirection, DatabaseMetadata, EditModeState, DatabaseChangeLogEntry } from '../types/cell';
 import { ContextMenu } from './ContextMenu';
 import { getCellKey, getColumnLabel } from '../types/cell';
 import { copyCellsToClipboard, cutCellsToClipboard, pasteCellsFromClipboard, getSelectedCellsInRange, type ClipboardData } from '../utils/clipboard';
 import { inferCellValue, formatCellValue as formatCellValueUtil } from '../utils/dataTypeInference';
 import { TableFilterDialog } from './TableFilterDialog';
+import { DatabaseDetailsModal } from './DatabaseDetailsModal';
+import { fetchTableSchema, createRecord, updateRecord, deleteRecord } from '../services/sqlRestApi';
+
+const generateLogEntryId = (): string => {
+  const cryptoObj = typeof globalThis !== 'undefined' ? (globalThis as any).crypto : undefined;
+  if (cryptoObj?.randomUUID) {
+    return cryptoObj.randomUUID();
+  }
+  return `log-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+};
+
+const formatPrimaryKeyValue = (value: unknown): string | number | null => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' || typeof value === 'number') return value;
+  if (value instanceof Date) return value.toISOString();
+  return String(value);
+};
 
 type SelectionRange = {
   start: { row: number; col: number };
@@ -29,10 +46,18 @@ export interface ExcelGridHandle {
   getSelectedCell: () => { row: number; col: number } | null;
   getSelectedCellType: () => CellType | undefined;
   setCellType: (cellType: CellType) => void;
-  importCells: (cells: Map<string, Cell>, autoExpand?: boolean, tableMetadata?: any) => void;
+  importCells: (cells: Map<string, Cell>, autoExpand?: boolean, tableMetadata?: any, databaseMetadata?: DatabaseMetadata) => void;
   batchUpdateCells: (updates: Array<{ row: number; col: number; value: string }>) => void;
   addRows: (count: number) => void;
   addColumns: (count: number) => void;
+  // Edit mode methods
+  enterEditMode: (databaseId: string) => Promise<void>;
+  exitEditMode: (save: boolean) => Promise<void>;
+  addNewRow: () => void;
+  deleteSelectedRows: () => void;
+  saveChanges: () => Promise<{ success: number; failed: number; errors: string[] }>;
+  isInEditMode: () => boolean;
+  getEditModeState: () => EditModeState | null;
 }
 
 interface ExcelGridProps {
@@ -44,23 +69,7 @@ interface ExcelGridProps {
   headerHeight?: number;
   onSelectionChange?: (hasSelection: boolean, formatting?: CellFormatting) => void;
   onClipboardChange?: (hasClipboard: boolean) => void;
-}
-
-export interface ExcelGridHandle {
-  clearGrid: () => void;
-  setCellValue: (row: number, col: number, value: string) => void;
-  setCellRange: (startRow: number, startCol: number, endRow: number, endCol: number, value: string) => void;
-  formatCells: (formatting: Partial<CellFormatting>) => void;
-  copyCells: () => void;
-  cutCells: () => void;
-  pasteCells: () => void;
-  copyDown: () => void;
-  copyRight: () => void;
-  getSelectedFormatting: () => CellFormatting | undefined;
-  getSelectedCell: () => { row: number; col: number } | null;
-  getSelectedCellType: () => CellType | undefined;
-  setCellType: (cellType: CellType) => void;
-  importCells: (cells: Map<string, Cell>, autoExpand?: boolean, tableMetadata?: any) => void;
+  onEditModeChange?: (isEditMode: boolean) => void;
 }
 
 function ExcelGridComponent(
@@ -99,17 +108,94 @@ function ExcelGridComponent(
   const [viewport, setViewport] = useState({ startRow: 0, endRow: 50, startCol: 0, endCol: 20 });
   const [clipboardData, setClipboardData] = useState<ClipboardData | null>(null);
   const [tables, setTables] = useState<Map<string, TableMetadata>>(new Map());
+  const [databases, setDatabases] = useState<Map<string, DatabaseMetadata>>(new Map());
+  const [databaseChangeLogs, setDatabaseChangeLogs] = useState<Map<string, DatabaseChangeLogEntry[]>>(new Map());
+  const [rowErrors, setRowErrors] = useState<Map<number, string>>(new Map());
+  const [rowErrorTooltip, setRowErrorTooltip] = useState<{ row: number; x: number; y: number; message: string } | null>(null);
   const [filterDialog, setFilterDialog] = useState<{ open: boolean; tableId: string; column: number; columnName: string } | null>(null);
   const [tableHeaderCellKeys, setTableHeaderCellKeys] = useState<Map<string, string>>(new Map());
   const [selectionCellKeys, setSelectionCellKeys] = useState<Set<string>>(new Set());
   const [visibleRowsCache, setVisibleRowsCache] = useState<Map<string, Set<number>>>(new Map());
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [databaseDetailsModal, setDatabaseDetailsModal] = useState<{ open: boolean; databaseId: string | null }>({ open: false, databaseId: null });
+
+  // Edit mode state
+  const [editModeState, setEditModeState] = useState<EditModeState | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const selectionRangeRef = useRef<SelectionRange | null>(selectionRange);
   const selectionRangesRef = useRef<SelectionRange[]>(selectionRanges);
   const isDraggingRef = useRef(isDragging);
   const editValueRef = useRef<string>('');
   const renderRequestRef = useRef<number | null>(null);
+
+  const updateRowError = useCallback((rowIndex: number, message?: string) => {
+    setRowErrors((prev) => {
+      const next = new Map(prev);
+      if (message) {
+        next.set(rowIndex, message);
+      } else {
+        next.delete(rowIndex);
+      }
+      return next;
+    });
+  }, []);
+
+  const addDatabaseChangeLogEntry = useCallback(
+    (databaseId: string | undefined, entry: Omit<DatabaseChangeLogEntry, 'id' | 'timestamp'> & { timestamp?: Date }) => {
+      if (!databaseId) return;
+      setDatabaseChangeLogs(prev => {
+        const newMap = new Map(prev);
+        const existing = newMap.get(databaseId) ?? [];
+        const newEntry: DatabaseChangeLogEntry = {
+          id: generateLogEntryId(),
+          timestamp: entry.timestamp ?? new Date(),
+          operation: entry.operation,
+          primaryKey: entry.primaryKey,
+          rowIndex: entry.rowIndex,
+          details: entry.details,
+        };
+        newMap.set(databaseId, [newEntry, ...existing].slice(0, 50));
+        return newMap;
+      });
+    },
+    []
+  );
+
+  const showRowErrorTooltip = useCallback((row: number, message: string, clientX: number, clientY: number) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const scrollLeft = container.scrollLeft;
+    const scrollTop = container.scrollTop;
+    setRowErrorTooltip((prev) => {
+      if (prev && prev.row === row && prev.message === message) {
+        return null; // toggle same tooltip
+      }
+      return {
+        row,
+        message,
+        x: clientX - rect.left + scrollLeft,
+        y: clientY - rect.top + scrollTop,
+      };
+    });
+  }, []);
+
+  useEffect(() => {
+    if (rowErrorTooltip && !rowErrors.has(rowErrorTooltip.row)) {
+      setRowErrorTooltip(null);
+    }
+  }, [rowErrorTooltip, rowErrors]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const handleScroll = () => setRowErrorTooltip(null);
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   useEffect(() => {
     selectionRangeRef.current = selectionRange;
@@ -910,6 +996,54 @@ function ExcelGridComponent(
       .style('pointer-events', 'none')
       .text((d) => d + 1);
 
+    const rowErrorIndicators = rowHeaders
+      .selectAll<SVGGElement, { row: number; message: string }>('g.row-error-indicator')
+      .data(
+        (rowNumber) => {
+          const message = rowErrors.get(rowNumber);
+          return message ? [{ row: rowNumber, message }] : [];
+        },
+        (d) => `${d.row}-error`
+      )
+      .join(
+        (enter) => {
+          const group = enter.append('g').attr('class', 'row-error-indicator');
+          group.append('circle');
+          group.append('text');
+          return group;
+        },
+        (update) => update,
+        (exit) => exit.remove()
+      )
+      .attr('transform', (d) => `translate(${headerWidth - 14}, 8)`)
+      .style('cursor', 'pointer')
+      .style('pointer-events', 'all')
+      .on('mousedown', function(event) {
+        event.stopPropagation();
+      })
+      .on('click', function (event, d) {
+        event.stopPropagation();
+        showRowErrorTooltip(d.row, d.message, event.clientX, event.clientY);
+      });
+    rowErrorIndicators.raise();
+
+    rowErrorIndicators
+      .select('circle')
+      .attr('r', 7)
+      .attr('fill', '#e53935')
+      .attr('stroke', '#ffffff')
+      .attr('stroke-width', 1.5);
+
+    rowErrorIndicators
+      .select('text')
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'middle')
+      .attr('fill', '#ffffff')
+      .attr('font-weight', 'bold')
+      .attr('font-size', '12px')
+      .style('pointer-events', 'none')
+      .text('?');
+
     // Add row resize handles
     rowHeaders
       .selectAll<SVGRectElement, number>('rect.row-resize-handle')
@@ -1022,7 +1156,17 @@ function ExcelGridComponent(
 
         // Determine fill color
         let fillColor = 'white';
-        if (isInRange) {
+        let strokeColor = '#ccc';
+        let strokeWidth = 1;
+
+        // Edit mode indicators
+        if (cell?.isDeleted) {
+          fillColor = '#ffebee'; // Light red for deleted rows
+        } else if (cell?.isNew) {
+          fillColor = '#e8f5e9'; // Light green for new rows
+        } else if (cell?.isDirty) {
+          fillColor = '#fff3e0'; // Light orange for dirty cells
+        } else if (isInRange) {
           fillColor = '#bbdefb';
         } else if (isSelected) {
           fillColor = '#e3f2fd';
@@ -1030,14 +1174,28 @@ function ExcelGridComponent(
           fillColor = formatting.fillColor;
         }
 
+        if (isInRange || isSelected) {
+          strokeWidth = 2;
+        }
+
         cellGroup
           .append('rect')
           .attr('width', colWidth)
           .attr('height', rowHeight)
           .attr('fill', fillColor)
-          .attr('stroke', '#ccc')
-          .attr('stroke-width', isInRange || isSelected ? 2 : 1)
-          .style('cursor', 'cell');
+          .attr('stroke', strokeColor)
+          .attr('stroke-width', strokeWidth)
+          .style('cursor', 'cell')
+          .style('opacity', cell?.isDeleted ? 0.6 : 1);
+
+        // Add corner indicator for dirty cells
+        if (cell?.isDirty && !cell.isDeleted) {
+          cellGroup
+            .append('path')
+            .attr('d', 'M 0 0 L 8 0 L 0 8 Z')
+            .attr('fill', '#ff9800')
+            .style('pointer-events', 'none');
+        }
 
         // Add animated dashed border for copied/cut cells using CSS animation
         if (isInClipboard) {
@@ -1153,9 +1311,16 @@ function ExcelGridComponent(
             .text(formatCellValue(cell.value, formatting))
             .style('pointer-events', 'none');
 
-          // Add underline if specified
+          // Add text decoration
+          let textDecoration = '';
           if (formatting?.underline) {
-            textElement.attr('text-decoration', 'underline');
+            textDecoration = 'underline';
+          }
+          if (cell?.isDeleted) {
+            textDecoration = textDecoration ? `${textDecoration} line-through` : 'line-through';
+          }
+          if (textDecoration) {
+            textElement.attr('text-decoration', textDecoration);
           }
 
           // Add sort indicator if this is a table header
@@ -1305,7 +1470,32 @@ function ExcelGridComponent(
       .attr('fill', '#e0e0e0')
       .attr('stroke', '#ccc')
       .attr('stroke-width', 1);
-  }, [gridData.cells, selectedCell, selectionRange, selectionRanges, selectionType, editingCell, headerWidth, headerHeight, viewport, getColumnWidth, getRowHeight, getColumnX, getRowY, totalWidth, totalHeight, tables, tableHeaderCellKeys, selectionCellKeys, visibleRowsCache, isTableHeader, isRowVisible, openFilterDialog]);
+  }, [
+    gridData.cells,
+    selectedCell,
+    selectionRange,
+    selectionRanges,
+    selectionType,
+    editingCell,
+    headerWidth,
+    headerHeight,
+    viewport,
+    getColumnWidth,
+    getRowHeight,
+    getColumnX,
+    getRowY,
+    totalWidth,
+    totalHeight,
+    tables,
+    tableHeaderCellKeys,
+    selectionCellKeys,
+    visibleRowsCache,
+    isTableHeader,
+    isRowVisible,
+    openFilterDialog,
+    rowErrors,
+    showRowErrorTooltip,
+  ]);
 
   const formatCellValue = (value: CellValue, formatting?: CellFormatting): string => {
     return formatCellValueUtil(value, formatting);
@@ -1315,8 +1505,19 @@ function ExcelGridComponent(
     return inferCellValue(input);
   };
 
-  const enterEditMode = useCallback(
+  const startCellEdit = useCallback(
     (row: number, col: number, initialValue?: string) => {
+      // Check if editing is allowed for this cell
+      if (editModeState?.isActive) {
+        // Find which column this is in the table schema
+        const colName = editModeState.columns[col]?.name;
+        if (colName && colName === editModeState.primaryKeyColumn) {
+          // Don't allow editing primary key columns
+          console.log('Cannot edit primary key column');
+          return;
+        }
+      }
+
       const key = getCellKey(row, col);
       const cell = gridData.cells.get(key);
       const nextValue = initialValue !== undefined ? initialValue : cell?.value.rawValue || '';
@@ -1329,7 +1530,7 @@ function ExcelGridComponent(
       isDraggingRef.current = false;
       setIsDragging(false);
     },
-    [gridData]
+    [gridData, editModeState]
   );
 
   const saveEditingCell = useCallback(
@@ -1339,10 +1540,10 @@ function ExcelGridComponent(
       const key = getCellKey(cellToSave.row, cellToSave.col);
       const valueToSave = editValueRef.current;
       const parsedValue = parseCellValue(valueToSave);
-      
+
       // Get existing cell to preserve formatting
       const existingCell = gridData.cells.get(key);
-      
+
       const newCell: Cell = {
         row: cellToSave.row,
         col: cellToSave.col,
@@ -1356,6 +1557,34 @@ function ExcelGridComponent(
           ...newCell.formatting,
           dateFormat: parsedValue.detectedFormat,
         };
+      }
+
+      // Edit mode: Track dirty cells
+      if (editModeState?.isActive) {
+        // Check if this cell has original data (not a new row)
+        const originalValue = editModeState.originalData.get(key);
+        const isNewRow = editModeState.newRows.has(cellToSave.row);
+
+        if (!isNewRow && originalValue) {
+          // Check if value changed
+          const valueChanged = originalValue.value !== parsedValue.value;
+          if (valueChanged) {
+            newCell.isDirty = true;
+            newCell.originalValue = originalValue;
+
+            // Mark this row as dirty
+            setEditModeState(prev => {
+              if (!prev) return null;
+              const newState = { ...prev };
+              newState.dirtyRows = new Set(newState.dirtyRows);
+              newState.dirtyRows.add(cellToSave.row);
+              return newState;
+            });
+          }
+        } else if (isNewRow) {
+          // Mark cell as new
+          newCell.isNew = true;
+        }
       }
 
       setGridData((prev) => {
@@ -1376,7 +1605,7 @@ function ExcelGridComponent(
       setEditValue('');
       editValueRef.current = '';
     },
-    [gridData.cells]
+    [gridData.cells, editModeState]
   );
 
   const handleRowHeaderClick = useCallback(
@@ -1637,9 +1866,9 @@ function ExcelGridComponent(
   const handleCellDoubleClick = useCallback(
     (row: number, col: number) => {
       console.log('dblclick', row, col);
-      enterEditMode(row, col);
+      startCellEdit(row, col);
     },
-    [enterEditMode]
+    [startCellEdit]
   );
 
   const handleEditSubmit = useCallback(() => {
@@ -1872,25 +2101,19 @@ function ExcelGridComponent(
 
         setGridData((prev) => {
           const newCells = new Map(prev.cells);
-
-          // For each column in the selection
           for (let col = minCol; col <= maxCol; col++) {
-            // Get the source cell (first row)
             const sourceKey = getCellKey(minRow, col);
             const sourceCell = prev.cells.get(sourceKey);
 
-            // Copy to all rows below in the selection
             for (let row = minRow + 1; row <= maxRow; row++) {
               const targetKey = getCellKey(row, col);
               if (sourceCell) {
-                // Clone the source cell to the target row
                 newCells.set(targetKey, {
                   ...sourceCell,
                   row,
                   col,
                 });
               } else {
-                // If source is empty, clear the target
                 newCells.delete(targetKey);
               }
             }
@@ -1919,25 +2142,19 @@ function ExcelGridComponent(
 
         setGridData((prev) => {
           const newCells = new Map(prev.cells);
-
-          // For each row in the selection
           for (let row = minRow; row <= maxRow; row++) {
-            // Get the source cell (first column)
             const sourceKey = getCellKey(row, minCol);
             const sourceCell = prev.cells.get(sourceKey);
 
-            // Copy to all columns to the right in the selection
             for (let col = minCol + 1; col <= maxCol; col++) {
               const targetKey = getCellKey(row, col);
               if (sourceCell) {
-                // Clone the source cell to the target column
                 newCells.set(targetKey, {
                   ...sourceCell,
                   row,
                   col,
                 });
               } else {
-                // If source is empty, clear the target
                 newCells.delete(targetKey);
               }
             }
@@ -1972,14 +2189,14 @@ function ExcelGridComponent(
 
       event.preventDefault();
       const initialValue = isCharacterKey ? event.key : '';
-      enterEditMode(selectedCell.row, selectedCell.col, initialValue);
+      startCellEdit(selectedCell.row, selectedCell.col, initialValue);
     };
 
     document.addEventListener('keydown', handleGlobalKeyDown);
     return () => {
       document.removeEventListener('keydown', handleGlobalKeyDown);
     };
-  }, [editingCell, selectedCell, enterEditMode, getSelectedCells, gridData.cells, clipboardData, onClipboardChange]);
+  }, [editingCell, selectedCell, startCellEdit, getSelectedCells, gridData.cells, clipboardData, onClipboardChange]);
 
   // Notify parent of selection changes
   useEffect(() => {
@@ -2373,6 +2590,341 @@ function ExcelGridComponent(
     });
   }, [selectionRange, selectedCell]);
 
+  // Edit mode methods
+  const enterEditMode = useCallback(async (databaseId: string) => {
+    const dbMetadata = databases.get(databaseId);
+    if (!dbMetadata) {
+      throw new Error('Database metadata not found');
+    }
+
+    try {
+      // Fetch table schema to get column info and primary key
+      const schemaData = await fetchTableSchema(dbMetadata.schema, dbMetadata.table);
+
+      // Find primary key column
+      const pkColumn = schemaData.columns.find(col => col.isPrimaryKey);
+      if (!pkColumn) {
+        throw new Error('Table must have a primary key for edit mode');
+      }
+
+      // Initialize edit mode state
+      const newEditModeState: EditModeState = {
+        isActive: true,
+        schema: dbMetadata.schema,
+        table: dbMetadata.table,
+        databaseId,
+        columns: schemaData.columns,
+        primaryKeyColumn: pkColumn.name,
+        dirtyRows: new Set(),
+        newRows: new Set(),
+        deletedRows: new Set(),
+        originalData: new Map(),
+      };
+
+      // Store original values for all cells in the table
+      const startRow = dbMetadata.startRow;
+      gridData.cells.forEach((cell, key) => {
+        if (cell.row >= startRow && cell.databaseMetadata?.id === databaseId) {
+          newEditModeState.originalData.set(key, { ...cell.value });
+        }
+      });
+
+      setEditModeState(newEditModeState);
+      props.onEditModeChange?.(true);
+    } catch (error) {
+      console.error('Failed to enter edit mode:', error);
+      throw error;
+    }
+  }, [databases, gridData.cells, props]);
+
+  const saveChanges = useCallback(async () => {
+    if (!editModeState || isSaving) {
+      return { success: 0, failed: 0, errors: [] };
+    }
+
+    setIsSaving(true);
+    const results = { success: 0, failed: 0, errors: [] as string[] };
+
+    try {
+      const { schema, table, columns, primaryKeyColumn, databaseId } = editModeState;
+
+      // Get column name to index mapping
+      const colNameToIndex = new Map<string, number>();
+      columns.forEach((col, index) => {
+        colNameToIndex.set(col.name, index);
+      });
+
+      const pkColIndex = colNameToIndex.get(primaryKeyColumn);
+      if (pkColIndex === undefined) {
+        throw new Error('Primary key column not found in table data');
+      }
+
+      // Process deletions
+      for (const rowIndex of editModeState.deletedRows) {
+        if (editModeState.newRows.has(rowIndex)) {
+          // Skip new rows that were deleted (just remove from grid)
+          continue;
+        }
+
+        try {
+          const pkCell = gridData.cells.get(getCellKey(rowIndex, pkColIndex));
+          if (pkCell) {
+            const pkValue = pkCell.value.value;
+            const normalizedPk = formatPrimaryKeyValue(pkValue);
+            await deleteRecord(schema, table, String(pkValue));
+            results.success++;
+            addDatabaseChangeLogEntry(databaseId, {
+              operation: 'delete',
+              primaryKey: normalizedPk,
+              rowIndex,
+              details: { schema, table },
+            });
+            updateRowError(rowIndex);
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          results.failed++;
+          results.errors.push(`Row ${rowIndex}: ${errorMessage}`);
+          updateRowError(rowIndex, errorMessage);
+        }
+      }
+
+      // Process new rows (inserts)
+      for (const rowIndex of editModeState.newRows) {
+        if (editModeState.deletedRows.has(rowIndex)) {
+          continue; // Skip deleted new rows
+        }
+
+        try {
+          const rowData: Record<string, any> = {};
+          columns.forEach((col, colIdx) => {
+            if (col.isPrimaryKey) return; // Skip PK, it's auto-generated
+
+            const cell = gridData.cells.get(getCellKey(rowIndex, colIdx));
+            if (cell && cell.value.value !== '') {
+              rowData[col.name] = cell.value.value;
+            }
+          });
+
+          const createdRecord = await createRecord(schema, table, rowData);
+          const createdPk = createdRecord?.[primaryKeyColumn as keyof typeof createdRecord];
+          const normalizedPk = formatPrimaryKeyValue(createdPk);
+          results.success++;
+          addDatabaseChangeLogEntry(databaseId, {
+            operation: 'insert',
+            primaryKey: normalizedPk,
+            rowIndex,
+            details: rowData,
+          });
+          updateRowError(rowIndex);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          results.failed++;
+          results.errors.push(`New row ${rowIndex}: ${errorMessage}`);
+          updateRowError(rowIndex, errorMessage);
+        }
+      }
+
+      // Process updates (dirty rows)
+      for (const rowIndex of editModeState.dirtyRows) {
+        if (editModeState.newRows.has(rowIndex) || editModeState.deletedRows.has(rowIndex)) {
+          continue; // Skip new or deleted rows
+        }
+
+        try {
+          const pkCell = gridData.cells.get(getCellKey(rowIndex, pkColIndex));
+          if (!pkCell) continue;
+
+          const pkValue = pkCell.value.value;
+          const normalizedPk = formatPrimaryKeyValue(pkValue);
+          const rowData: Record<string, any> = {};
+
+          columns.forEach((col, colIdx) => {
+            if (col.isPrimaryKey) return; // Skip PK
+
+            const cell = gridData.cells.get(getCellKey(rowIndex, colIdx));
+            if (cell && cell.isDirty) {
+              rowData[col.name] = cell.value.value;
+            }
+          });
+
+          if (Object.keys(rowData).length > 0) {
+            await updateRecord(schema, table, String(pkValue), rowData);
+            results.success++;
+            addDatabaseChangeLogEntry(databaseId, {
+              operation: 'update',
+              primaryKey: normalizedPk,
+              rowIndex,
+              details: rowData,
+            });
+            updateRowError(rowIndex);
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          results.failed++;
+          results.errors.push(`Row ${rowIndex}: ${errorMessage}`);
+          updateRowError(rowIndex, errorMessage);
+        }
+      }
+
+      // Clear dirty flags after successful save
+      if (results.failed === 0) {
+        setEditModeState(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            dirtyRows: new Set(),
+            newRows: new Set(),
+            deletedRows: new Set(),
+            originalData: new Map(),
+          };
+        });
+
+        setGridData((prev) => {
+          const newCells = new Map(prev.cells);
+          newCells.forEach((cell, key) => {
+            if (cell.isDirty || cell.isNew || cell.isDeleted) {
+              const cleanCell = { ...cell };
+              delete cleanCell.isDirty;
+              delete cleanCell.isNew;
+              delete cleanCell.isDeleted;
+              delete cleanCell.originalValue;
+              newCells.set(key, cleanCell);
+            }
+          });
+          return { ...prev, cells: newCells };
+        });
+      }
+
+      return results;
+    } catch (error) {
+      results.errors.push(`Save failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return results;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [editModeState, isSaving, gridData.cells, addDatabaseChangeLogEntry, updateRowError]);
+
+  const exitEditMode = useCallback(async (save: boolean) => {
+    if (!editModeState) return;
+
+    if (save) {
+      await saveChanges();
+    }
+
+    // Clear dirty flags from all cells
+    setGridData((prev) => {
+      const newCells = new Map(prev.cells);
+      newCells.forEach((cell, key) => {
+        if (cell.isDirty || cell.isNew || cell.isDeleted) {
+          const cleanCell = { ...cell };
+          delete cleanCell.isDirty;
+          delete cleanCell.isNew;
+          delete cleanCell.isDeleted;
+          delete cleanCell.originalValue;
+          newCells.set(key, cleanCell);
+        }
+      });
+      return { ...prev, cells: newCells };
+    });
+
+    setEditModeState(null);
+    setRowErrors(new Map());
+    setRowErrorTooltip(null);
+    props.onEditModeChange?.(false);
+  }, [editModeState, props, saveChanges]);
+
+  const addNewRow = useCallback(() => {
+    if (!editModeState) return;
+
+    // Find the database metadata
+    const dbMetadata = Array.from(databases.values()).find(
+      db => db.schema === editModeState.schema && db.table === editModeState.table
+    );
+    if (!dbMetadata) return;
+
+    // Add row at the end of the current grid
+    const newRowIndex = gridData.rowCount;
+
+    // Create empty cells for the new row
+    setGridData((prev) => {
+      const newCells = new Map(prev.cells);
+
+      // Add cells for each column in the table (based on column count from first header row)
+      const colCount = editModeState.columns.length;
+
+      for (let col = 0; col < colCount; col++) {
+        const key = getCellKey(newRowIndex, col);
+        newCells.set(key, {
+          row: newRowIndex,
+          col,
+          value: { type: 'text', value: '', rawValue: '' },
+          isNew: true,
+          databaseMetadata: dbMetadata,
+        });
+      }
+
+      return {
+        ...prev,
+        cells: newCells,
+        rowCount: Math.max(prev.rowCount, newRowIndex + 1),
+      };
+    });
+
+    // Mark this row as new
+    setEditModeState(prev => {
+      if (!prev) return null;
+      const newState = { ...prev };
+      newState.newRows = new Set(newState.newRows);
+      newState.newRows.add(newRowIndex);
+      return newState;
+    });
+  }, [editModeState, databases, gridData.rowCount]);
+
+  const deleteSelectedRows = useCallback(() => {
+    if (!editModeState || !selectionRange) return;
+
+    const minRow = Math.min(selectionRange.start.row, selectionRange.end.row);
+    const maxRow = Math.max(selectionRange.start.row, selectionRange.end.row);
+
+    setGridData((prev) => {
+      const newCells = new Map(prev.cells);
+
+      // Mark cells in deleted rows
+      for (let row = minRow; row <= maxRow; row++) {
+        for (let col = 0; col < prev.colCount; col++) {
+          const key = getCellKey(row, col);
+          const cell = newCells.get(key);
+          if (cell) {
+            newCells.set(key, { ...cell, isDeleted: true });
+          }
+        }
+      }
+
+      return { ...prev, cells: newCells };
+    });
+
+    // Update edit mode state
+    setEditModeState(prev => {
+      if (!prev) return null;
+      const newState = { ...prev };
+      newState.deletedRows = new Set(newState.deletedRows);
+      for (let row = minRow; row <= maxRow; row++) {
+        newState.deletedRows.add(row);
+      }
+      return newState;
+    });
+  }, [editModeState, selectionRange]);
+
+
+  const isInEditMode = useCallback(() => {
+    return editModeState?.isActive ?? false;
+  }, [editModeState]);
+
+  const getEditModeState = useCallback(() => {
+    return editModeState;
+  }, [editModeState]);
+
   // Expose API methods via ref
   useImperativeHandle(ref, () => ({
     clearGrid: () => {
@@ -2380,6 +2932,10 @@ function ExcelGridComponent(
         ...prev,
         cells: new Map(),
       }));
+      setTables(new Map());
+      setDatabases(new Map());
+      setRowErrors(new Map());
+      setRowErrorTooltip(null);
       setEditingCell(null);
       setEditValue('');
       editValueRef.current = '';
@@ -2641,7 +3197,7 @@ function ExcelGridComponent(
         return { ...prev, cells: newCells };
       });
     },
-    importCells: (cells: Map<string, Cell>, autoExpand = true, tableMetadata?: any) => {
+    importCells: (cells: Map<string, Cell>, autoExpand = true, tableMetadata?: any, databaseMetadata?: DatabaseMetadata) => {
       setGridData((prev) => {
         const newCells = new Map(prev.cells);
         let maxRow = prev.rowCount;
@@ -2686,6 +3242,15 @@ function ExcelGridComponent(
             hasHeader: tableMetadata.hasHeader,
           });
           return newTables;
+        });
+      }
+
+      // Add database metadata if provided
+      if (databaseMetadata) {
+        setDatabases(prev => {
+          const newDatabases = new Map(prev);
+          newDatabases.set(databaseMetadata.id, databaseMetadata);
+          return newDatabases;
         });
       }
     },
@@ -2805,12 +3370,20 @@ function ExcelGridComponent(
         };
       });
     },
-  }), [getSelectedCells, gridData.cells, clipboardData, selectedCell, onClipboardChange, gridData.colCount, gridData.rowCount, parseCellValue]);
+    // Edit mode methods
+    enterEditMode,
+    exitEditMode,
+    addNewRow,
+    deleteSelectedRows,
+    saveChanges,
+    isInEditMode,
+    getEditModeState,
+  }), [getSelectedCells, gridData.cells, clipboardData, selectedCell, onClipboardChange, gridData.colCount, gridData.rowCount, parseCellValue, enterEditMode, exitEditMode, addNewRow, deleteSelectedRows, saveChanges, isInEditMode, getEditModeState]);
 
   return (
     <Paper elevation={3} sx={{ p: 2, position: 'relative', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
       <Box ref={containerRef} sx={{ position: 'relative', userSelect: 'none', overflow: 'auto', flex: 1 }}>
-        <svg ref={svgRef} />
+        <svg ref={svgRef} width={totalWidth} height={totalHeight} style={{ display: 'block', width: '100%', height: '100%' }} />
         {editingCell && (
           <TextField
             autoFocus
@@ -2900,6 +3473,38 @@ function ExcelGridComponent(
           />
         )}
       </Box>
+      
+      {/* Corner cell indicator for database data */}
+      {databases.size > 0 && Array.from(databases.values()).map((db) => (
+        <Box
+          key={db.id}
+          sx={{
+            position: 'absolute',
+            top: getRowY(db.startRow) + 1,
+            left: getColumnX(db.startCol) + 1,
+            width: 0,
+            height: 0,
+            borderLeft: '10px solid transparent',
+            borderTop: '10px solid #4caf50',
+            cursor: 'pointer',
+            zIndex: 10,
+            pointerEvents: 'auto',
+            '&:hover': {
+              borderTop: '10px solid #66bb6a',
+            },
+          }}
+          onClick={() => setDatabaseDetailsModal({ open: true, databaseId: db.id })}
+          title={`Database: ${db.displayName} - Click to view details`}
+        />
+      ))}
+      
+      {/* Database Details Modal */}
+      <DatabaseDetailsModal
+        open={databaseDetailsModal.open}
+        onClose={() => setDatabaseDetailsModal({ open: false, databaseId: null })}
+        databaseMetadata={databaseDetailsModal.databaseId ? databases.get(databaseDetailsModal.databaseId) || null : null}
+        changeLog={databaseDetailsModal.databaseId ? databaseChangeLogs.get(databaseDetailsModal.databaseId) || [] : []}
+      />
     </Paper>
   );
 }

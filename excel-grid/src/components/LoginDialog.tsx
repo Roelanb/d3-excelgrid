@@ -56,6 +56,11 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
     }
   };
 
+  const handleUseDefaultCredentials = () => {
+    setUsername('admin');
+    setPassword('admin');
+  };
+
   return (
     <Dialog 
       open={open} 
@@ -147,15 +152,39 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({
                 p: 2, 
                 borderRadius: 2,
                 border: '1px solid',
-                borderColor: 'info.light'
+                borderColor: 'info.light',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1
               }}
             >
               <Typography variant="body2" color="info.dark" sx={{ fontWeight: 500 }}>
                 💡 Default Credentials
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+              <Typography variant="caption" color="text.secondary">
                 Username: <strong>admin</strong> | Password: <strong>admin</strong>
               </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={handleUseDefaultCredentials}
+                disabled={isLoading}
+                sx={{
+                  mt: 0.5,
+                  borderRadius: 1.5,
+                  textTransform: 'none',
+                  fontSize: '0.75rem',
+                  py: 0.5,
+                  borderColor: 'info.main',
+                  color: 'info.dark',
+                  '&:hover': {
+                    borderColor: 'info.dark',
+                    bgcolor: 'info.light'
+                  }
+                }}
+              >
+                Use Default Credentials
+              </Button>
             </Box>
           </Box>
         </DialogContent>

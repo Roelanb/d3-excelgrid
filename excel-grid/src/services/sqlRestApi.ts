@@ -1,5 +1,6 @@
 // SQL REST API service
 import { authService } from './authService';
+import type { ColumnInfo } from '../types/cell';
 
 // Runtime config injected by Cloudflare Worker
 declare global {
@@ -14,7 +15,7 @@ declare global {
 export function getApiBaseUrl(): string {
   // In development, use local ASP.NET Core server
   if (import.meta.env.DEV) {
-    return 'https://restapi-excelgrid-ekc3gfh2hyfmezhg.northeurope-01.azurewebsites.net';
+    return 'http://localhost:5000';
   }
   
   // In production, use runtime config injected by Cloudflare Worker
@@ -234,4 +235,177 @@ export function getUniqueSchemas(schemasTables: SchemaTable[]): string[] {
 
 export function getTablesForSchema(schema: string, schemasTables: SchemaTable[]): SchemaTable[] {
   return schemasTables.filter(st => st.schema === schema);
+}
+
+/**
+ * Fetch table schema including column information and primary keys
+ */
+export async function fetchTableSchema(
+  schema: string,
+  table: string
+): Promise<{ schema: string; table: string; columns: ColumnInfo[] }> {
+  const authHeader = authService.getAuthHeader();
+  if (!authHeader.Authorization) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/tables/${schema}/${table}/schema`,
+    {
+      headers: {
+        ...authHeader,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      authService.logout();
+      throw new Error('Authentication expired. Please log in again.');
+    }
+    throw new Error(`Failed to fetch table schema: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Create a new record in the specified table
+ */
+export async function createRecord(
+  schema: string,
+  table: string,
+  data: Record<string, any>
+): Promise<Record<string, any>> {
+  const authHeader = authService.getAuthHeader();
+  if (!authHeader.Authorization) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(`${getApiBaseUrl()}/api/${schema}/${table}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeader,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      authService.logout();
+      throw new Error('Authentication expired. Please log in again.');
+    }
+    const errorText = await response.text();
+    throw new Error(`Failed to create record: ${response.statusText} - ${errorText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Update an existing record in the specified table
+ */
+export async function updateRecord(
+  schema: string,
+  table: string,
+  id: string | number,
+  data: Record<string, any>
+): Promise<Record<string, any>> {
+  const authHeader = authService.getAuthHeader();
+  if (!authHeader.Authorization) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/${schema}/${table}/${id}`,
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeader,
+      },
+      body: JSON.stringify(data),
+    }
+  );
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      authService.logout();
+      throw new Error('Authentication expired. Please log in again.');
+    }
+    const errorText = await response.text();
+    throw new Error(`Failed to update record: ${response.statusText} - ${errorText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Delete a record from the specified table
+ */
+export async function deleteRecord(
+  schema: string,
+  table: string,
+  id: string | number
+): Promise<void> {
+  const authHeader = authService.getAuthHeader();
+  if (!authHeader.Authorization) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/${schema}/${table}/${id}`,
+    {
+      method: 'DELETE',
+      headers: {
+        ...authHeader,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      authService.logout();
+      throw new Error('Authentication expired. Please log in again.');
+    }
+    const errorText = await response.text();
+    throw new Error(`Failed to delete record: ${response.statusText} - ${errorText}`);
+  }
+}
+
+/**
+ * Get a single record by ID
+ */
+export async function getRecordById(
+  schema: string,
+  table: string,
+  id: string | number
+): Promise<Record<string, any>> {
+  const authHeader = authService.getAuthHeader();
+  if (!authHeader.Authorization) {
+    throw new Error('Authentication required');
+  }
+
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/${schema}/${table}/${id}`,
+    {
+      headers: {
+        ...authHeader,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      authService.logout();
+      throw new Error('Authentication expired. Please log in again.');
+    }
+    if (response.status === 404) {
+      throw new Error(`Record not found: ID ${id}`);
+    }
+    throw new Error(`Failed to fetch record: ${response.statusText}`);
+  }
+
+  return response.json();
 }
