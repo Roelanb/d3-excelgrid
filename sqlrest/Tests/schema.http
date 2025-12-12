@@ -1,0 +1,7 @@
+### Get Schema for Person.Address
+GET http://localhost:5000/api/tables/Person/Address/schema
+Accept: application/json
+
+### Get Schema for Production.UnitMeasure
+GET http://localhost:5000/api/tables/Production/UnitMeasure/schema
+Accept: application/json

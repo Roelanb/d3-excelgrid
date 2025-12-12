@@ -1,5 +1,7 @@
 using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Data.Common;
+using System.Globalization;
 using System.Text.Json;
 
 namespace SqlRest.Services;
@@ -41,6 +43,70 @@ public class DatabaseService
         }
     }
 
+    public async Task<List<StoredProcedureParameterInfo>> GetStoredProcedureParametersAsync(string schema, string procedure)
+    {
+        try
+        {
+            _logger.LogInformation("Getting stored procedure parameters for {Schema}.{Procedure}", schema, procedure);
+            var parameters = new List<StoredProcedureParameterInfo>();
+
+            using var connection = await GetConnectionAsync();
+            using var command = new SqlCommand(@"
+            SELECT
+                p.name AS ParameterName,
+                CASE
+                    WHEN t.is_user_defined = 1 THEN CONCAT(ts.name, '.', t.name)
+                    ELSE t.name
+                END AS TypeName,
+                p.max_length,
+                p.precision,
+                p.scale,
+                p.is_output,
+                p.is_readonly,
+                p.is_nullable,
+                p.has_default_value,
+                p.parameter_id
+            FROM sys.parameters p
+            INNER JOIN sys.objects o ON p.object_id = o.object_id
+            INNER JOIN sys.schemas s ON o.schema_id = s.schema_id
+            INNER JOIN sys.types t ON p.user_type_id = t.user_type_id
+            LEFT JOIN sys.schemas ts ON t.schema_id = ts.schema_id
+            WHERE o.type = 'P'
+              AND s.name = @Schema
+              AND o.name = @Procedure
+            ORDER BY p.parameter_id;", connection);
+
+            command.Parameters.AddWithValue("@Schema", schema);
+            command.Parameters.AddWithValue("@Procedure", procedure);
+
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                parameters.Add(new StoredProcedureParameterInfo
+                {
+                    Name = reader.GetString(0),
+                    Type = reader.GetString(1),
+                    MaxLength = reader.IsDBNull(2) ? null : reader.GetInt16(2),
+                    Precision = reader.IsDBNull(3) ? null : reader.GetByte(3),
+                    Scale = reader.IsDBNull(4) ? null : reader.GetByte(4),
+                    IsOutput = !reader.IsDBNull(5) && reader.GetBoolean(5),
+                    IsReadOnly = !reader.IsDBNull(6) && reader.GetBoolean(6),
+                    IsNullable = !reader.IsDBNull(7) && reader.GetBoolean(7),
+                    HasDefaultValue = !reader.IsDBNull(8) && reader.GetBoolean(8),
+                    Ordinal = reader.GetInt32(9)
+                });
+            }
+
+            _logger.LogInformation("Returning {Count} stored procedure parameters for {Schema}.{Procedure}", parameters.Count, schema, procedure);
+            return parameters;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving stored procedure parameters for {Schema}.{Procedure}", schema, procedure);
+            throw;
+        }
+    }
+
     public async Task<List<TableInfo>> GetAllTablesAsync()
     {
         try
@@ -78,46 +144,174 @@ public class DatabaseService
         }
     }
 
-    public async Task<List<ColumnInfo>> GetTableColumnsAsync(string schema, string table)
+    public async Task<List<TableInfo>> GetAllViewsAsync()
     {
-        var columns = new List<ColumnInfo>();
-        
-        using var connection = await GetConnectionAsync();
-        using var command = new SqlCommand(@"
-            SELECT 
-                c.COLUMN_NAME,
-                c.DATA_TYPE,
-                c.IS_NULLABLE,
-                CASE WHEN pk.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END AS IS_PRIMARY_KEY
-            FROM INFORMATION_SCHEMA.COLUMNS c
-            LEFT JOIN (
-                SELECT ku.TABLE_SCHEMA, ku.TABLE_NAME, ku.COLUMN_NAME
-                FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
-                INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku
-                    ON tc.CONSTRAINT_TYPE = 'PRIMARY KEY' 
-                    AND tc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME
-            ) pk ON c.TABLE_SCHEMA = pk.TABLE_SCHEMA 
-                AND c.TABLE_NAME = pk.TABLE_NAME 
-                AND c.COLUMN_NAME = pk.COLUMN_NAME
-            WHERE c.TABLE_SCHEMA = @Schema AND c.TABLE_NAME = @Table
-            ORDER BY c.ORDINAL_POSITION", connection);
-
-        command.Parameters.AddWithValue("@Schema", schema);
-        command.Parameters.AddWithValue("@Table", table);
-
-        using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
+        try
         {
-            columns.Add(new ColumnInfo
+            _logger.LogInformation("Getting all views from database");
+            var views = new List<TableInfo>();
+
+            using var connection = await GetConnectionAsync();
+            using var command = new SqlCommand(@"
+            SELECT 
+                TABLE_SCHEMA,
+                TABLE_NAME
+            FROM INFORMATION_SCHEMA.VIEWS
+            ORDER BY TABLE_SCHEMA, TABLE_NAME", connection);
+
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
-                Name = reader.GetString(0),
-                Type = reader.GetString(1),
-                IsNullable = reader.GetString(2) == "YES",
-                IsPrimaryKey = reader.GetInt32(3) == 1
-            });
+                views.Add(new TableInfo
+                {
+                    Schema = reader.GetString(0),
+                    Name = reader.GetString(1),
+                    FullName = $"{reader.GetString(0)}.{reader.GetString(1)}"
+                });
+            }
+
+            _logger.LogInformation("Successfully retrieved {ViewCount} views from database", views.Count);
+            return views;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving views from database");
+            throw;
+        }
+    }
+
+    public async Task<List<StoredProcedureInfo>> GetAllStoredProceduresAsync()
+    {
+        try
+        {
+            _logger.LogInformation("Getting all stored procedures from database");
+            var sprocs = new List<StoredProcedureInfo>();
+
+            using var connection = await GetConnectionAsync();
+            using var command = new SqlCommand(@"
+            SELECT
+                s.name AS SchemaName,
+                p.name AS ProcedureName
+            FROM sys.procedures p
+            INNER JOIN sys.schemas s ON p.schema_id = s.schema_id
+            ORDER BY s.name, p.name", connection);
+
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                var schema = reader.GetString(0);
+                var name = reader.GetString(1);
+                sprocs.Add(new StoredProcedureInfo
+                {
+                    Schema = schema,
+                    Name = name,
+                    FullName = $"{schema}.{name}"
+                });
+            }
+
+            _logger.LogInformation("Successfully retrieved {ProcedureCount} stored procedures from database", sprocs.Count);
+            return sprocs;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving stored procedures from database");
+            throw;
+        }
+    }
+
+    public async Task<List<List<Dictionary<string, object?>>>> ExecuteStoredProcedureAsync(
+        string schema,
+        string procedure,
+        Dictionary<string, string?> parameters)
+    {
+        using var connection = await GetConnectionAsync();
+        using var command = new SqlCommand($"[{schema}].[{procedure}]", connection)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+
+        foreach (var kvp in parameters)
+        {
+            var rawName = kvp.Key;
+            var name = rawName.StartsWith('@') ? rawName : "@" + rawName;
+            var value = kvp.Value;
+            command.Parameters.AddWithValue(name, ParseStringParameter(value) ?? DBNull.Value);
         }
 
-        return columns;
+        var resultSets = new List<List<Dictionary<string, object?>>>();
+        using var reader = await command.ExecuteReaderAsync();
+
+        do
+        {
+            var rows = new List<Dictionary<string, object?>>();
+            while (await reader.ReadAsync())
+            {
+                var row = new Dictionary<string, object?>();
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    row[reader.GetName(i)] = reader.IsDBNull(i) ? null : NormalizeParameterValue(reader.GetValue(i));
+                }
+                rows.Add(row);
+            }
+            resultSets.Add(rows);
+        }
+        while (await reader.NextResultAsync());
+
+        return resultSets;
+    }
+
+    public async Task<List<List<StoredProcedureResultColumnInfo>>> GetStoredProcedureResultSchemaAsync(
+        string schema,
+        string procedure,
+        Dictionary<string, string?> parameters)
+    {
+        using var connection = await GetConnectionAsync();
+        using var command = new SqlCommand($"[{schema}].[{procedure}]", connection)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+
+        foreach (var kvp in parameters)
+        {
+            var rawName = kvp.Key;
+            var name = rawName.StartsWith('@') ? rawName : "@" + rawName;
+            var value = kvp.Value;
+            command.Parameters.AddWithValue(name, ParseStringParameter(value) ?? DBNull.Value);
+        }
+
+        var resultSets = new List<List<StoredProcedureResultColumnInfo>>();
+        using var reader = await command.ExecuteReaderAsync(CommandBehavior.SchemaOnly);
+
+        do
+        {
+            var schemaColumns = reader.GetColumnSchema();
+            var columns = schemaColumns
+                .Select(MapDbColumn)
+                .ToList();
+            resultSets.Add(columns);
+        }
+        while (await reader.NextResultAsync());
+
+        return resultSets;
+    }
+
+    private static StoredProcedureResultColumnInfo MapDbColumn(DbColumn column)
+    {
+        return new StoredProcedureResultColumnInfo
+        {
+            Name = column.ColumnName ?? string.Empty,
+            DataTypeName = column.DataTypeName,
+            AllowDBNull = column.AllowDBNull,
+            ColumnOrdinal = column.ColumnOrdinal,
+            ColumnSize = column.ColumnSize,
+            NumericPrecision = column.NumericPrecision.HasValue ? (byte?)column.NumericPrecision.Value : null,
+            NumericScale = column.NumericScale
+        };
+    }
+
+    public async Task<List<ColumnInfo>> GetTableColumnsAsync(string schema, string table)
+    {
+        return await GetColumnsInternalAsync(schema, table);
     }
 
     public async Task<PaginatedResponse<Dictionary<string, object?>>> GetRecordsAsync(
@@ -142,7 +336,10 @@ public class DatabaseService
             {
                 countCommand.Parameters.AddWithValue("@Search", $"%{search}%");
             }
-            totalCount = (int)await countCommand.ExecuteScalarAsync()!;
+            var scalar = await countCommand.ExecuteScalarAsync();
+            totalCount = scalar is null || scalar is DBNull
+                ? 0
+                : Convert.ToInt32(scalar, CultureInfo.InvariantCulture);
         }
 
         // Get data
@@ -252,7 +449,7 @@ public class DatabaseService
             throw new InvalidOperationException("Failed to create record", ex);
         }
 
-        return null;
+        throw new InvalidOperationException("Failed to create record");
     }
 
     public async Task<Dictionary<string, object?>> UpdateRecordAsync(string schema, string table, string id, Dictionary<string, object?> data)
@@ -389,19 +586,83 @@ public class DatabaseService
         return value;
     }
 
+    private static object? ParseStringParameter(string? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        if (string.Equals(trimmed, "null", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        if (bool.TryParse(trimmed, out var boolValue))
+        {
+            return boolValue;
+        }
+
+        if (int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
+        {
+            return intValue;
+        }
+
+        if (long.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue))
+        {
+            return longValue;
+        }
+
+        if (decimal.TryParse(trimmed, NumberStyles.Number, CultureInfo.InvariantCulture, out var decimalValue))
+        {
+            return decimalValue;
+        }
+
+        if (Guid.TryParse(trimmed, out var guidValue))
+        {
+            return guidValue;
+        }
+
+        if (DateTime.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dateTimeValue))
+        {
+            return dateTimeValue;
+        }
+
+        return trimmed;
+    }
+
     public async Task<TableSchema> GetTableSchemaAsync(string schema, string table)
+    {
+        var columns = await GetColumnsInternalAsync(schema, table);
+        
+        return new TableSchema
+        {
+            Schema = schema,
+            Table = table,
+            Columns = columns
+        };
+    }
+    private async Task<List<ColumnInfo>> GetColumnsInternalAsync(string schema, string table)
     {
         using var connection = await GetConnectionAsync();
         
         var columns = new List<ColumnInfo>();
         
-        // Query to get column information including primary keys
         var query = @"
             SELECT 
                 c.COLUMN_NAME as Name,
                 c.DATA_TYPE as Type,
                 c.IS_NULLABLE as IsNullable,
-                CASE WHEN pk.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END as IsPrimaryKey
+                CASE WHEN pk.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END as IsPrimaryKey,
+                c.CHARACTER_MAXIMUM_LENGTH as MaxLength,
+                c.NUMERIC_PRECISION as Precision,
+                c.NUMERIC_SCALE as Scale
             FROM INFORMATION_SCHEMA.COLUMNS c
             LEFT JOIN (
                 SELECT ku.TABLE_CATALOG, ku.TABLE_SCHEMA, ku.TABLE_NAME, ku.COLUMN_NAME
@@ -429,16 +690,14 @@ public class DatabaseService
                 Name = reader.GetString(0),
                 Type = reader.GetString(1),
                 IsNullable = reader.GetString(2) == "YES",
-                IsPrimaryKey = reader.GetInt32(3) == 1
+                IsPrimaryKey = reader.GetInt32(3) == 1,
+                MaxLength = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                Precision = reader.IsDBNull(5) ? null : reader.GetByte(5),
+                Scale = reader.IsDBNull(6) ? null : reader.GetInt32(6)
             });
         }
-        
-        return new TableSchema
-        {
-            Schema = schema,
-            Table = table,
-            Columns = columns
-        };
+
+        return columns;
     }
 }
 
@@ -449,12 +708,47 @@ public record TableInfo
     public required string FullName { get; init; }
 }
 
+public record StoredProcedureInfo
+{
+    public required string Schema { get; init; }
+    public required string Name { get; init; }
+    public required string FullName { get; init; }
+}
+
+public record StoredProcedureParameterInfo
+{
+    public required string Name { get; init; }
+    public required string Type { get; init; }
+    public short? MaxLength { get; init; }
+    public byte? Precision { get; init; }
+    public byte? Scale { get; init; }
+    public required bool IsOutput { get; init; }
+    public required bool IsReadOnly { get; init; }
+    public required bool IsNullable { get; init; }
+    public required bool HasDefaultValue { get; init; }
+    public required int Ordinal { get; init; }
+}
+
+public record StoredProcedureResultColumnInfo
+{
+    public required string Name { get; init; }
+    public string? DataTypeName { get; init; }
+    public bool? AllowDBNull { get; init; }
+    public int? ColumnOrdinal { get; init; }
+    public int? ColumnSize { get; init; }
+    public int? NumericPrecision { get; init; }
+    public int? NumericScale { get; init; }
+}
+
 public record ColumnInfo
 {
     public required string Name { get; init; }
     public required string Type { get; init; }
     public required bool IsNullable { get; init; }
     public required bool IsPrimaryKey { get; init; }
+    public int? MaxLength { get; init; }
+    public int? Precision { get; init; }
+    public int? Scale { get; init; }
 }
 
 public record TableSchema

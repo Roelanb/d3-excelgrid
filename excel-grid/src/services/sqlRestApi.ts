@@ -193,9 +193,28 @@ export async function fetchTableData(
   schema: string,
   table: string,
   page: number = 1,
-  pageSize: number = 100
+  pageSize: number = 100,
+  sortColumn?: string,
+  sortDirection?: 'asc' | 'desc',
+  filters?: Array<{ column: string; values: string[] }>
 ): Promise<PaginatedResponse<Record<string, any>>> {
-  const url = `${getApiBaseUrl()}/api/${schema}/${table}?page=${page}&pageSize=${pageSize}`;
+  const params = new URLSearchParams({
+    page: page.toString(),
+    pageSize: pageSize.toString(),
+  });
+
+  if (sortColumn && sortDirection) {
+    params.set('sort', `${sortColumn}:${sortDirection}`);
+  }
+
+  if (filters && filters.length > 0) {
+    const filterString = filters
+      .map(filter => `${filter.column}:${filter.values.join('|')}`)
+      .join(';');
+    params.set('filters', filterString);
+  }
+
+  const url = `${getApiBaseUrl()}/api/${schema}/${table}?${params.toString()}`;
 
   const authHeader = authService.getAuthHeader();
   if (!authHeader.Authorization) {

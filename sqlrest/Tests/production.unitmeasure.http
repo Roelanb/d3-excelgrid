@@ -3,7 +3,7 @@
 ### Generated on 2025-11-15 08:32:19 UTC
 
 @baseUrl = http://localhost:5000
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiI4OGIwOTY0MC01YjEwLTQ4YjQtYmJjNC05ODQzMGZjMGY4ODgiLCJleHAiOjE3NjMyMDI1NjgsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.WhcNR-gDgsj0YPzLDJn9SWnHnZ62XwYc5eL_gybyKZE
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiJmOWFmZGJhYS0zZWI5LTRmN2UtOWUxNC1mZDcxMGJjZjY0OTkiLCJleHAiOjE3NjM4ODY2MDYsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.EIq171Wu66AWFxtUfIQKj8gXjUVlLEAtDPU1OCbP8tM
 
 ### 1. Get All Records (Paginated)
 GET {{baseUrl}}/api/Production/UnitMeasure?page=1&pageSize=10

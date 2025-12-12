@@ -9,7 +9,7 @@
 
 
 # Replace with token from login response
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiIwMTMxMWMyMy0wMWVlLTQ4NGMtOTNhZS0yMGZlNTEyY2ZkZTQiLCJleHAiOjE3NjMzNjkyNzksImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.SMhIVlIv6z--OV8c8y7_-AHAhx4zywqlt8_IARiHrNw
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiI5NjE2ZGFmYy0xNWQxLTRhYmQtOWU1ZC1mMTA4M2NhZjM5ZjAiLCJleHAiOjE3NjU1NDk1MDQsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.xHF21aF3XwbXfCwtNZIwtbgtLUL4WoKXOx0kjr_xN-A
 
 ###############################################################################
 ### 1. Health Check (Public)
@@ -31,6 +31,39 @@ Content-Type: application/json
 ### 3. Get All Tables (Protected)
 ###############################################################################
 GET {{baseUrl}}/api/tables
+Authorization: Bearer {{token}}
+
+###############################################################################
+### 3a. Get All Views (Protected)
+###############################################################################
+GET {{baseUrl}}/api/views
+Authorization: Bearer {{token}}
+
+###############################################################################
+### 3b. Get All Stored Procedures (Protected)
+###############################################################################
+GET {{baseUrl}}/api/stored-procedures
+Authorization: Bearer {{token}}
+
+###############################################################################
+### 3c. Execute Stored Procedure (Protected)
+### Pass parameters via query string (e.g. ?CustomerId=1&IncludeInactive=false)
+### Response can include multiple result sets.
+###############################################################################
+GET {{baseUrl}}/api/stored-procedures/dbo/csp_tst_persons
+Authorization: Bearer {{token}}
+
+###############################################################################
+### 3d. Get Stored Procedure Parameters (Protected)
+###############################################################################
+GET {{baseUrl}}/api/stored-procedures/dbo/csp_tst_persons/parameters
+Authorization: Bearer {{token}}
+
+###############################################################################
+### 3e. Get Stored Procedure Result Schema (Protected)
+### Pass parameters via query string if your stored procedure schema depends on them.
+###############################################################################
+GET {{baseUrl}}/api/stored-procedures/dbo/csp_tst_persons/result-schema
 Authorization: Bearer {{token}}
 
 ###############################################################################

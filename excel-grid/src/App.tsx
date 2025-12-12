@@ -1,14 +1,25 @@
 import { Container, Typography, Box, Button, Stack, Snackbar, Alert } from '@mui/material';
 import { GitHub } from '@mui/icons-material';
+import { Routes, Route, Link } from 'react-router-dom';
 import { useRef, useState } from 'react';
 import { ExcelGrid, type ExcelGridHandle } from './components/ExcelGrid';
 import { Toolbar } from './components/Toolbar';
 import { CSVImportDialog } from './components/CSVImportDialog';
 import { SQLConnectionDialog } from './components/SQLConnectionDialog';
+import { TablePage } from './components/TablePage';
 import type { CellFormatting, Cell, CellType, DatabaseMetadata } from './types/cell';
 import './App.css';
 
 function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/table" element={<TablePage />} />
+    </Routes>
+  );
+}
+
+function HomePage() {
   const gridRef = useRef<ExcelGridHandle>(null);
   const [counter, setCounter] = useState(1);
   const [hasSelection, setHasSelection] = useState(false);
@@ -29,7 +40,6 @@ function App() {
   };
 
   const handlePopulateTest = () => {
-    // B2 to B15 (column B is index 1, rows 1-14 in 0-indexed)
     gridRef.current?.setCellRange(1, 1, 14, 1, 'test');
   };
 
@@ -52,7 +62,6 @@ function App() {
   const handleSelectionChange = (selection: boolean, formatting?: CellFormatting) => {
     setHasSelection(selection);
     setCurrentFormatting(formatting);
-    // Update cell type when selection changes
     if (selection && gridRef.current) {
       const cellType = gridRef.current.getSelectedCellType();
       setCurrentCellType(cellType);
@@ -105,7 +114,6 @@ function App() {
   const handleCSVImport = (cells: Map<string, Cell>, rowCount: number, colCount: number, tableMetadata?: any) => {
     gridRef.current?.importCells(cells, true, tableMetadata);
     
-    // Show notification if grid was expanded
     const currentRows = 1000;
     const currentCols = 500;
     const needsExpansion = rowCount > currentRows || colCount > currentCols;
@@ -226,23 +234,40 @@ function App() {
                 A high-performance, feature-rich Excel-like grid built with React, TypeScript, and D3.js
               </Typography>
             </Box>
-            <Button
-              variant="contained"
-              startIcon={<GitHub />}
-              href="https://github.com/Roelanb/d3-excelgrid"
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{
-                backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                color: 'white',
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                },
-                whiteSpace: 'nowrap',
-              }}
-            >
-              View on GitHub
-            </Button>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Button
+                variant="contained"
+                component={Link}
+                to="/table"
+                sx={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                  },
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Fast Table Demo
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<GitHub />}
+                href="https://github.com/Roelanb/d3-excelgrid"
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                  },
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                View on GitHub
+              </Button>
+            </Box>
           </Box>
         </Container>
       </Box>
@@ -282,7 +307,6 @@ function App() {
         </Button>
       </Stack>
 
-      {/* Edit Mode Controls */}
       {hasDatabase && (
         <Stack direction="row" spacing={2} sx={{ mb: 2, p: 2, bgcolor: isEditMode ? '#fff3e0' : '#e3f2fd', borderRadius: 1 }}>
           <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>

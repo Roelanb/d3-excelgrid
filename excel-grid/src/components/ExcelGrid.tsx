@@ -70,6 +70,7 @@ interface ExcelGridProps {
   onSelectionChange?: (hasSelection: boolean, formatting?: CellFormatting) => void;
   onClipboardChange?: (hasClipboard: boolean) => void;
   onEditModeChange?: (isEditMode: boolean) => void;
+  onHeaderClick?: (columnIndex: number) => void;
 }
 
 function ExcelGridComponent(
@@ -85,6 +86,8 @@ function ExcelGridComponent(
     headerHeight = 30,
     onSelectionChange,
     onClipboardChange,
+    onEditModeChange,
+    onHeaderClick,
   } = props;
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1716,8 +1719,13 @@ function ExcelGridComponent(
       selectionRangesRef.current = [newRange];
       isDraggingRef.current = true;
       setIsDragging(true);
+
+      // Call onHeaderClick for server-side sorting if provided
+      if (onHeaderClick) {
+        onHeaderClick(col);
+      }
     },
-    [editingCell, saveEditingCell, gridData.rowCount, selectionRange, selectionRanges, selectionType]
+    [editingCell, saveEditingCell, gridData.rowCount, selectionRange, selectionRanges, selectionType, onHeaderClick]
   );
 
   const handleCellMouseDown = useCallback(

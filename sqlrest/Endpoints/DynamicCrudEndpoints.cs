@@ -3,6 +3,238 @@ using SqlRest.Services;
 
 namespace SqlRest.Endpoints;
 
+public class GetViewsEndpoint : EndpointWithoutRequest
+{
+    private readonly DatabaseService _dbService;
+    private readonly ILogger<GetViewsEndpoint> _logger;
+
+    public GetViewsEndpoint(DatabaseService dbService, ILogger<GetViewsEndpoint> logger)
+    {
+        _dbService = dbService;
+        _logger = logger;
+    }
+
+    public override void Configure()
+    {
+        Get("/views");
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        try
+        {
+            _logger.LogInformation("GetViewsEndpoint called");
+            var views = await _dbService.GetAllViewsAsync();
+            _logger.LogInformation("Returning {Count} views", views.Count);
+            await SendAsync(new { Views = views, TotalCount = views.Count }, cancellation: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetViewsEndpoint");
+            await SendAsync(new { Error = ex.Message, Details = ex.ToString() }, 500, ct);
+        }
+    }
+}
+
+public class GetStoredProceduresEndpoint : EndpointWithoutRequest
+{
+    private readonly DatabaseService _dbService;
+    private readonly ILogger<GetStoredProceduresEndpoint> _logger;
+
+    public GetStoredProceduresEndpoint(DatabaseService dbService, ILogger<GetStoredProceduresEndpoint> logger)
+    {
+        _dbService = dbService;
+        _logger = logger;
+    }
+
+    public override void Configure()
+    {
+        Get("/stored-procedures");
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        try
+        {
+            _logger.LogInformation("GetStoredProceduresEndpoint called");
+            var procedures = await _dbService.GetAllStoredProceduresAsync();
+            _logger.LogInformation("Returning {Count} stored procedures", procedures.Count);
+            await SendAsync(new { StoredProcedures = procedures, TotalCount = procedures.Count }, cancellation: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetStoredProceduresEndpoint");
+            await SendAsync(new { Error = ex.Message, Details = ex.ToString() }, 500, ct);
+        }
+    }
+}
+
+public class ExecuteStoredProcedureRequest
+{
+    public required string Schema { get; set; }
+    public required string Procedure { get; set; }
+}
+
+public class GetStoredProcedureParametersRequest
+{
+    public required string Schema { get; set; }
+    public required string Procedure { get; set; }
+}
+
+public class GetStoredProcedureResultSchemaRequest
+{
+    public required string Schema { get; set; }
+    public required string Procedure { get; set; }
+}
+
+public class ExecuteStoredProcedureEndpoint : Endpoint<ExecuteStoredProcedureRequest>
+{
+    private readonly DatabaseService _dbService;
+    private readonly ILogger<ExecuteStoredProcedureEndpoint> _logger;
+
+    public ExecuteStoredProcedureEndpoint(DatabaseService dbService, ILogger<ExecuteStoredProcedureEndpoint> logger)
+    {
+        _dbService = dbService;
+        _logger = logger;
+    }
+
+    public override void Configure()
+    {
+        Get("/stored-procedures/{Schema}/{Procedure}");
+    }
+
+    public override async Task HandleAsync(ExecuteStoredProcedureRequest req, CancellationToken ct)
+    {
+        try
+        {
+            var query = HttpContext?.Request?.Query;
+            var parameters = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            if (query != null)
+            {
+                foreach (var kvp in query)
+                {
+                    parameters[kvp.Key] = kvp.Value.ToString();
+                }
+            }
+
+            _logger.LogInformation(
+                "ExecuteStoredProcedureEndpoint called for {Schema}.{Procedure} with {ParameterCount} parameters",
+                req.Schema,
+                req.Procedure,
+                parameters.Count);
+
+            var resultSets = await _dbService.ExecuteStoredProcedureAsync(req.Schema, req.Procedure, parameters);
+
+            await SendAsync(new
+            {
+                Schema = req.Schema,
+                Procedure = req.Procedure,
+                Parameters = parameters,
+                ResultSetCount = resultSets.Count,
+                ResultSets = resultSets
+            }, cancellation: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error executing stored procedure {Schema}.{Procedure}", req.Schema, req.Procedure);
+            await SendAsync(new { Error = ex.Message, Details = ex.ToString() }, 500, ct);
+        }
+    }
+}
+
+public class GetStoredProcedureParametersEndpoint : Endpoint<GetStoredProcedureParametersRequest>
+{
+    private readonly DatabaseService _dbService;
+    private readonly ILogger<GetStoredProcedureParametersEndpoint> _logger;
+
+    public GetStoredProcedureParametersEndpoint(DatabaseService dbService, ILogger<GetStoredProcedureParametersEndpoint> logger)
+    {
+        _dbService = dbService;
+        _logger = logger;
+    }
+
+    public override void Configure()
+    {
+        Get("/stored-procedures/{Schema}/{Procedure}/parameters");
+    }
+
+    public override async Task HandleAsync(GetStoredProcedureParametersRequest req, CancellationToken ct)
+    {
+        try
+        {
+            _logger.LogInformation("GetStoredProcedureParametersEndpoint called for {Schema}.{Procedure}", req.Schema, req.Procedure);
+            var parameters = await _dbService.GetStoredProcedureParametersAsync(req.Schema, req.Procedure);
+            await SendAsync(new
+            {
+                Schema = req.Schema,
+                Procedure = req.Procedure,
+                Parameters = parameters,
+                TotalCount = parameters.Count
+            }, cancellation: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving parameters for stored procedure {Schema}.{Procedure}", req.Schema, req.Procedure);
+            await SendAsync(new { Error = ex.Message, Details = ex.ToString() }, 500, ct);
+        }
+    }
+}
+
+public class GetStoredProcedureResultSchemaEndpoint : Endpoint<GetStoredProcedureResultSchemaRequest>
+{
+    private readonly DatabaseService _dbService;
+    private readonly ILogger<GetStoredProcedureResultSchemaEndpoint> _logger;
+
+    public GetStoredProcedureResultSchemaEndpoint(DatabaseService dbService, ILogger<GetStoredProcedureResultSchemaEndpoint> logger)
+    {
+        _dbService = dbService;
+        _logger = logger;
+    }
+
+    public override void Configure()
+    {
+        Get("/stored-procedures/{Schema}/{Procedure}/result-schema");
+    }
+
+    public override async Task HandleAsync(GetStoredProcedureResultSchemaRequest req, CancellationToken ct)
+    {
+        try
+        {
+            var query = HttpContext?.Request?.Query;
+            var parameters = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            if (query != null)
+            {
+                foreach (var kvp in query)
+                {
+                    parameters[kvp.Key] = kvp.Value.ToString();
+                }
+            }
+
+            _logger.LogInformation(
+                "GetStoredProcedureResultSchemaEndpoint called for {Schema}.{Procedure} with {ParameterCount} parameters",
+                req.Schema,
+                req.Procedure,
+                parameters.Count);
+
+            var resultSets = await _dbService.GetStoredProcedureResultSchemaAsync(req.Schema, req.Procedure, parameters);
+
+            await SendAsync(new
+            {
+                Schema = req.Schema,
+                Procedure = req.Procedure,
+                Parameters = parameters,
+                ResultSetCount = resultSets.Count,
+                ResultSets = resultSets
+            }, cancellation: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving result schema for stored procedure {Schema}.{Procedure}", req.Schema, req.Procedure);
+            await SendAsync(new { Error = ex.Message, Details = ex.ToString() }, 500, ct);
+        }
+    }
+}
+
 // Get all tables
 public class GetTablesEndpoint : EndpointWithoutRequest
 {
@@ -57,6 +289,7 @@ public class GetTableSchemaEndpoint : Endpoint<GetTableSchemaRequest>
     public override void Configure()
     {
         Get("/tables/{Schema}/{Table}/schema");
+        AllowAnonymous();
     }
 
     public override async Task HandleAsync(GetTableSchemaRequest req, CancellationToken ct)

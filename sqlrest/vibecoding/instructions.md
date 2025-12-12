@@ -32,3 +32,20 @@ The api should be able to handle errors, make sure it returns a proper error mes
 
 Refactor the generated API. The GET should only support pagination.
 Add an overall endpoint that exposes thelist of objects that can be selected.
+
+dotnet run --launch-profile LocalVm
+
+
+
+Add an endpoint to the sqlrest api that returns the list of fields (name, type, nullable, etc.) of a table.
+
+Update the sqlrest api to support views and stored procedures.
+/api/views               -- lists all views
+/api/stored-procedures   -- lists all stored procedures
+
+Stored procedures should be executed with parameters.
+
+Only allow GET for views and stored procedures.
+Stored procedures should be executed with parameters.
+Stored procedures can return multiple result sets.
+
