@@ -37,9 +37,9 @@ The user will then be able to add objects to that data region. The object will b
 
 
 In the dataregion, make it possible to connect to the rest api. (use for testing usercd: admin password: admin)
-You can query the api with the following url: http://localhost:5000/api/v1/tables. This will return a list of all the tables that can be selected. (and the schema of the tables)
+You can query the api with the following url: http://localhost:3200/api/v1/tables. This will return a list of all the tables that can be selected. (and the schema of the tables)
 
-The user can then select a table. You can query the api with the following url: http://localhost:5000/api/v1/tables/{table}. This will return the data of the selected table.
+The user can then select a table. You can query the api with the following url: http://localhost:3200/api/v1/tables/{table}. This will return the data of the selected table.
 
 
 [x] Add the possibility to resize controls.
@@ -77,5 +77,5 @@ Allow the user to align the objects on the canvas.
 For the Table object, when it is added to a dataregion, it should use the data from the dataregion to display the data. The user should be able to link it to a table in the dataregion.
 Then the table should display all the rows of the selected table.
 
-[ ] Add a header component, this is always on top of the report and appears on every page.
-[ ] Add a footer component, this is always on bottom of the report and appears on every page.
+[x] Add a header component, this is always on top of the report and appears on every page.
+[x] Add a footer component, this is always on bottom of the report and appears on every page.

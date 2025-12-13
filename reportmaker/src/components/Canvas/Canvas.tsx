@@ -18,6 +18,7 @@ export const Canvas = () => {
         updateObject,
         updateObjects,
         updateObjectProperties,
+        updateCanvasSettings,
         selectedIds,
         parameters
     } = useReportStore();
@@ -46,10 +47,12 @@ export const Canvas = () => {
         e.preventDefault();
         const type = e.dataTransfer.getData('application/react-dnd-type') as ReportObjectType;
 
+        const zoom = canvasSettings.zoom ?? 1;
+
         if (type && svgRef.current) {
             const rect = svgRef.current.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            const x = (e.clientX - rect.left) / zoom;
+            const y = (e.clientY - rect.top) / zoom;
 
             const { width, height } = DEFAULT_DIMENSIONS[type] || { width: 100, height: 100 };
 
@@ -95,7 +98,8 @@ export const Canvas = () => {
         if (!svgRef.current) return;
 
         const svg = d3.select(svgRef.current);
-        const { gridSize, showGrid, snapToGrid } = canvasSettings;
+        const { gridSize, showGrid, snapToGrid, page } = canvasSettings;
+        const margins = page?.margins || { top: 0, right: 0, bottom: 0, left: 0 };
 
         // 1. Render Grid
         svg.select('.grid-layer').remove();
@@ -121,7 +125,82 @@ export const Canvas = () => {
             }
         }
 
-        // 2. Render Objects
+        // 2. Render Margin Indicators
+        svg.select('.margin-layer').remove();
+        const marginLayer = svg.insert('g', '.objects-layer').attr('class', 'margin-layer');
+
+        // Draw margin rectangle (printable area)
+        const printableX = margins.left;
+        const printableY = margins.top;
+        const printableWidth = canvasSettings.width - margins.left - margins.right;
+        const printableHeight = canvasSettings.height - margins.top - margins.bottom;
+
+        if (printableWidth > 0 && printableHeight > 0) {
+            // Printable area border (dashed blue line)
+            marginLayer.append('rect')
+                .attr('x', printableX)
+                .attr('y', printableY)
+                .attr('width', printableWidth)
+                .attr('height', printableHeight)
+                .attr('fill', 'none')
+                .attr('stroke', '#93c5fd')
+                .attr('stroke-width', 1)
+                .attr('stroke-dasharray', '4 2')
+                .attr('pointer-events', 'none');
+        }
+
+        // Draw margin shading (light gray overlay on margin areas)
+        const marginOpacity = 0.03;
+
+        // Top margin
+        if (margins.top > 0) {
+            marginLayer.append('rect')
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('width', canvasSettings.width)
+                .attr('height', margins.top)
+                .attr('fill', '#6b7280')
+                .attr('opacity', marginOpacity)
+                .attr('pointer-events', 'none');
+        }
+
+        // Bottom margin
+        if (margins.bottom > 0) {
+            marginLayer.append('rect')
+                .attr('x', 0)
+                .attr('y', canvasSettings.height - margins.bottom)
+                .attr('width', canvasSettings.width)
+                .attr('height', margins.bottom)
+                .attr('fill', '#6b7280')
+                .attr('opacity', marginOpacity)
+                .attr('pointer-events', 'none');
+        }
+
+        // Left margin (between top and bottom margins)
+        if (margins.left > 0) {
+            marginLayer.append('rect')
+                .attr('x', 0)
+                .attr('y', margins.top)
+                .attr('width', margins.left)
+                .attr('height', canvasSettings.height - margins.top - margins.bottom)
+                .attr('fill', '#6b7280')
+                .attr('opacity', marginOpacity)
+                .attr('pointer-events', 'none');
+        }
+
+        // Right margin (between top and bottom margins)
+        if (margins.right > 0) {
+            marginLayer.append('rect')
+                .attr('x', canvasSettings.width - margins.right)
+                .attr('y', margins.top)
+                .attr('width', margins.right)
+                .attr('height', canvasSettings.height - margins.top - margins.bottom)
+                .attr('fill', '#6b7280')
+                .attr('opacity', marginOpacity)
+                .attr('pointer-events', 'none');
+        }
+
+        // 3. Render Objects
         // We use a key function to track objects by ID
         const objectsLayer = svg.select<SVGGElement>('.objects-layer').empty()
             ? svg.append('g').attr('class', 'objects-layer')
@@ -137,7 +216,7 @@ export const Canvas = () => {
         const enterGroups = groups.enter()
             .append('g')
             .attr('class', 'report-object')
-            .attr('cursor', 'move');
+            .attr('cursor', d => (d.type === 'header' || d.type === 'footer') ? 'default' : 'move');
 
         // Append content based on type (simplified for now)
         // We append a rect for background/selection and a text/image
@@ -216,29 +295,24 @@ export const Canvas = () => {
             .attr('height', d => d.height)
             .attr('fill', d => {
                 if (d.type === 'dataRegion') return '#dbeafe';
+                if (d.type === 'header') return '#fef9c3';
+                if (d.type === 'footer') return '#d1fae5';
                 return d.properties.backgroundColor || 'transparent';
             })
             .attr('stroke', d => {
-                // User-defined border (show even when selected)
-                if (d.properties.borderWidth && d.properties.borderWidth > 0) {
-                    return d.properties.borderColor || '#000000';
-                }
                 if (d.type === 'dataRegion') return '#3b82f6';
-                return 'transparent';
+                if (d.type === 'header') return '#facc15';
+                if (d.type === 'footer') return '#34d399';
+                return d.properties.borderColor || 'none';
             })
             .attr('stroke-width', d => {
-                // User-defined border width
-                if (d.properties.borderWidth && d.properties.borderWidth > 0) {
-                    return d.properties.borderWidth;
-                }
                 if (d.type === 'dataRegion') return 2;
-                return 0;
+                if (d.type === 'header') return 2;
+                if (d.type === 'footer') return 2;
+                return d.properties.borderWidth || 0;
             })
             .attr('stroke-dasharray', d => {
                 // User borders are solid, only dataRegion has dashed border
-                if (d.properties.borderWidth && d.properties.borderWidth > 0) {
-                    return 'none';
-                }
                 if (d.type === 'dataRegion') return '8 4';
                 return 'none';
             })
@@ -335,21 +409,34 @@ export const Canvas = () => {
                         ? `Data: ${sourceName}`
                         : 'Data Region (No Table)';
                 }
+                if (d.type === 'header') {
+                    return 'Header';
+                }
+                if (d.type === 'footer') {
+                    return 'Footer';
+                }
                 return d.type;
             })
             .attr('x', d => d.width / 2)
             .attr('y', d => d.height / 2)
             .attr('dy', '0.35em')
             .attr('text-anchor', 'middle') // Center for now, can use textAlign property later
-            .attr('font-size', d => d.type === 'dataRegion' ? 12 : (d.properties.fontSize || 16))
+            .attr('font-size', d => {
+                if (d.type === 'dataRegion') return 12;
+                if (d.type === 'header') return 14;
+                if (d.type === 'footer') return 14;
+                return d.properties.fontSize || 16;
+            })
             .attr('font-family', d => d.properties.fontFamily || 'Arial')
             .attr('fill', d => {
                 if (d.type === 'dataRegion') return '#1e40af';
+                if (d.type === 'header') return '#854d0e'; // Dark amber for header text
+                if (d.type === 'footer') return '#065f46'; // Dark green for footer text
                 if (d.properties.dataBinding) return '#059669'; // Green for bound data
                 return d.properties.color || '#000000';
             })
             .attr('font-weight', d => {
-                if (d.type === 'dataRegion' || d.properties.dataBinding) return 'bold';
+                if (d.type === 'dataRegion' || d.type === 'header' || d.type === 'footer' || d.properties.dataBinding) return 'bold';
                 if (d.type === 'text') return (d.properties.bold ? 'bold' : 'normal');
                 return 'normal';
             })
@@ -366,7 +453,8 @@ export const Canvas = () => {
             })
             .style('display', d => {
                 if (d.id === editingTextId) return 'none';
-                return d.type === 'image' ? 'none' : 'block';
+                if (d.type === 'image' || d.type === 'barcode') return 'none';
+                return 'block';
             });
 
         // Update Line
@@ -557,6 +645,8 @@ export const Canvas = () => {
             })
             .on('drag', function (event, d) {
                 if (editingTextId && d.id === editingTextId) return;
+                if (d.type === 'header') return;
+                if (d.type === 'footer') return;
                 let newX = event.x;
                 let newY = event.y;
 
@@ -582,6 +672,8 @@ export const Canvas = () => {
             })
             .on('end', function (event, d) {
                 if (editingTextId && d.id === editingTextId) return;
+                if (d.type === 'header') return;
+                if (d.type === 'footer') return;
                 let newX = event.x;
                 let newY = event.y;
 
@@ -608,7 +700,8 @@ export const Canvas = () => {
                 dragContextRef.current = null;
             });
 
-        allGroups.call(dragBehavior);
+        allGroups.filter(d => d.type !== 'header' && d.type !== 'footer').call(dragBehavior);
+        allGroups.filter(d => d.type === 'header' || d.type === 'footer').on('.drag', null);
 
         // Resize Handles
         const handles = [
@@ -622,6 +715,14 @@ export const Canvas = () => {
             { x: 0, y: 0.5, cursor: 'w-resize', type: 'w' },
         ];
 
+        const headerHandles = [
+            { x: 0.5, y: 1, cursor: 's-resize', type: 's' },
+        ];
+
+        const footerHandles = [
+            { x: 0.5, y: 0, cursor: 'n-resize', type: 'n' },
+        ];
+
         const handleSize = 8;
 
         // Remove resize handles from non-selected objects
@@ -633,8 +734,14 @@ export const Canvas = () => {
         allGroups.filter(d => selectedIds.includes(d.id)).each(function(d) {
             const group = d3.select(this);
 
+            const handlesForObject = d.type === 'header'
+                ? headerHandles
+                : d.type === 'footer'
+                    ? footerHandles
+                    : handles;
+
             const handleSelection = group.selectAll<SVGRectElement, typeof handles[0]>('.resize-handle')
-                .data(handles, h => h.type);
+                .data(handlesForObject as any, (h: any) => h.type);
 
             handleSelection.exit().remove();
 
@@ -806,6 +913,8 @@ export const Canvas = () => {
         if (!svgRef.current) return;
         if (editingTextId) return;
 
+        const zoom = canvasSettings.zoom ?? 1;
+
         const target = e.target as SVGElement;
         const isBackground = target === svgRef.current ||
             target.classList.contains('grid-layer') ||
@@ -814,8 +923,8 @@ export const Canvas = () => {
         if (!isBackground) return;
 
         const rect = svgRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const x = (e.clientX - rect.left) / zoom;
+        const y = (e.clientY - rect.top) / zoom;
 
         setSelectionRect({ startX: x, startY: y, endX: x, endY: y, active: true });
         selectObject(null);
@@ -825,9 +934,11 @@ export const Canvas = () => {
         if (!svgRef.current) return;
         if (!selectionRect?.active) return;
 
+        const zoom = canvasSettings.zoom ?? 1;
+
         const rect = svgRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const x = (e.clientX - rect.left) / zoom;
+        const y = (e.clientY - rect.top) / zoom;
         setSelectionRect({ ...selectionRect, endX: x, endY: y });
     };
 
@@ -851,20 +962,58 @@ export const Canvas = () => {
         setSelectionRect(null);
     };
 
+    // Mouse wheel zoom handler
+    const handleWheel = (e: React.WheelEvent) => {
+        e.preventDefault();
+
+        const currentZoom = canvasSettings.zoom ?? 1;
+        const zoomDelta = e.deltaY > 0 ? -0.1 : 0.1;
+        const newZoom = Math.min(3, Math.max(0.1, currentZoom + zoomDelta));
+
+        // Round to 1 decimal place for cleaner values
+        const roundedZoom = Math.round(newZoom * 10) / 10;
+
+        updateCanvasSettings({ zoom: roundedZoom });
+    };
+
+    // Calculate page info for display
+    const pageInfo = canvasSettings.page;
+    const printableWidth = pageInfo ? pageInfo.width - pageInfo.margins.left - pageInfo.margins.right : canvasSettings.width;
+    const printableHeight = pageInfo ? pageInfo.height - pageInfo.margins.top - pageInfo.margins.bottom : canvasSettings.height;
+
     return (
         <div
             ref={containerRef}
-            className="flex-1 bg-gray-200 overflow-auto flex items-center justify-center p-8"
+            className={`flex-1 bg-gray-200 overflow-auto flex flex-col ${(canvasSettings.zoom ?? 1) >= 1 ? 'items-start' : 'items-center'} justify-start p-8`}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onClick={() => selectObject(null)}
+            onWheel={handleWheel}
         >
+            {/* Page info bar */}
+            <div className="mb-2 text-xs text-gray-500 flex items-center gap-4 self-center">
+                <span>
+                    {pageInfo?.preset || 'Custom'} ({pageInfo?.orientation || 'portrait'})
+                </span>
+                <span>
+                    Page: {canvasSettings.width} × {canvasSettings.height} px
+                </span>
+                <span>
+                    Printable: {printableWidth} × {printableHeight} px
+                </span>
+                <span>
+                    Margins: T{pageInfo?.margins.top || 0} R{pageInfo?.margins.right || 0} B{pageInfo?.margins.bottom || 0} L{pageInfo?.margins.left || 0}
+                </span>
+                <span title="Mouse Wheel to zoom">
+                    Zoom: {Math.round((canvasSettings.zoom ?? 1) * 100)}%
+                </span>
+            </div>
             <div
-                className="bg-white shadow-lg relative"
+                className="bg-white shadow-lg relative self-center"
                 ref={canvasWrapperRef}
                 style={{
-                    width: canvasSettings.width,
-                    height: canvasSettings.height
+                    width: canvasSettings.width * (canvasSettings.zoom ?? 1),
+                    height: canvasSettings.height * (canvasSettings.zoom ?? 1)
                 }}
             >
                 {editingTextId && editingTextBox && (
@@ -886,13 +1035,13 @@ export const Canvas = () => {
                         autoFocus
                         className="absolute resize-none outline-none bg-transparent"
                         style={{
-                            left: editingTextBox.x,
-                            top: editingTextBox.y,
-                            width: editingTextBox.width,
-                            height: editingTextBox.height,
+                            left: editingTextBox.x * (canvasSettings.zoom ?? 1),
+                            top: editingTextBox.y * (canvasSettings.zoom ?? 1),
+                            width: editingTextBox.width * (canvasSettings.zoom ?? 1),
+                            height: editingTextBox.height * (canvasSettings.zoom ?? 1),
                             transform: `rotate(${editingTextBox.rotation}deg)`,
-                            transformOrigin: `${editingTextBox.width / 2}px ${editingTextBox.height / 2}px`,
-                            fontSize: `${(reportObjects.find(o => o.id === editingTextId)?.properties.fontSize ?? 16)}px`,
+                            transformOrigin: `${(editingTextBox.width * (canvasSettings.zoom ?? 1)) / 2}px ${(editingTextBox.height * (canvasSettings.zoom ?? 1)) / 2}px`,
+                            fontSize: `${(reportObjects.find(o => o.id === editingTextId)?.properties.fontSize ?? 16) * (canvasSettings.zoom ?? 1)}px`,
                             fontFamily: reportObjects.find(o => o.id === editingTextId)?.properties.fontFamily || 'Arial',
                             fontWeight: (reportObjects.find(o => o.id === editingTextId)?.properties.bold ? 'bold' : 'normal'),
                             fontStyle: (reportObjects.find(o => o.id === editingTextId)?.properties.italic ? 'italic' : 'normal'),
@@ -915,8 +1064,9 @@ export const Canvas = () => {
 
                 <svg
                     ref={svgRef}
-                    width={canvasSettings.width}
-                    height={canvasSettings.height}
+                    width={canvasSettings.width * (canvasSettings.zoom ?? 1)}
+                    height={canvasSettings.height * (canvasSettings.zoom ?? 1)}
+                    viewBox={`0 0 ${canvasSettings.width} ${canvasSettings.height}`}
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}

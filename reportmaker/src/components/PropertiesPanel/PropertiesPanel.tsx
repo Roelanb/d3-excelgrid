@@ -4,11 +4,7 @@ import { api } from '../../services/api';
 import type { PageSettings } from '../../types';
 import { generateBarcodeDataUrl } from '../../utils/barcode';
 import { substituteParameters } from '../../utils/parameterSubstitution';
-
-const PAGE_PRESETS_PX: Record<'A4' | 'Letter', { width: number; height: number }> = {
-    A4: { width: 794, height: 1123 },
-    Letter: { width: 816, height: 1056 },
-};
+import { PAGE_PRESETS_PX } from '../../utils/constants';
 
 const PropertyGroup = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <div className="mb-4 border-b border-gray-200 pb-4 last:border-0">

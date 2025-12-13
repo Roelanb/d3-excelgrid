@@ -33,7 +33,7 @@ public class GenerateTestEndpoint : EndpointWithoutRequest
             sb.AppendLine($"### CRUD Operations for {schema}.{table}");
             sb.AppendLine($"### Generated on {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
             sb.AppendLine();
-            sb.AppendLine("@baseUrl = http://localhost:5000");
+            sb.AppendLine("@baseUrl = http://localhost:3200");
             sb.AppendLine("@token = YOUR_JWT_TOKEN_HERE");
             sb.AppendLine();
             

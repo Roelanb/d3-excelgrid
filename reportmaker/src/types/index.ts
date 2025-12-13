@@ -1,4 +1,4 @@
-export type ReportObjectType = 'text' | 'image' | 'chart' | 'table' | 'barcode' | 'dataRegion' | 'line' | 'rectangle' | 'ellipse' | 'polygon' | 'polyline';
+export type ReportObjectType = 'text' | 'image' | 'chart' | 'table' | 'barcode' | 'dataRegion' | 'header' | 'footer' | 'line' | 'rectangle' | 'ellipse' | 'polygon' | 'polyline';
 
 export type SqlRestSourceType = 'table' | 'view' | 'storedProcedure';
 
@@ -86,6 +86,7 @@ export interface CanvasSettings {
     showGrid: boolean;
     snapToGrid: boolean;
     gridSize: number;
+    zoom: number;
     width: number;
     height: number;
     page: PageSettings;

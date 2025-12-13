@@ -14,7 +14,7 @@ declare global {
 function getApiBaseUrl(): string {
   // In development, use local ASP.NET Core server
   if (import.meta.env.DEV) {
-    return 'http://localhost:5000';
+    return 'http://localhost:3200';
   }
   
   // In production, use runtime config injected by Cloudflare Worker
@@ -23,7 +23,7 @@ function getApiBaseUrl(): string {
   }
   
   // Fallback to build-time env var (shouldn't happen in production)
-  return import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+  return import.meta.env.VITE_API_BASE_URL || 'http://localhost:3200';
 }
 
 export interface AuthResponse {

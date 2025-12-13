@@ -3,7 +3,7 @@
 # Script to stop all running services
 # Usage: ./stop-all.sh
 
-set -e
+# Don't use set -e as we want to continue even if some commands fail
 
 # Colors for output
 RED='\033[0;31m'
@@ -65,18 +65,36 @@ stop_service() {
 
 # Stop all services
 stop_service "sqlrest"
+stop_service "reportgenerator"
 stop_service "excel-grid"
 stop_service "reportmaker"
 
-# Also kill any processes on the expected ports
+# Also kill any processes on the expected ports (including IPv6)
 print_status "Checking for remaining processes on ports..."
 
-for port in 5000 5173 5174; do
-    pid=$(lsof -Pi :$port -sTCP:LISTEN -t 2>/dev/null)
-    if [ ! -z "$pid" ]; then
-        print_warning "Killing remaining process $pid on port $port"
-        kill -9 $pid 2>/dev/null || true
+for port in 3200 3210 3220 3230; do
+    pids=$(lsof -i :$port -sTCP:LISTEN -t 2>/dev/null)
+    if [ ! -z "$pids" ]; then
+        for pid in $pids; do
+            print_warning "Killing remaining process $pid on port $port"
+            kill -9 $pid 2>/dev/null || true
+        done
     fi
 done
 
-print_success "All services stopped successfully!"
+# Final check - ensure all ports are free
+sleep 1
+remaining=0
+for port in 3200 3210 3220 3230; do
+    if lsof -i :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+        remaining=1
+        print_error "Port $port is still in use!"
+    fi
+done
+
+if [ $remaining -eq 0 ]; then
+    print_success "All services stopped successfully!"
+else
+    print_error "Some services could not be stopped. Check manually with: lsof -i :3200 -i :3210 -i :3220 -i :3230"
+    exit 1
+fi

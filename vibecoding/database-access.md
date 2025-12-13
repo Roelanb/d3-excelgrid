@@ -1,6 +1,6 @@
 Add the ability to connect to the sqlrest api. 
-It is running at http://localhost:5000/
-Use the swagger interface to explore the api. (http://localhost:5000/swagger/v1/swagger.json)
+It is running at http://localhost:3200/
+Use the swagger interface to explore the api. (http://localhost:3200/swagger/v1/swagger.json)
 
 Create a connection dialog that shows to the user the available schemas and tables. 
 The user can then select the schema and table they want to connect to.

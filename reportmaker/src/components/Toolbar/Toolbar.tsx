@@ -1,39 +1,39 @@
 import {
-    Grid, MousePointer2, FileText, AlignLeft, AlignRight, AlignCenterHorizontal, AlignCenterVertical,
+    Grid, MousePointer2, AlignLeft, AlignRight, AlignCenterHorizontal, AlignCenterVertical,
     AlignVerticalJustifyCenter, AlignHorizontalJustifyCenter, RectangleHorizontal, RectangleVertical,
     Save, Upload, Type, AlignCenter, RotateCw,
-    Blend, Square, Maximize2, ChevronDown, Settings, Bold, Italic, Underline, Strikethrough, Play
+    Blend, Square, Maximize2, ChevronDown, Settings, Bold, Italic, Underline, Strikethrough
 } from 'lucide-react';
 import { useReportStore } from '../../hooks/useReportStore';
 import { useState, useRef, useEffect } from 'react';
-import { PreviewModal } from '../Preview/PreviewModal';
 import type { AlignmentType } from '../../hooks/useReportStore';
 import type { PageSettings } from '../../types';
-import { api } from '../../services/api';
-import { substituteParameters } from '../../utils/parameterSubstitution';
+import { PAGE_PRESETS_PX } from '../../utils/constants';
 
 const FONT_FAMILIES = ['Arial', 'Times New Roman', 'Courier New', 'Verdana', 'Helvetica', 'Georgia', 'Trebuchet MS'];
 const FONT_SIZES = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64, 72];
-
-const PAGE_PRESETS_PX: Record<'A4' | 'Letter', { width: number; height: number }> = {
-    A4: { width: 794, height: 1123 },
-    Letter: { width: 816, height: 1056 },
-};
+const ZOOM_PRESETS: { label: string; value: number }[] = [
+    { label: '50%', value: 0.5 },
+    { label: '75%', value: 0.75 },
+    { label: '100%', value: 1 },
+    { label: '150%', value: 1.5 },
+    { label: '200%', value: 2 },
+];
 
 export const Toolbar = () => {
-    const { canvasSettings, updateCanvasSettings, selectedIds, alignObjects, saveReport, saveReportAs, loadReport, loadReportFromFileSystem, setReportFileHandle, reportFileHandle, isDirty, reportObjects, updateObjectProperties, updateObjectsData, parameters } = useReportStore();
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const { canvasSettings, updateCanvasSettings, selectedIds, alignObjects, saveReport, saveReportAs, loadReport, loadReportFromFileSystem, setReportFileHandle, reportFileHandle, isDirty, reportObjects, updateObjectProperties } = useReportStore();
     const [showFontDropdown, setShowFontDropdown] = useState(false);
     const [showSizeDropdown, setShowSizeDropdown] = useState(false);
     const [showPageSetup, setShowPageSetup] = useState(false);
     const [showSaveMenu, setShowSaveMenu] = useState(false);
+    const [showZoomDropdown, setShowZoomDropdown] = useState(false);
     const [showSavedToast, setShowSavedToast] = useState(false);
-    const [isRunningReport, setIsRunningReport] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const fontDropdownRef = useRef<HTMLDivElement>(null);
     const sizeDropdownRef = useRef<HTMLDivElement>(null);
     const pageSetupRef = useRef<HTMLDivElement>(null);
     const saveMenuRef = useRef<HTMLDivElement>(null);
+    const zoomDropdownRef = useRef<HTMLDivElement>(null);
 
     const applyPageSettings = (partial: Partial<PageSettings>) => {
         const current = canvasSettings.page;
@@ -90,14 +90,16 @@ export const Toolbar = () => {
                 if (showSizeDropdown && sizeDropdownRef.current?.contains(target)) return;
                 if (showPageSetup && pageSetupRef.current?.contains(target)) return;
                 if (showSaveMenu && saveMenuRef.current?.contains(target)) return;
+                if (showZoomDropdown && zoomDropdownRef.current?.contains(target)) return;
             }
             setShowFontDropdown(false);
             setShowSizeDropdown(false);
             setShowPageSetup(false);
             setShowSaveMenu(false);
+            setShowZoomDropdown(false);
         };
 
-        if (showFontDropdown || showSizeDropdown || showPageSetup || showSaveMenu) {
+        if (showFontDropdown || showSizeDropdown || showPageSetup || showSaveMenu || showZoomDropdown) {
             // Use setTimeout to avoid closing immediately on the same click
             const timer = setTimeout(() => {
                 document.addEventListener('click', handleClickOutside);
@@ -107,7 +109,7 @@ export const Toolbar = () => {
                 document.removeEventListener('click', handleClickOutside);
             };
         }
-    }, [showFontDropdown, showSizeDropdown, showPageSetup, showSaveMenu]);
+    }, [showFontDropdown, showSizeDropdown, showPageSetup, showSaveMenu, showZoomDropdown]);
 
     // Close dropdowns when text object is deselected
     useEffect(() => {
@@ -170,67 +172,6 @@ export const Toolbar = () => {
         e.target.value = '';
     };
 
-    const getSqlRestSourceName = (dataSource: any): string => {
-        return dataSource?.name || dataSource?.tableName || '';
-    };
-
-    const splitFullName = (fullName: string): { schema: string; name: string } => {
-        if (!fullName) return { schema: 'dbo', name: '' };
-        if (fullName.includes('.')) {
-            const [schema, name] = fullName.split('.');
-            return { schema: schema || 'dbo', name: name || '' };
-        }
-        return { schema: 'dbo', name: fullName };
-    };
-
-    const handleRunReport = async () => {
-        if (isRunningReport) return;
-
-        setIsRunningReport(true);
-        try {
-            const dataRegions = reportObjects.filter(o => o.type === 'dataRegion');
-            const updates: { id: string; data: any[] }[] = [];
-
-            for (const region of dataRegions) {
-                const ds = region.properties?.dataSource;
-                if (!ds || ds.type !== 'sqlrest') continue;
-
-                const sourceName = getSqlRestSourceName(ds);
-                if (!sourceName) continue;
-
-                const sourceType = ds.sourceType || 'table';
-
-                if (sourceType === 'storedProcedure') {
-                    const { schema, name } = splitFullName(sourceName);
-                    const rawParams = ds.procedureParams || {};
-                    const resolvedParams = Object.fromEntries(
-                        Object.entries(rawParams).map(([k, v]) => [
-                            k,
-                            substituteParameters(String(v ?? ''), parameters)
-                        ])
-                    ) as Record<string, string>;
-
-                    const response = await api.executeStoredProcedure(schema, name, resolvedParams);
-                    const resultSets = response?.resultSets || response?.ResultSets;
-                    const data = Array.isArray(resultSets) && Array.isArray(resultSets[0]) ? resultSets[0] : [];
-                    updates.push({ id: region.id, data: Array.isArray(data) ? data : [] });
-                } else {
-                    const response = await api.getData(sourceName);
-                    const data = response && response.data ? response.data : [];
-                    updates.push({ id: region.id, data: Array.isArray(data) ? data : [] });
-                }
-            }
-
-            if (updates.length > 0) {
-                updateObjectsData(updates);
-            }
-        } catch (e: any) {
-            alert(e?.message || 'Failed to run report');
-        } finally {
-            setIsRunningReport(false);
-        }
-    };
-
     const isMultipleSelected = selectedIds.length >= 2;
 
     return (
@@ -260,6 +201,42 @@ export const Toolbar = () => {
                 >
                     <MousePointer2 size={18} />
                 </button>
+
+                <div className="relative" ref={zoomDropdownRef}>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setShowZoomDropdown(v => !v);
+                            setShowPageSetup(false);
+                            setShowFontDropdown(false);
+                            setShowSizeDropdown(false);
+                            setShowSaveMenu(false);
+                        }}
+                        className={`flex items-center gap-1 px-2 py-1 border border-gray-300 rounded hover:bg-gray-50 text-sm ${showZoomDropdown ? 'bg-blue-50 text-blue-700' : 'text-gray-700'}`}
+                        title="Zoom"
+                    >
+                        <Maximize2 size={14} />
+                        <span>{Math.round((canvasSettings.zoom ?? 1) * 100)}%</span>
+                        <ChevronDown size={14} />
+                    </button>
+                    {showZoomDropdown && (
+                        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[110px] overflow-hidden">
+                            {ZOOM_PRESETS.map(z => (
+                                <button
+                                    key={z.value}
+                                    type="button"
+                                    onClick={() => {
+                                        updateCanvasSettings({ zoom: z.value });
+                                        setShowZoomDropdown(false);
+                                    }}
+                                    className={`w-full text-left px-3 py-2 hover:bg-blue-50 text-sm ${Math.abs((canvasSettings.zoom ?? 1) - z.value) < 0.001 ? 'bg-blue-100 text-blue-700' : ''}`}
+                                >
+                                    {z.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
 
                 <div className="relative" ref={pageSetupRef}>
                     <button
@@ -663,15 +640,6 @@ export const Toolbar = () => {
             )}
 
             <div className="flex items-center gap-2 border-l border-gray-200 pl-4">
-                <button
-                    onClick={handleRunReport}
-                    disabled={isRunningReport}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded transition-colors text-sm font-medium ${isRunningReport ? 'bg-purple-300 text-white cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
-                    title="Run report (refresh data regions)"
-                >
-                    <Play size={16} />
-                    {isRunningReport ? 'Running...' : 'Run Report'}
-                </button>
                 <div className="relative" ref={saveMenuRef}>
                     <div className="flex">
                         <button
@@ -730,13 +698,6 @@ export const Toolbar = () => {
                     onChange={handleFileChange}
                     className="hidden"
                 />
-                <button
-                    onClick={() => setIsPreviewOpen(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium"
-                >
-                    <FileText size={16} />
-                    Preview PDF
-                </button>
             </div>
 
             <div className="ml-auto flex items-center gap-2 text-sm text-gray-500">
@@ -749,8 +710,6 @@ export const Toolbar = () => {
                 />
                 <span>px</span>
             </div>
-
-            <PreviewModal isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)} />
         </div>
     );
 };

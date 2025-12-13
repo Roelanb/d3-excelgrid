@@ -32,7 +32,7 @@ print_error() {
 # Function to check if a port is in use
 check_port() {
     local port=$1
-    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+    if lsof -i :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
         return 0
     else
         return 1
@@ -42,10 +42,12 @@ check_port() {
 # Function to kill process on a port
 kill_port() {
     local port=$1
-    local pid=$(lsof -Pi :$port -sTCP:LISTEN -t 2>/dev/null)
-    if [ ! -z "$pid" ]; then
-        print_warning "Killing process $pid on port $port"
-        kill -9 $pid 2>/dev/null || true
+    local pids=$(lsof -i :$port -sTCP:LISTEN -t 2>/dev/null)
+    if [ ! -z "$pids" ]; then
+        for pid in $pids; do
+            print_warning "Killing process $pid on port $port"
+            kill -9 $pid 2>/dev/null || true
+        done
         sleep 2
     fi
 }
@@ -56,21 +58,21 @@ start_service() {
     local command=$2
     local directory=$3
     local port=$4
-    
+
     print_status "Starting $service_name..."
-    
+
     # Check if port is already in use
     if check_port $port; then
         print_warning "Port $port is already in use. Killing existing process..."
         kill_port $port
     fi
-    
-    # Start the service
-    cd "$directory"
-    $command > "../logs/${service_name}.log" 2>&1 &
+
+    # Start the service (use absolute paths for logs and pids)
+    cd "$PROJECT_ROOT/$directory"
+    $command > "$PROJECT_ROOT/logs/${service_name}.log" 2>&1 &
     local pid=$!
-    echo $pid > "../pids/${service_name}.pid"
-    
+    echo $pid > "$PROJECT_ROOT/pids/${service_name}.pid"
+
     # Wait a moment and check if it started successfully
     sleep 3
     if kill -0 $pid 2>/dev/null; then
@@ -94,11 +96,19 @@ echo ""
 # Check dependencies
 print_status "Checking dependencies..."
 
-# Check for .NET
-if ! command -v dotnet &> /dev/null; then
+# Check for .NET (including common non-standard locations)
+DOTNET_CMD=""
+if command -v dotnet &> /dev/null; then
+    DOTNET_CMD="dotnet"
+elif [ -x "$HOME/.dotnet/dotnet" ]; then
+    DOTNET_CMD="$HOME/.dotnet/dotnet"
+elif [ -x "/usr/share/dotnet/dotnet" ]; then
+    DOTNET_CMD="/usr/share/dotnet/dotnet"
+else
     print_error ".NET CLI not found. Please install .NET 9.0 SDK."
     exit 1
 fi
+print_status "Using .NET from: $DOTNET_CMD"
 
 # Check for Node.js and npm/pnpm
 if ! command -v node &> /dev/null; then
@@ -129,7 +139,13 @@ if [ ! -f "sqlrest/.env" ]; then
     fi
 fi
 
-start_service "sqlrest" "dotnet run --project SqlRest.csproj" "sqlrest" 5000
+start_service "sqlrest" "$DOTNET_CMD run --project SqlRest.csproj --urls http://localhost:3200" "sqlrest" 3200
+echo ""
+
+# Start Report Generator API
+print_status "Starting Report Generator API..."
+cd "$PROJECT_ROOT"
+start_service "reportgenerator" "$DOTNET_CMD run --urls http://localhost:3210" "reportgenerator" 3210
 echo ""
 
 # Install dependencies and start Excel Grid frontend
@@ -142,7 +158,7 @@ else
 fi
 
 cd "$PROJECT_ROOT"
-start_service "excel-grid" "$PKG_MANAGER run dev" "excel-grid" 5173
+start_service "excel-grid" "npx vite --port 3220" "excel-grid" 3220
 echo ""
 
 # Install dependencies and start ReportMaker frontend
@@ -155,19 +171,21 @@ else
 fi
 
 cd "$PROJECT_ROOT"
-start_service "reportmaker" "$PKG_MANAGER run dev" "reportmaker" 5174
+start_service "reportmaker" "npx vite --port 3230" "reportmaker" 3230
 echo ""
 
 # Final status
 print_success "All services started successfully!"
 echo ""
 print_status "Service URLs:"
-echo "  • SQLRest API:     http://localhost:5000"
-echo "  • Excel Grid:      http://localhost:5173"
-echo "  • ReportMaker:     http://localhost:5174"
+echo "  • SQLRest API:        http://localhost:3200"
+echo "  • Report Generator:   http://localhost:3210"
+echo "  • Excel Grid:         http://localhost:3220"
+echo "  • ReportMaker:        http://localhost:3230"
 echo ""
 print_status "API Documentation:"
-echo "  • Swagger UI:      http://localhost:5000/swagger"
+echo "  • SQLRest Swagger:    http://localhost:3200/swagger"
+echo "  • ReportGen Swagger:  http://localhost:3210/swagger"
 echo ""
 print_status "Logs and PIDs:"
 echo "  • Logs directory:  $PROJECT_ROOT/logs/"
@@ -178,5 +196,6 @@ echo "  ./stop-all.sh"
 echo ""
 print_status "To view logs, run:"
 echo "  tail -f logs/sqlrest.log"
+echo "  tail -f logs/reportgenerator.log"
 echo "  tail -f logs/excel-grid.log"
 echo "  tail -f logs/reportmaker.log"

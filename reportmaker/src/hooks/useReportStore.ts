@@ -1,14 +1,9 @@
 import { create } from 'zustand';
 import type { ReportObject, CanvasSettings, ReportObjectType, ReportObjectProperties, PageSettings, ReportParameter, ReportParameterType } from '../types';
 import { v4 as uuidv4 } from 'uuid';
-import { DEFAULT_DIMENSIONS } from '../utils/constants';
+import { DEFAULT_DIMENSIONS, PAGE_PRESETS_PX } from '../utils/constants';
 
 export type AlignmentType = 'left' | 'right' | 'top' | 'bottom' | 'center-horizontal' | 'center-vertical' | 'distribute-horizontal' | 'distribute-vertical' | 'same-width' | 'same-height';
-
-const PAGE_PRESETS_PX: Record<'A4' | 'Letter', { width: number; height: number }> = {
-    A4: { width: 794, height: 1123 },
-    Letter: { width: 816, height: 1056 },
-};
 
 const DEFAULT_PAGE: PageSettings = {
     preset: 'A4',
@@ -22,6 +17,7 @@ const DEFAULT_CANVAS_SETTINGS: CanvasSettings = {
     showGrid: true,
     snapToGrid: true,
     gridSize: 20,
+    zoom: 1,
     width: DEFAULT_PAGE.width,
     height: DEFAULT_PAGE.height,
     page: DEFAULT_PAGE,
@@ -74,12 +70,30 @@ export const useReportStore = create<ReportState>((set) => ({
         const { width, height } = DEFAULT_DIMENSIONS[type] || { width: 100, height: 100 };
         const isShape = ['line', 'rectangle', 'ellipse', 'polygon', 'polyline'].includes(type);
 
+        if (type === 'header') {
+            const existing = state.reportObjects.find(o => o.type === 'header');
+            if (existing) {
+                return { selectedIds: [existing.id] };
+            }
+        }
+
+        if (type === 'footer') {
+            const existing = state.reportObjects.find(o => o.type === 'footer');
+            if (existing) {
+                return { selectedIds: [existing.id] };
+            }
+        }
+
         const newObject: ReportObject = {
             id: uuidv4(),
             type,
-            x,
-            y,
-            width,
+            x: type === 'header' || type === 'footer' ? 0 : x,
+            y: type === 'header'
+                ? 0
+                : type === 'footer'
+                    ? Math.max(0, state.canvasSettings.height - height)
+                    : y,
+            width: type === 'header' || type === 'footer' ? state.canvasSettings.width : width,
             height,
             properties: {
                 text: type === 'text' ? 'Double click to edit' : '',
@@ -92,7 +106,15 @@ export const useReportStore = create<ReportState>((set) => ({
                 color: '#000000',
                 opacity: 1,
                 rotation: 0,
-                backgroundColor: type === 'text' ? 'transparent' : '#eeeeee',
+                backgroundColor: type === 'text' ? 'transparent' : (type === 'header' ? '#fef9c3' : (type === 'footer' ? '#d1fae5' : '#eeeeee')),
+                ...(type === 'header' && {
+                    borderColor: '#facc15',
+                    borderWidth: 2,
+                }),
+                ...(type === 'footer' && {
+                    borderColor: '#34d399',
+                    borderWidth: 2,
+                }),
                 ...(type === 'barcode' && {
                     text: '0123456789',
                     barcodeType: 'qrcode',
@@ -106,13 +128,37 @@ export const useReportStore = create<ReportState>((set) => ({
                 }),
             },
         };
-        return { reportObjects: [...state.reportObjects, newObject], selectedIds: [newObject.id], isDirty: true };
+
+        const nextObjects = (() => {
+            if (type === 'header') {
+                const existingFooter = state.reportObjects.find(o => o.type === 'footer');
+                const rest = state.reportObjects.filter(o => o.type !== 'footer');
+                return existingFooter ? [newObject, existingFooter, ...rest] : [newObject, ...state.reportObjects];
+            }
+            if (type === 'footer') {
+                const existingHeader = state.reportObjects.find(o => o.type === 'header');
+                const rest = state.reportObjects.filter(o => o.type !== 'header');
+                return existingHeader ? [existingHeader, newObject, ...rest] : [newObject, ...state.reportObjects];
+            }
+            return [...state.reportObjects, newObject];
+        })();
+
+        return { reportObjects: nextObjects, selectedIds: [newObject.id], isDirty: true };
     }),
 
     updateObject: (id, updates) => set((state) => ({
-        reportObjects: state.reportObjects.map((obj) =>
-            obj.id === id ? { ...obj, ...updates } : obj
-        ),
+        reportObjects: state.reportObjects.map((obj) => {
+            if (obj.id !== id) return obj;
+            const next = { ...obj, ...updates };
+            if (obj.type === 'header') {
+                return { ...next, x: 0, y: 0, width: state.canvasSettings.width };
+            }
+            if (obj.type === 'footer') {
+                const y = Math.max(0, state.canvasSettings.height - next.height);
+                return { ...next, x: 0, y, width: state.canvasSettings.width };
+            }
+            return next;
+        }),
         isDirty: true,
     })),
 
@@ -143,17 +189,43 @@ export const useReportStore = create<ReportState>((set) => ({
             : [...state.selectedIds, id]
     })),
 
-    updateCanvasSettings: (settings) => set((state) => ({
-        canvasSettings: { ...state.canvasSettings, ...settings },
-        isDirty: true,
-    })),
+    updateCanvasSettings: (settings) => set((state) => {
+        const canvasSettingsRaw = { ...state.canvasSettings, ...settings };
+        const zoomRaw = (canvasSettingsRaw as any).zoom;
+        const zoom = (typeof zoomRaw === 'number' && Number.isFinite(zoomRaw))
+            ? Math.max(0.1, zoomRaw)
+            : state.canvasSettings.zoom;
+        const canvasSettings = { ...canvasSettingsRaw, zoom };
+        const width = canvasSettings.width;
+        const height = canvasSettings.height;
+        return {
+            canvasSettings,
+            reportObjects: state.reportObjects.map((obj) =>
+                obj.type === 'header'
+                    ? { ...obj, x: 0, y: 0, width }
+                    : obj.type === 'footer'
+                        ? { ...obj, x: 0, y: Math.max(0, height - obj.height), width }
+                        : obj
+            ),
+            isDirty: true,
+        };
+    }),
 
     updateObjects: (updates) => set((state) => {
         const updateMap = new Map(updates.map(u => [u.id, u.changes]));
         return {
             reportObjects: state.reportObjects.map((obj) => {
                 const changes = updateMap.get(obj.id);
-                return changes ? { ...obj, ...changes } : obj;
+                if (!changes) return obj;
+                const next = { ...obj, ...changes };
+                if (obj.type === 'header') {
+                    return { ...next, x: 0, y: 0, width: state.canvasSettings.width };
+                }
+                if (obj.type === 'footer') {
+                    const y = Math.max(0, state.canvasSettings.height - next.height);
+                    return { ...next, x: 0, y, width: state.canvasSettings.width };
+                }
+                return next;
             }),
             isDirty: true,
         };
@@ -180,6 +252,16 @@ export const useReportStore = create<ReportState>((set) => ({
 
     pasteObject: () => set((state) => {
         if (!state.clipboard) return {};
+
+        if (state.clipboard.type === 'header') {
+            const existing = state.reportObjects.find(o => o.type === 'header');
+            if (existing) return { selectedIds: [existing.id] };
+        }
+
+        if (state.clipboard.type === 'footer') {
+            const existing = state.reportObjects.find(o => o.type === 'footer');
+            if (existing) return { selectedIds: [existing.id] };
+        }
 
         const newObject: ReportObject = {
             ...state.clipboard,
@@ -503,6 +585,10 @@ export const useReportStore = create<ReportState>((set) => ({
         const incoming: Partial<CanvasSettings> = (data as any)?.canvasSettings || {};
         const incomingPage: any = (incoming as any).page;
 
+        const zoom = (typeof (incoming as any).zoom === 'number' && Number.isFinite((incoming as any).zoom))
+            ? Math.max(0.1, (incoming as any).zoom)
+            : DEFAULT_CANVAS_SETTINGS.zoom;
+
         let page: PageSettings = DEFAULT_PAGE;
 
         if (incomingPage && typeof incomingPage === 'object') {
@@ -546,10 +632,19 @@ export const useReportStore = create<ReportState>((set) => ({
         }
 
         return {
-            reportObjects: data.reportObjects,
+            reportObjects: (data.reportObjects || []).map((obj: ReportObject) => {
+                if (obj.type === 'header') {
+                    return { ...obj, x: 0, y: 0, width: page.width };
+                }
+                if (obj.type === 'footer') {
+                    return { ...obj, x: 0, y: Math.max(0, page.height - obj.height), width: page.width };
+                }
+                return obj;
+            }),
             canvasSettings: {
                 ...DEFAULT_CANVAS_SETTINGS,
                 ...incoming,
+                zoom,
                 width: page.width,
                 height: page.height,
                 page,

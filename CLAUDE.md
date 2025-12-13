@@ -33,7 +33,7 @@ pnpm deploy
 ### Backend (sqlrest/)
 
 ```bash
-# Development server (runs on http://localhost:5000)
+# Development server (runs on http://localhost:3200)
 cd sqlrest && dotnet run
 
 # Build project
@@ -49,7 +49,7 @@ dotnet restore
 ### Environment Setup
 
 **Frontend**: Copy `excel-grid/.env.example` to `excel-grid/.env` and configure:
-- `VITE_API_URL`: Backend API URL (default: http://localhost:5000)
+- `VITE_API_URL`: Backend API URL (default: http://localhost:3200)
 
 **Backend**: Copy `sqlrest/.env.example` to `sqlrest/.env` and configure:
 - Database connection (`DB_SERVER`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`)
@@ -167,7 +167,7 @@ Each cell can have a type (`text`, `number`, `date`, `boolean`) that affects:
 1. Ensure SQL Server is running and accessible
 2. Configure `sqlrest/.env` with valid database credentials
 3. Start backend: `cd sqlrest && dotnet run`
-4. Test API: `curl http://localhost:5000/api/health`
+4. Test API: `curl http://localhost:3200/api/health`
 5. Login: Use credentials from `.env` (default: admin/admin)
 6. Test endpoints in `sqlrest/test.http` using REST Client extension
 

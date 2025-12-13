@@ -1,7 +1,7 @@
 ### Example: Generate test file for a table
 ### This endpoint generates a complete test.http file with example CRUD operations
 
-@baseUrl = http://localhost:5000
+@baseUrl = http://localhost:3200
 
 ### Generate test file for Products table
 GET {{baseUrl}}/api/tables/production/products/generate-tests

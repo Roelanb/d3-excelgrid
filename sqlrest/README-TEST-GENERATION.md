@@ -8,12 +8,12 @@ This endpoint automatically generates `.http` test files with example CRUD opera
 
 Make a GET request to:
 ```
-GET http://localhost:5000/api/tables/{schema}/{table}/generate-tests
+GET http://localhost:3200/api/tables/{schema}/{table}/generate-tests
 ```
 
 Example:
 ```
-GET http://localhost:5000/api/tables/production/products/generate-tests
+GET http://localhost:3200/api/tables/production/products/generate-tests
 ```
 
 ### 2. Save the Response
@@ -56,7 +56,7 @@ The endpoint returns a complete `.http` file with:
 ### CRUD Operations for production.products
 ### Generated on 2024-11-14 12:30:00 UTC
 
-@baseUrl = http://localhost:5000
+@baseUrl = http://localhost:3200
 @token = YOUR_JWT_TOKEN_HERE
 
 ### 1. Get All Records (Paginated)

@@ -64,21 +64,21 @@ dotnet restore
 dotnet run
 ```
 
-The API will be available at `http://localhost:5000`
+The API will be available at `http://localhost:3200`
 
 ### 4. Test the API
 
 ```bash
 # Health check
-curl http://localhost:5000/api/health
+curl http://localhost:3200/api/health
 
 # Login
-curl -X POST http://localhost:5000/api/auth/login \
+curl -X POST http://localhost:3200/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin"}'
 
 # Get tables (with token from login)
-curl http://localhost:5000/api/tables \
+curl http://localhost:3200/api/tables \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 
@@ -173,7 +173,7 @@ dotnet watch run
 
 ### View Swagger Documentation
 
-Navigate to `http://localhost:5000/swagger` when running locally.
+Navigate to `http://localhost:3200/swagger` when running locally.
 
 ## Security
 

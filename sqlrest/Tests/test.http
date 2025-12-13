@@ -3,13 +3,13 @@
 
 ### Variables
 #@baseUrl = https://restapi-excelgrid-ekc3gfh2hyfmezhg.northeurope-01.azurewebsites.net
-@baseUrl = http://localhost:5000
+@baseUrl = http://localhost:3200
 @username = admin
 @password = admin
 
 
 # Replace with token from login response
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiI5NjE2ZGFmYy0xNWQxLTRhYmQtOWU1ZC1mMTA4M2NhZjM5ZjAiLCJleHAiOjE3NjU1NDk1MDQsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.xHF21aF3XwbXfCwtNZIwtbgtLUL4WoKXOx0kjr_xN-A
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiI0ZWE0NDMwMC0zMDNjLTQ4YmEtYjExNi1hM2EyMWVlNWM3ZWMiLCJleHAiOjE3NjU2MDkwNDYsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.7xwKnnoaE4qgM-94tqIunSqKja9oplD79WQ4Rm3xJug
 
 ###############################################################################
 ### 1. Health Check (Public)
@@ -70,7 +70,7 @@ Authorization: Bearer {{token}}
 ### 3. Get All Tables (Protected)
 ###############################################################################
 
-GET http://localhost:5000/api/tables/Production/UnitMeasure/generate-tests
+GET http://localhost:3200/api/tables/Production/UnitMeasure/generate-tests
 
 
 ###############################################################################

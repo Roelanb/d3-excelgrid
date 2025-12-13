@@ -1,0 +1,172 @@
+@baseUrl = http://localhost:3210/api
+
+### Generate a simple PDF report with text
+POST {{baseUrl}}/generate
+Content-Type: application/json
+
+{
+    "report": {
+        "reportObjects": [
+            {
+                "id": "text1",
+                "type": "text",
+                "x": 50,
+                "y": 50,
+                "width": 300,
+                "height": 40,
+                "properties": {
+                    "text": "Hello, Report Generator!",
+                    "fontSize": 24,
+                    "fontFamily": "Arial",
+                    "color": "#000000",
+                    "bold": true
+                }
+            },
+            {
+                "id": "text2",
+                "type": "text",
+                "x": 50,
+                "y": 100,
+                "width": 400,
+                "height": 30,
+                "properties": {
+                    "text": "Company: {{companyName}}",
+                    "fontSize": 16,
+                    "fontFamily": "Arial",
+                    "color": "#333333"
+                }
+            },
+            {
+                "id": "barcode1",
+                "type": "barcode",
+                "x": 50,
+                "y": 150,
+                "width": 100,
+                "height": 100,
+                "properties": {
+                    "text": "ABC123",
+                    "barcodeType": "qrcode",
+                    "barcodeIncludeText": false
+                }
+            }
+        ],
+        "canvasSettings": {
+            "showGrid": false,
+            "snapToGrid": false,
+            "gridSize": 10,
+            "zoom": 1,
+            "width": 595,
+            "height": 842,
+            "page": {
+                "preset": "A4",
+                "orientation": "portrait",
+                "width": 595,
+                "height": 842,
+                "margins": {
+                    "top": 40,
+                    "right": 40,
+                    "bottom": 40,
+                    "left": 40
+                }
+            }
+        },
+        "parameters": [
+            {
+                "id": "param1",
+                "name": "companyName",
+                "type": "string",
+                "required": true,
+                "value": "Acme Corporation"
+            }
+        ]
+    },
+    "data": {},
+    "output": {
+        "format": "pdf",
+        "filename": "test-report.pdf"
+    }
+}
+
+### Generate a report with a table
+POST {{baseUrl}}/generate
+Content-Type: application/json
+
+{
+    "report": {
+        "reportObjects": [
+            {
+                "id": "title",
+                "type": "text",
+                "x": 50,
+                "y": 30,
+                "width": 400,
+                "height": 40,
+                "properties": {
+                    "text": "Sales Report",
+                    "fontSize": 28,
+                    "fontFamily": "Arial",
+                    "color": "#1e40af",
+                    "bold": true
+                }
+            },
+            {
+                "id": "dataRegion1",
+                "type": "dataRegion",
+                "x": 50,
+                "y": 80,
+                "width": 500,
+                "height": 300,
+                "properties": {
+                    "dataSource": {
+                        "type": "sqlrest",
+                        "name": "sales"
+                    }
+                }
+            },
+            {
+                "id": "table1",
+                "type": "table",
+                "x": 60,
+                "y": 90,
+                "width": 480,
+                "height": 250,
+                "properties": {
+                    "columns": ["Product", "Quantity", "Price", "Total"]
+                }
+            }
+        ],
+        "canvasSettings": {
+            "showGrid": false,
+            "snapToGrid": false,
+            "gridSize": 10,
+            "zoom": 1,
+            "width": 595,
+            "height": 842,
+            "page": {
+                "preset": "A4",
+                "orientation": "portrait",
+                "width": 595,
+                "height": 842,
+                "margins": {
+                    "top": 40,
+                    "right": 40,
+                    "bottom": 40,
+                    "left": 40
+                }
+            }
+        },
+        "parameters": []
+    },
+    "data": {
+        "dataRegion1": [
+            {"Product": "Widget A", "Quantity": 100, "Price": "$10.00", "Total": "$1,000.00"},
+            {"Product": "Widget B", "Quantity": 50, "Price": "$25.00", "Total": "$1,250.00"},
+            {"Product": "Widget C", "Quantity": 200, "Price": "$5.00", "Total": "$1,000.00"},
+            {"Product": "Widget D", "Quantity": 75, "Price": "$15.00", "Total": "$1,125.00"}
+        ]
+    },
+    "output": {
+        "format": "pdf",
+        "filename": "sales-report.pdf"
+    }
+}

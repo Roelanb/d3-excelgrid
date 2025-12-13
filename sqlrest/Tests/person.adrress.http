@@ -2,7 +2,7 @@
 ### CRUD Operations for Person.Address
 ### Generated on 2025-11-15 08:27:41 UTC
 
-@baseUrl = http://localhost:5000
+@baseUrl = http://localhost:3200
 @token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiI4OGIwOTY0MC01YjEwLTQ4YjQtYmJjNC05ODQzMGZjMGY4ODgiLCJleHAiOjE3NjMyMDI1NjgsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.WhcNR-gDgsj0YPzLDJn9SWnHnZ62XwYc5eL_gybyKZE
 
 ### 1. Get All Records (Paginated)

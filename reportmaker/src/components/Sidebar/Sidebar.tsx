@@ -1,4 +1,4 @@
-import { Type, Image, BarChart, Table, ScanBarcode, Database, Minus, Square, Circle, Pentagon, Waypoints } from 'lucide-react';
+import { Type, Image, BarChart, Table, ScanBarcode, Database, RectangleHorizontal, Minus, Square, Circle, Pentagon, Waypoints } from 'lucide-react';
 import type { ReportObjectType } from '../../types';
 
 const DraggableItem = ({ type, icon: Icon, label }: { type: ReportObjectType; icon: React.ElementType; label: string }) => {
@@ -30,6 +30,8 @@ export const Sidebar = () => {
                 <DraggableItem type="table" icon={Table} label="Table" />
                 <DraggableItem type="barcode" icon={ScanBarcode} label="Barcode" />
                 <DraggableItem type="dataRegion" icon={Database} label="Data Region" />
+                <DraggableItem type="header" icon={RectangleHorizontal} label="Header" />
+                <DraggableItem type="footer" icon={RectangleHorizontal} label="Footer" />
 
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-6 mb-4">Shapes</h3>
                 <DraggableItem type="line" icon={Minus} label="Line" />

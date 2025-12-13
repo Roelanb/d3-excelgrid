@@ -10,10 +10,10 @@ Successfully switched the Excel Grid application from using Cloudflare Workers A
    - Changed `VITE_API_BASE_URL` from `https://sqlrest.bart-c9c.workers.dev` to `https://restapi-excelgrid.azurewebsites.net`
 
 2. **`excel-grid/src/services/authService.ts`**
-   - Updated development URL from `http://localhost:8787` (Workers) to `http://localhost:5000` (ASP.NET Core)
+   - Updated development URL from `http://localhost:8787` (Workers) to `http://localhost:3200` (ASP.NET Core)
 
 3. **`excel-grid/src/services/sqlRestApi.ts`**
-   - Updated development URL from `http://localhost:8787` (Workers) to `http://localhost:5000` (ASP.NET Core)
+   - Updated development URL from `http://localhost:8787` (Workers) to `http://localhost:3200` (ASP.NET Core)
 
 4. **`sqlrest/workers/src/index.ts`**
    - Removed debug code that was exposing environment variables in health endpoint
@@ -47,15 +47,15 @@ Successfully switched the Excel Grid application from using Cloudflare Workers A
    ```bash
    cd sqlrest
    dotnet run
-   # API runs on http://localhost:5000
+   # API runs on http://localhost:3200
    ```
 
 2. **Start Excel Grid:**
    ```bash
    cd excel-grid
    pnpm dev
-   # Grid runs on http://localhost:5173
-   # Automatically connects to http://localhost:5000
+   # Grid runs on http://localhost:3220
+   # Automatically connects to http://localhost:3200
    ```
 
 ## Deployment

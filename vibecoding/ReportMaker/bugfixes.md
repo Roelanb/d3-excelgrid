@@ -40,3 +40,21 @@ Implement the barcode function. Allow for 1D, 2D and QR codes.
 Implement in the data region the possibility to connect to a view or a stored procedure. The sqlrest api has been upgraded to support this. /api/views and /api/stored-procedures
 
 Add the possibility to set the stored procedure parameters with the report parameters. ({{parameterName}})
+
+
+Ok, now refactor the run report & Preview pdf. Combine them into one function. Design this as a 2nd tab in the report editor. At the top of this tab, there should be a run button. When clicked, the report should be run and the pdf should be previewed. If there are parameters defined, the user should be able to set the values at the top of the tab.
+
+
+Add a button to the report editor to run the report and preview the pdf through the report generator api.
+This is just a test to see if the report generator api works and that the generated pdf is correct.
+
+Make sure that the canvas size matches the page size exactly, correct nr of pixels, correct orientation, correct margins, correct page size.
+Maybe show the complete page and indicate the margins with a border.
+
+Enable the canvas zooming with the mouse wheel.
+
+Make sure that the page size is correct. For an A4 page:
+Width: 210 mm ÷ 25.4 ≈ 8.2677 inches (commonly rounded to 8.27 inches)
+Height: 297 mm ÷ 25.4 ≈ 11.6929 inches (commonly rounded to 11.69 inches)
+
+When I generate the pdf with the api, the page size is 11.03 x 15.60 inches, which is not correct.
