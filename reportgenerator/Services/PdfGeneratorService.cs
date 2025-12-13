@@ -15,6 +15,11 @@ public class PdfGeneratorService
     private readonly BarcodeService _barcodeService;
     private readonly ImageService _imageService;
 
+    private sealed record TablePaginationInfo(
+        int RowsFirstPage,
+        int RowsOtherPages,
+        int TotalPages);
+
     public PdfGeneratorService(
         ParameterSubstitutionService parameterService,
         BarcodeService barcodeService,
@@ -110,40 +115,223 @@ public class PdfGeneratorService
     {
         var page = report.CanvasSettings.Page;
 
+        var pageWidthPx = page.Width;
+        var pageHeightPx = page.Height;
+        var marginLeftPx = page.Margins.Left;
+        var marginRightPx = page.Margins.Right;
+        var marginTopPx = page.Margins.Top;
+        var marginBottomPx = page.Margins.Bottom;
+
         var (pageWidthPt, pageHeightPt) = GetPageSizePoints(page);
-        var marginLeftPt = PixelsToPoints(page.Margins.Left);
-        var marginRightPt = PixelsToPoints(page.Margins.Right);
-        var marginTopPt = PixelsToPoints(page.Margins.Top);
-        var marginBottomPt = PixelsToPoints(page.Margins.Bottom);
+        var marginLeftPt = PixelsToPoints(marginLeftPx);
+        var marginRightPt = PixelsToPoints(marginRightPx);
+        var marginTopPt = PixelsToPoints(marginTopPx);
+        var marginBottomPt = PixelsToPoints(marginBottomPx);
+
+        var tablePagination = new Dictionary<string, TablePaginationInfo>();
+        foreach (var table in report.ReportObjects.Where(o => o.Type == ReportObjectType.Table))
+        {
+            var props = table.Properties;
+            var columns = props.Columns ?? new List<string>();
+            if (columns.Count == 0) continue;
+
+            var parentRegion = FindParentDataRegion(table, report.ReportObjects);
+            if (parentRegion == null) continue;
+
+            var dataCount = parentRegion.Data?.Count ?? 0;
+            if (dataCount <= 0) continue;
+
+            const double rowHeightPx = 30;
+
+            var availableHeightFirstPx = Math.Min(table.Height, (pageHeightPx - marginBottomPx) - table.Y);
+            var rowsFirstPage = (int)Math.Floor((availableHeightFirstPx - rowHeightPx) / rowHeightPx);
+            if (rowsFirstPage < 1) rowsFirstPage = 1;
+
+            var yOtherPx = marginTopPx;
+            var availableHeightOtherPx = Math.Min(table.Height, (pageHeightPx - marginBottomPx) - yOtherPx);
+            var rowsOtherPages = (int)Math.Floor((availableHeightOtherPx - rowHeightPx) / rowHeightPx);
+            if (rowsOtherPages < 1) rowsOtherPages = 1;
+
+            int totalPages;
+            if (dataCount <= rowsFirstPage)
+            {
+                totalPages = 1;
+            }
+            else
+            {
+                var remaining = dataCount - rowsFirstPage;
+                totalPages = 1 + (int)Math.Ceiling(remaining / (double)rowsOtherPages);
+            }
+
+            if (totalPages > 1)
+                tablePagination[table.Id] = new TablePaginationInfo(rowsFirstPage, rowsOtherPages, totalPages);
+        }
+
+        var totalDocumentPages = tablePagination.Values.Select(v => v.TotalPages).DefaultIfEmpty(1).Max();
 
         var document = Document.Create(container =>
         {
-            container.Page(pageDescriptor =>
+            for (var pageIndex = 0; pageIndex < totalDocumentPages; pageIndex++)
             {
-                // Set page size in points
-                pageDescriptor.Size(pageWidthPt, pageHeightPt, Unit.Point);
+                var localPageIndex = pageIndex;
 
-                // Set margins in points
-                pageDescriptor.MarginLeft(marginLeftPt, Unit.Point);
-                pageDescriptor.MarginRight(marginRightPt, Unit.Point);
-                pageDescriptor.MarginTop(marginTopPt, Unit.Point);
-                pageDescriptor.MarginBottom(marginBottomPt, Unit.Point);
-
-                // Content with absolute positioning using SkiaSharp canvas
-                // Note: Canvas coordinates are in points (content area)
-                pageDescriptor.Content().SkiaSharpSvgCanvas((canvas, size) =>
+                container.Page(pageDescriptor =>
                 {
-                    foreach (var obj in report.ReportObjects.OrderBy(o => o.Y).ThenBy(o => o.X))
+                    // Set page size in points
+                    pageDescriptor.Size(pageWidthPt, pageHeightPt, Unit.Point);
+
+                    // Set margins in points
+                    pageDescriptor.MarginLeft(marginLeftPt, Unit.Point);
+                    pageDescriptor.MarginRight(marginRightPt, Unit.Point);
+                    pageDescriptor.MarginTop(marginTopPt, Unit.Point);
+                    pageDescriptor.MarginBottom(marginBottomPt, Unit.Point);
+
+                    // Content with absolute positioning using SkiaSharp canvas
+                    // Note: Canvas coordinates are in points (content area)
+                    pageDescriptor.Content().SkiaSharpSvgCanvas((canvas, size) =>
                     {
-                        RenderObject(canvas, obj, report.ReportObjects, parameters);
-                    }
+                        var saveCount = canvas.Save();
+                        canvas.Translate(-marginLeftPt, -marginTopPt);
+
+                        foreach (var obj in report.ReportObjects.OrderBy(o => o.Y).ThenBy(o => o.X))
+                        {
+                            if (obj.Type == ReportObjectType.Table && tablePagination.TryGetValue(obj.Id, out var pageInfo))
+                            {
+                                int startRow;
+                                int rowsToTake;
+                                double yStartPx;
+
+                                if (localPageIndex == 0)
+                                {
+                                    startRow = 0;
+                                    rowsToTake = pageInfo.RowsFirstPage;
+                                    yStartPx = obj.Y;
+                                }
+                                else
+                                {
+                                    startRow = pageInfo.RowsFirstPage + (localPageIndex - 1) * pageInfo.RowsOtherPages;
+                                    rowsToTake = pageInfo.RowsOtherPages;
+                                    yStartPx = marginTopPx;
+                                }
+
+                                RenderTablePage(canvas, obj, report.ReportObjects, startRow, rowsToTake, yStartPx);
+                                continue;
+                            }
+
+                            if (obj.Y < pageHeightPx)
+                            {
+                                if (localPageIndex != 0) continue;
+                                RenderObject(canvas, obj, report.ReportObjects, parameters);
+                                continue;
+                            }
+
+                            var objPageIndex = (int)Math.Floor(obj.Y / pageHeightPx);
+                            if (objPageIndex != localPageIndex) continue;
+
+                            var objOffsetSave = canvas.Save();
+                            canvas.Translate(0, -PixelsToPoints(objPageIndex * pageHeightPx));
+                            RenderObject(canvas, obj, report.ReportObjects, parameters);
+                            canvas.RestoreToCount(objOffsetSave);
+                        }
+
+                        canvas.RestoreToCount(saveCount);
+                    });
                 });
-            });
+            }
         });
 
         using var stream = new MemoryStream();
         document.GeneratePdf(stream);
         return stream.ToArray();
+    }
+
+    private void RenderTablePage(
+        SKCanvas canvas,
+        ReportObject obj,
+        List<ReportObject> allObjects,
+        int startRow,
+        int rowsToTake,
+        double yStartPx)
+    {
+        var props = obj.Properties;
+        var columns = props.Columns ?? new List<string>();
+
+        if (columns.Count == 0) return;
+
+        var parentRegion = FindParentDataRegion(obj, allObjects);
+        var data = parentRegion?.Data ?? new List<Dictionary<string, object>>();
+        if (startRow >= data.Count) return;
+
+        // Convert to points
+        var objX = PixelsToPoints(obj.X);
+        var objY = PixelsToPoints(yStartPx);
+        var objW = PixelsToPoints(obj.Width);
+
+        var rowHeight = PixelsToPoints(30);
+        var colWidth = objW / columns.Count;
+        var textPadding = PixelsToPoints(5);
+
+        // Header colors
+        var headerBgColor = ParseSkColor("#f3f4f6");
+        var borderColor = ParseSkColor("#d1d5db");
+        var headerTextColor = ParseSkColor("#374151");
+
+        using var headerBgPaint = new SKPaint { Color = headerBgColor, Style = SKPaintStyle.Fill };
+        using var borderPaint = new SKPaint { Color = borderColor, Style = SKPaintStyle.Stroke, StrokeWidth = PixelsToPoints(1) };
+        using var headerTextPaint = new SKPaint
+        {
+            Color = headerTextColor,
+            TextSize = PixelsToPoints(12),
+            Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright),
+            IsAntialias = true
+        };
+
+        // Draw header cells
+        for (int i = 0; i < columns.Count; i++)
+        {
+            var x = objX + i * colWidth;
+            var y = objY;
+
+            canvas.DrawRect(x, y, colWidth, rowHeight, headerBgPaint);
+            canvas.DrawRect(x, y, colWidth, rowHeight, borderPaint);
+            canvas.DrawText(columns[i], x + textPadding, y + rowHeight / 2 + PixelsToPoints(4), headerTextPaint);
+        }
+
+        // Data row colors
+        var cellBgColor = ParseSkColor("#ffffff");
+        var cellBorderColor = ParseSkColor("#e5e7eb");
+        var cellTextColor = ParseSkColor("#4b5563");
+
+        using var cellBgPaint = new SKPaint { Color = cellBgColor, Style = SKPaintStyle.Fill };
+        using var cellBorderPaint = new SKPaint { Color = cellBorderColor, Style = SKPaintStyle.Stroke, StrokeWidth = PixelsToPoints(1) };
+        using var cellTextPaint = new SKPaint
+        {
+            Color = cellTextColor,
+            TextSize = PixelsToPoints(12),
+            Typeface = SKTypeface.FromFamilyName("Arial"),
+            IsAntialias = true
+        };
+
+        var displayData = data.Skip(startRow).Take(rowsToTake).ToList();
+        for (int rowIndex = 0; rowIndex < displayData.Count; rowIndex++)
+        {
+            var row = displayData[rowIndex];
+            var y = objY + (rowIndex + 1) * rowHeight;
+
+            for (int colIndex = 0; colIndex < columns.Count; colIndex++)
+            {
+                var x = objX + colIndex * colWidth;
+                var col = columns[colIndex];
+
+                canvas.DrawRect(x, y, colWidth, rowHeight, cellBgPaint);
+                canvas.DrawRect(x, y, colWidth, rowHeight, cellBorderPaint);
+
+                if (row.TryGetValue(col, out var value) && value != null)
+                {
+                    canvas.DrawText(value.ToString() ?? string.Empty, x + textPadding, y + rowHeight / 2 + PixelsToPoints(4), cellTextPaint);
+                }
+            }
+        }
     }
 
     private void RenderObject(

@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Play, Server } from 'lucide-react';
+import { Server } from 'lucide-react';
 import { useReportStore } from '../../hooks/useReportStore';
 import { ParameterInput } from '../ParametersPanel';
-import { runReportAndGeneratePdfUrl, runDataConnections, applyDataUpdatesToObjects } from '../../utils/reportRun';
+import { runDataConnections, applyDataUpdatesToObjects } from '../../utils/reportRun';
 import { reportGeneratorApi } from '../../services/reportGeneratorApi';
+
+let lastAutoGenerateAtMs = 0;
 
 export const RunTab: React.FC = () => {
     const { reportObjects, canvasSettings, parameters, setParameterValue, updateObjectsData } = useReportStore();
-    const [isRunning, setIsRunning] = useState(false);
     const [isGeneratingViaApi, setIsGeneratingViaApi] = useState(false);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
@@ -21,26 +22,16 @@ export const RunTab: React.FC = () => {
         };
     }, [pdfUrl]);
 
-    const handleRun = async () => {
-        if (isRunning || isGeneratingViaApi) return;
-        setIsRunning(true);
-
-        try {
-            if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-            const result = await runReportAndGeneratePdfUrl(reportObjects, canvasSettings, parametersForRun);
-            if (result.updates.length > 0) {
-                updateObjectsData(result.updates);
-            }
-            setPdfUrl(result.pdfUrl);
-        } catch (e: any) {
-            alert(e?.message || 'Failed to run report');
-        } finally {
-            setIsRunning(false);
-        }
-    };
+    useEffect(() => {
+        const now = Date.now();
+        if (now - lastAutoGenerateAtMs < 1000) return;
+        lastAutoGenerateAtMs = now;
+        void handleGenerateViaApi();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleGenerateViaApi = async () => {
-        if (isRunning || isGeneratingViaApi) return;
+        if (isGeneratingViaApi) return;
         setIsGeneratingViaApi(true);
 
         try {
@@ -84,27 +75,17 @@ export const RunTab: React.FC = () => {
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <button
-                            onClick={handleRun}
-                            disabled={isRunning || isGeneratingViaApi}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded transition-colors text-sm font-medium ${isRunning || isGeneratingViaApi ? 'bg-purple-300 text-white cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
-                            title="Run report locally (browser-based PDF generation)"
-                            type="button"
-                        >
-                            <Play size={16} />
-                            {isRunning ? 'Running...' : 'Run (Local)'}
-                        </button>
-                        <button
                             onClick={handleGenerateViaApi}
-                            disabled={isRunning || isGeneratingViaApi}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded transition-colors text-sm font-medium ${isRunning || isGeneratingViaApi ? 'bg-blue-300 text-white cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                            disabled={isGeneratingViaApi}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded transition-colors text-sm font-medium ${isGeneratingViaApi ? 'bg-blue-300 text-white cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                             title="Generate PDF via Report Generator API (server-side)"
                             type="button"
                         >
                             <Server size={16} />
-                            {isGeneratingViaApi ? 'Generating...' : 'Run (API)'}
+                            {isGeneratingViaApi ? 'Generating...' : 'Generate PDF'}
                         </button>
                         <div className="text-sm text-gray-500">
-                            {isRunning ? 'Generating PDF locally...' : isGeneratingViaApi ? 'Generating PDF via API...' : 'Choose local or API-based PDF generation'}
+                            {isGeneratingViaApi ? 'Generating PDF via API...' : 'Generate a PDF preview via the Report Generator API'}
                         </div>
                     </div>
                 </div>
@@ -135,7 +116,7 @@ export const RunTab: React.FC = () => {
                     />
                 ) : (
                     <div className="w-full h-full border rounded bg-white flex items-center justify-center text-gray-500">
-                        Click Run to generate a PDF preview.
+                        Click Generate PDF to generate a PDF preview.
                     </div>
                 )}
             </div>

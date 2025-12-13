@@ -11,4 +11,4 @@ create it in the folder  /reportgenerator.
 
 
 
-Update the reportmaker to only use the reportgenerator api to generate the report. Remove the run (local) option. and
+Update the reportmaker to only use the reportgenerator api to generate the report. Remove the run (local) option. And remove the code in the reportmaker that is used to generate the report. 

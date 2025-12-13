@@ -113,7 +113,7 @@ export interface DateRangeValue {
 
 export interface ReportParameter {
     id: string;
-    name: string;                    // Variable name (used in expressions like {{paramName}})
+    name: string;                    // Variable name (used in expressions like @paramName)
     type: ReportParameterType;
     label?: string;                  // Display label
     description?: string;            // Help text

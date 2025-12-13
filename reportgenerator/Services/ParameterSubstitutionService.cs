@@ -4,12 +4,18 @@ using ReportGenerator.Models;
 namespace ReportGenerator.Services;
 
 /// <summary>
-/// Service for substituting {{parameterName}} placeholders with actual values
+/// Service for substituting @parameterName placeholders with actual values
 /// </summary>
 public partial class ParameterSubstitutionService
 {
+    // New format: @parameterName
+    // We only match when '@' is NOT preceded by a word char, so emails like 'a@b.com' won't match.
+    [GeneratedRegex(@"(^|[^\w])@(\w+)")]
+    private static partial Regex AtParameterPattern();
+
+    // Backwards compatibility: {{parameterName}}
     [GeneratedRegex(@"\{\{(\w+)\}\}")]
-    private static partial Regex ParameterPattern();
+    private static partial Regex CurlyParameterPattern();
 
     /// <summary>
     /// Substitutes parameter placeholders in text with their values
@@ -21,7 +27,19 @@ public partial class ParameterSubstitutionService
 
         var paramDict = parameters.ToDictionary(p => p.Name, p => p);
 
-        return ParameterPattern().Replace(text, match =>
+        var replacedAt = AtParameterPattern().Replace(text, match =>
+        {
+            var prefix = match.Groups[1].Value;
+            var paramName = match.Groups[2].Value;
+            if (paramDict.TryGetValue(paramName, out var param))
+            {
+                return prefix + FormatParameterValue(param);
+            }
+
+            return match.Value; // Keep original if not found
+        });
+
+        return CurlyParameterPattern().Replace(replacedAt, match =>
         {
             var paramName = match.Groups[1].Value;
             if (paramDict.TryGetValue(paramName, out var param))

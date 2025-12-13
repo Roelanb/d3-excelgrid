@@ -58,3 +58,10 @@ Width: 210 mm ÷ 25.4 ≈ 8.2677 inches (commonly rounded to 8.27 inches)
 Height: 297 mm ÷ 25.4 ≈ 11.6929 inches (commonly rounded to 11.69 inches)
 
 When I generate the pdf with the api, the page size is 11.03 x 15.60 inches, which is not correct.
+
+Adding a rectangle object to the top right corner of the page, (with margins 40px), sets the position of the rectangle to 40px from the right and 40px from the top. When generating the pdf, the rectangle is not at the correct position. It looks like the margins are not taken into account.
+
+
+Allow for a data region to span multiple pages. If in a data region, a table is defined, depending on the data, the table may span multiple pages. 
+
+Change the report parameter format from {{parameterName}} to @parameterName. This is to prevent the parameter from being evaluated as a js expression.

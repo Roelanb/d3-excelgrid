@@ -50,7 +50,9 @@ export const ParameterRow: React.FC<ParameterRowProps> = ({
 
                 {/* Required indicator */}
                 {parameter.required && (
-                    <Asterisk size={14} className="text-red-500" title="Required" />
+                    <span title="Required">
+                        <Asterisk size={14} className="text-red-500" />
+                    </span>
                 )}
 
                 {/* Delete button */}

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { useReportStore } from '../../hooks/useReportStore';
-import { runReportAndGeneratePdfUrl } from '../../utils/reportRun';
+import { runDataConnections, applyDataUpdatesToObjects } from '../../utils/reportRun';
+import { reportGeneratorApi } from '../../services/reportGeneratorApi';
 
 interface PreviewModalProps {
     isOpen: boolean;
@@ -26,11 +27,28 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({ isOpen, onClose }) =
 
     const generatePdf = async () => {
         try {
-            const result = await runReportAndGeneratePdfUrl(reportObjects, canvasSettings, parameters);
-            if (result.updates.length > 0) {
-                updateObjectsData(result.updates);
+            if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+
+            const dataUpdates = await runDataConnections(reportObjects, parameters);
+            const dataMap: Record<string, any[]> = {};
+            for (const update of dataUpdates) {
+                dataMap[update.id] = update.data;
             }
-            setPdfUrl(result.pdfUrl);
+
+            if (dataUpdates.length > 0) {
+                updateObjectsData(dataUpdates);
+            }
+
+            const objectsWithData = applyDataUpdatesToObjects(reportObjects, dataUpdates);
+
+            const url = await reportGeneratorApi.generatePdf(
+                objectsWithData,
+                canvasSettings,
+                parameters,
+                dataMap
+            );
+
+            setPdfUrl(url);
         } catch (e) {
             console.error('Failed to generate PDF preview:', e);
             setPdfUrl(null);

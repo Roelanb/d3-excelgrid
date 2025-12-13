@@ -83,12 +83,12 @@ start_service() {
     fi
 }
 
-# Create necessary directories
-mkdir -p logs pids
-
 # Get the project root directory
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
+
+# Create necessary directories
+mkdir -p "$PROJECT_ROOT/logs" "$PROJECT_ROOT/pids"
 
 print_status "Starting all services for d3-excelgrid project..."
 echo ""
@@ -192,7 +192,7 @@ echo "  • Logs directory:  $PROJECT_ROOT/logs/"
 echo "  • PIDs directory:  $PROJECT_ROOT/pids/"
 echo ""
 print_status "To stop all services, run:"
-echo "  ./stop-all.sh"
+echo "  ./scripts/stop-all.sh"
 echo ""
 print_status "To view logs, run:"
 echo "  tail -f logs/sqlrest.log"

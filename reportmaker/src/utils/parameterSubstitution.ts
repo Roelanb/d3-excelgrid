@@ -48,17 +48,22 @@ export const substituteParameters = (text: string, parameters: ReportParameter[]
         return text;
     }
 
-    // Match {{parameterName}} pattern
-    const pattern = /\{\{(\w+)\}\}/g;
+    // New format: @parameterName
+    // We only match when '@' is NOT preceded by a word char, so emails like 'a@b.com' won't match.
+    const atPattern = /(^|[^\w])@(\w+)/g;
 
-    return text.replace(pattern, (match, paramName) => {
+    const replacedAt = text.replace(atPattern, (match, prefix: string, paramName: string) => {
         const param = parameters.find(p => p.name === paramName);
+        if (!param) return match;
+        return `${prefix}${formatParameterValue(param)}`;
+    });
 
-        if (!param) {
-            // Parameter not found, keep the original placeholder
-            return match;
-        }
+    // Backwards compatibility: {{parameterName}}
+    const curlyPattern = /\{\{(\w+)\}\}/g;
 
+    return replacedAt.replace(curlyPattern, (match, paramName) => {
+        const param = parameters.find(p => p.name === paramName);
+        if (!param) return match;
         return formatParameterValue(param);
     });
 };
@@ -68,7 +73,7 @@ export const substituteParameters = (text: string, parameters: ReportParameter[]
  */
 export const hasParameterPlaceholders = (text: string): boolean => {
     if (!text) return false;
-    return /\{\{\w+\}\}/.test(text);
+    return /(^|[^\w])@\w+/.test(text) || /\{\{\w+\}\}/.test(text);
 };
 
 /**
@@ -76,13 +81,20 @@ export const hasParameterPlaceholders = (text: string): boolean => {
  */
 export const extractParameterNames = (text: string): string[] => {
     if (!text) return [];
-    const pattern = /\{\{(\w+)\}\}/g;
     const names: string[] = [];
-    let match;
-    while ((match = pattern.exec(text)) !== null) {
-        if (!names.includes(match[1])) {
-            names.push(match[1]);
-        }
+
+    const atPattern = /(^|[^\w])@(\w+)/g;
+    let match: RegExpExecArray | null;
+    while ((match = atPattern.exec(text)) !== null) {
+        const name = match[2];
+        if (name && !names.includes(name)) names.push(name);
     }
+
+    const curlyPattern = /\{\{(\w+)\}\}/g;
+    while ((match = curlyPattern.exec(text)) !== null) {
+        const name = match[1];
+        if (name && !names.includes(name)) names.push(name);
+    }
+
     return names;
 };
