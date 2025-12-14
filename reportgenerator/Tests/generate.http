@@ -1,4 +1,5 @@
 @baseUrl = http://localhost:3210/api
+@companyName = Acme Corporation
 
 ### Generate a simple PDF report with text
 POST {{baseUrl}}/generate
@@ -84,6 +85,83 @@ Content-Type: application/json
     "output": {
         "format": "pdf",
         "filename": "test-report.pdf"
+    }
+}
+
+### Generate a report with a styled table header and styled cells
+POST {{baseUrl}}/generate
+Content-Type: application/json
+
+{
+    "report": {
+        "reportObjects": [
+            {
+                "id": "table1",
+                "type": "table",
+                "x": 40,
+                "y": 60,
+                "width": 515,
+                "height": 350,
+                "properties": {
+                    "columns": ["Product", "Quantity", "Price"],
+                    "tableHeaderStyle": {
+                        "backgroundColor": "#111827",
+                        "color": "#ffffff",
+                        "fontSize": 14,
+                        "fontFamily": "Arial",
+                        "bold": true,
+                        "borderWidth": 1,
+                        "borderColor": "#374151",
+                        "padding": 6,
+                        "textAlign": "left"
+                    },
+                    "tableHeaderCellStyles": {
+                        "Quantity": {
+                            "textAlign": "right"
+                        }
+                    }
+                }
+            }
+        ],
+        "canvasSettings": {
+            "showGrid": false,
+            "snapToGrid": false,
+            "gridSize": 10,
+            "zoom": 1,
+            "width": 595,
+            "height": 842,
+            "page": {
+                "preset": "A4",
+                "orientation": "portrait",
+                "width": 595,
+                "height": 842,
+                "margins": {
+                    "top": 40,
+                    "right": 40,
+                    "bottom": 40,
+                    "left": 40
+                }
+            }
+        },
+        "parameters": []
+    },
+    "data": {
+        "table1": [
+            {
+                "Product": "Widget A",
+                "Quantity": { "value": 100, "style": { "textAlign": "right" } },
+                "Price": { "value": "$10.00", "style": { "color": "#047857", "bold": true } }
+            },
+            {
+                "Product": { "value": "Widget B", "style": { "backgroundColor": "#fef3c7" } },
+                "Quantity": { "value": 50, "style": { "textAlign": "right" } },
+                "Price": { "value": "$25.00", "style": { "color": "#b91c1c" } }
+            }
+        ]
+    },
+    "output": {
+        "format": "pdf",
+        "filename": "styled-table.pdf"
     }
 }
 

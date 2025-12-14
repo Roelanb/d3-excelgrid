@@ -1,3 +1,4 @@
+using System.Text.Json;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -39,7 +40,7 @@ public class PdfGeneratorService
         var data = request.Data ?? new Dictionary<string, List<Dictionary<string, object>>>();
         var parameters = report.Parameters ?? new List<ReportParameter>();
 
-        // Apply data to data regions
+        // Apply data to data regions (and tables for standalone table support)
         ApplyDataToRegions(report.ReportObjects, data);
 
         // Generate PDF
@@ -49,7 +50,7 @@ public class PdfGeneratorService
 
     private static void ApplyDataToRegions(List<ReportObject> objects, Dictionary<string, List<Dictionary<string, object>>> data)
     {
-        foreach (var obj in objects.Where(o => o.Type == ReportObjectType.DataRegion))
+        foreach (var obj in objects.Where(o => o.Type == ReportObjectType.DataRegion || o.Type == ReportObjectType.Table || o.Type == ReportObjectType.Datatable))
         {
             if (data.TryGetValue(obj.Id, out var regionData))
             {
@@ -72,6 +73,227 @@ public class PdfGeneratorService
     private static float InchesToPoints(double inches) => (float)(inches * PointsPerInch);
 
     private static float MmToPoints(double mm) => (float)(mm / MmPerInch * PointsPerInch);
+
+    private static double Clamp01(double v) => v < 0 ? 0 : (v > 1 ? 1 : v);
+
+    private static SKColor ApplyOpacity(SKColor color, double? opacity)
+    {
+        if (opacity is null) return color;
+        var o = Clamp01(opacity.Value);
+        return color.WithAlpha((byte)Math.Round(color.Alpha * o));
+    }
+
+    private static TextStyleProperties MergeStyles(TextStyleProperties? baseStyle, TextStyleProperties? overrideStyle)
+    {
+        if (baseStyle == null && overrideStyle == null) return new TextStyleProperties();
+        if (baseStyle == null) return overrideStyle ?? new TextStyleProperties();
+        if (overrideStyle == null) return baseStyle;
+
+        return new TextStyleProperties
+        {
+            FontSize = overrideStyle.FontSize ?? baseStyle.FontSize,
+            FontFamily = overrideStyle.FontFamily ?? baseStyle.FontFamily,
+            Bold = overrideStyle.Bold ?? baseStyle.Bold,
+            Italic = overrideStyle.Italic ?? baseStyle.Italic,
+            Underline = overrideStyle.Underline ?? baseStyle.Underline,
+            StrikeThrough = overrideStyle.StrikeThrough ?? baseStyle.StrikeThrough,
+            Color = overrideStyle.Color ?? baseStyle.Color,
+            BackgroundColor = overrideStyle.BackgroundColor ?? baseStyle.BackgroundColor,
+            Opacity = overrideStyle.Opacity ?? baseStyle.Opacity,
+            BorderWidth = overrideStyle.BorderWidth ?? baseStyle.BorderWidth,
+            BorderColor = overrideStyle.BorderColor ?? baseStyle.BorderColor,
+            Padding = overrideStyle.Padding ?? baseStyle.Padding,
+            TextAlign = overrideStyle.TextAlign ?? baseStyle.TextAlign,
+        };
+    }
+
+    private static TextStyleProperties GetHeaderCellStyle(ReportObjectProperties props, string column)
+    {
+        var baseStyle = props.TableHeaderStyle;
+        var cellStyles = props.TableHeaderCellStyles;
+        TextStyleProperties? perCell = null;
+        if (cellStyles != null && cellStyles.TryGetValue(column, out var s))
+            perCell = s;
+        return MergeStyles(baseStyle, perCell);
+    }
+
+    private static (string Text, TextStyleProperties? Style) TryExtractValueAndStyle(object? value)
+    {
+        if (value == null)
+            return (string.Empty, null);
+
+        // System.Text.Json will deserialize `object` values as JsonElement
+        if (value is JsonElement je)
+        {
+            if (je.ValueKind == JsonValueKind.Null || je.ValueKind == JsonValueKind.Undefined)
+                return (string.Empty, null);
+
+            if (je.ValueKind == JsonValueKind.Object)
+            {
+                if (je.TryGetProperty("value", out var valueEl))
+                {
+                    var text = valueEl.ValueKind == JsonValueKind.String
+                        ? (valueEl.GetString() ?? string.Empty)
+                        : valueEl.ToString();
+
+                    TextStyleProperties? style = null;
+                    if (je.TryGetProperty("style", out var styleEl) && styleEl.ValueKind == JsonValueKind.Object)
+                    {
+                        try
+                        {
+                            style = styleEl.Deserialize<TextStyleProperties>(new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true
+                            });
+                        }
+                        catch
+                        {
+                            style = null;
+                        }
+                    }
+
+                    return (text ?? string.Empty, style);
+                }
+            }
+
+            return (je.ValueKind == JsonValueKind.String ? (je.GetString() ?? string.Empty) : je.ToString(), null);
+        }
+
+        return (value.ToString() ?? string.Empty, null);
+    }
+
+    private static void DrawStyledCell(
+        SKCanvas canvas,
+        float x,
+        float y,
+        float w,
+        float h,
+        string text,
+        TextStyleProperties? style,
+        TextStyleProperties defaults)
+    {
+        var merged = MergeStyles(defaults, style);
+
+        var bg = ApplyOpacity(ParseSkColor(merged.BackgroundColor ?? defaults.BackgroundColor), merged.Opacity ?? defaults.Opacity);
+        var fg = ApplyOpacity(ParseSkColor(merged.Color ?? defaults.Color), merged.Opacity ?? defaults.Opacity);
+        var borderColor = ApplyOpacity(ParseSkColor(merged.BorderColor ?? defaults.BorderColor), merged.Opacity ?? defaults.Opacity);
+
+        var borderWidthPx = merged.BorderWidth ?? defaults.BorderWidth ?? 0;
+        var borderWidthPt = borderWidthPx > 0 ? PixelsToPoints(borderWidthPx) : 0;
+
+        using (var bgPaint = new SKPaint { Color = bg, Style = SKPaintStyle.Fill })
+        {
+            canvas.DrawRect(x, y, w, h, bgPaint);
+        }
+
+        if (borderWidthPt > 0)
+        {
+            using var borderPaint = new SKPaint { Color = borderColor, Style = SKPaintStyle.Stroke, StrokeWidth = borderWidthPt };
+            canvas.DrawRect(x, y, w, h, borderPaint);
+        }
+
+        var fontSizePt = PixelsToPoints(merged.FontSize ?? defaults.FontSize ?? 12);
+        using var textPaint = new SKPaint
+        {
+            Color = fg,
+            TextSize = fontSizePt,
+            Typeface = GetTypeface(merged.FontFamily ?? defaults.FontFamily, merged.Bold ?? defaults.Bold ?? false, merged.Italic ?? defaults.Italic ?? false),
+            IsAntialias = true
+        };
+
+        var paddingPt = PixelsToPoints(merged.Padding ?? defaults.Padding ?? 5);
+
+        // Vertical centering based on font metrics
+        var metrics = textPaint.FontMetrics;
+        var textHeight = metrics.Descent - metrics.Ascent;
+        var baselineY = y + (h - textHeight) / 2 - metrics.Ascent;
+
+        var align = (merged.TextAlign ?? defaults.TextAlign ?? "left").Trim().ToLowerInvariant();
+        var textWidth = textPaint.MeasureText(text);
+
+        float textX;
+        switch (align)
+        {
+            case "center":
+                textX = x + (w - textWidth) / 2;
+                break;
+            case "right":
+                textX = x + w - paddingPt - textWidth;
+                break;
+            default:
+                textX = x + paddingPt;
+                break;
+        }
+
+        // Clip text to cell bounds
+        var clipSave = canvas.Save();
+        canvas.ClipRect(new SKRect(x, y, x + w, y + h));
+        canvas.DrawText(text ?? string.Empty, textX, baselineY, textPaint);
+
+        // Underline / strikeThrough
+        var underline = merged.Underline ?? defaults.Underline ?? false;
+        var strike = merged.StrikeThrough ?? defaults.StrikeThrough ?? false;
+
+        if (underline || strike)
+        {
+            using var decoPaint = new SKPaint
+            {
+                Color = fg,
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = Math.Max(1, fontSizePt / 12)
+            };
+
+            if (underline)
+            {
+                var underlineY = baselineY + Math.Max(1, fontSizePt / 12);
+                canvas.DrawLine(textX, underlineY, textX + textWidth, underlineY, decoPaint);
+            }
+
+            if (strike)
+            {
+                var strikeY = y + h / 2;
+                canvas.DrawLine(textX, strikeY, textX + textWidth, strikeY, decoPaint);
+            }
+        }
+
+        canvas.RestoreToCount(clipSave);
+    }
+
+    private static (List<float> WidthsPt, List<float> XOffsetsPt) ComputeTableColumnLayout(
+        float totalWidthPt,
+        List<string> columns,
+        Dictionary<string, double?>? columnWidthsPx)
+    {
+        if (columns.Count == 0)
+            return (new List<float>(), new List<float>());
+
+        var fixedWidthsPx = columns
+            .Select(c =>
+            {
+                if (columnWidthsPx != null && columnWidthsPx.TryGetValue(c, out var v) && v.HasValue && v.Value > 0)
+                    return v.Value;
+                return (double?)null;
+            })
+            .ToList();
+
+        var fixedTotalPt = fixedWidthsPx.Where(v => v.HasValue).Sum(v => PixelsToPoints(v!.Value));
+        var autoCount = fixedWidthsPx.Count(v => !v.HasValue);
+        var autoWidthPt = autoCount > 0 ? Math.Max(PixelsToPoints(20), (totalWidthPt - fixedTotalPt) / autoCount) : 0;
+
+        var widthsPt = fixedWidthsPx
+            .Select(v => v.HasValue ? PixelsToPoints(v.Value) : autoWidthPt)
+            .ToList();
+
+        var xOffsets = new List<float>(widthsPt.Count);
+        float acc = 0;
+        foreach (var w in widthsPt)
+        {
+            xOffsets.Add(acc);
+            acc += w;
+        }
+
+        return (widthsPt, xOffsets);
+    }
 
     private static (float WidthPt, float HeightPt) GetPageSizePoints(PageSettings page)
     {
@@ -129,16 +351,15 @@ public class PdfGeneratorService
         var marginBottomPt = PixelsToPoints(marginBottomPx);
 
         var tablePagination = new Dictionary<string, TablePaginationInfo>();
-        foreach (var table in report.ReportObjects.Where(o => o.Type == ReportObjectType.Table))
+        foreach (var table in report.ReportObjects.Where(o => o.Type == ReportObjectType.Table || o.Type == ReportObjectType.Datatable))
         {
             var props = table.Properties;
             var columns = props.Columns ?? new List<string>();
             if (columns.Count == 0) continue;
 
             var parentRegion = FindParentDataRegion(table, report.ReportObjects);
-            if (parentRegion == null) continue;
-
-            var dataCount = parentRegion.Data?.Count ?? 0;
+            var tableData = table.Data ?? parentRegion?.Data;
+            var dataCount = tableData?.Count ?? 0;
             if (dataCount <= 0) continue;
 
             const double rowHeightPx = 30;
@@ -195,7 +416,7 @@ public class PdfGeneratorService
 
                         foreach (var obj in report.ReportObjects.OrderBy(o => o.Y).ThenBy(o => o.X))
                         {
-                            if (obj.Type == ReportObjectType.Table && tablePagination.TryGetValue(obj.Id, out var pageInfo))
+                            if ((obj.Type == ReportObjectType.Table || obj.Type == ReportObjectType.Datatable) && tablePagination.TryGetValue(obj.Id, out var pageInfo))
                             {
                                 int startRow;
                                 int rowsToTake;
@@ -259,7 +480,7 @@ public class PdfGeneratorService
         if (columns.Count == 0) return;
 
         var parentRegion = FindParentDataRegion(obj, allObjects);
-        var data = parentRegion?.Data ?? new List<Dictionary<string, object>>();
+        var data = obj.Data ?? parentRegion?.Data ?? new List<Dictionary<string, object>>();
         if (startRow >= data.Count) return;
 
         // Convert to points
@@ -268,48 +489,44 @@ public class PdfGeneratorService
         var objW = PixelsToPoints(obj.Width);
 
         var rowHeight = PixelsToPoints(30);
-        var colWidth = objW / columns.Count;
-        var textPadding = PixelsToPoints(5);
+        var (colWidthsPt, colXPt) = ComputeTableColumnLayout(objW, columns, props.ColumnWidths);
 
-        // Header colors
-        var headerBgColor = ParseSkColor("#f3f4f6");
-        var borderColor = ParseSkColor("#d1d5db");
-        var headerTextColor = ParseSkColor("#374151");
-
-        using var headerBgPaint = new SKPaint { Color = headerBgColor, Style = SKPaintStyle.Fill };
-        using var borderPaint = new SKPaint { Color = borderColor, Style = SKPaintStyle.Stroke, StrokeWidth = PixelsToPoints(1) };
-        using var headerTextPaint = new SKPaint
+        var headerDefaults = new TextStyleProperties
         {
-            Color = headerTextColor,
-            TextSize = PixelsToPoints(12),
-            Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright),
-            IsAntialias = true
+            BackgroundColor = "#f3f4f6",
+            BorderColor = "#d1d5db",
+            BorderWidth = 1,
+            Color = "#374151",
+            FontSize = 12,
+            FontFamily = "Arial",
+            Bold = true,
+            Padding = 5,
+            TextAlign = "left",
+            Opacity = 1
         };
 
-        // Draw header cells
+        // Draw header cells (with formatting)
         for (int i = 0; i < columns.Count; i++)
         {
-            var x = objX + i * colWidth;
+            var x = objX + colXPt[i];
             var y = objY;
-
-            canvas.DrawRect(x, y, colWidth, rowHeight, headerBgPaint);
-            canvas.DrawRect(x, y, colWidth, rowHeight, borderPaint);
-            canvas.DrawText(columns[i], x + textPadding, y + rowHeight / 2 + PixelsToPoints(4), headerTextPaint);
+            var col = columns[i];
+            var headerStyle = GetHeaderCellStyle(props, col);
+            DrawStyledCell(canvas, x, y, colWidthsPt[i], rowHeight, col, headerStyle, headerDefaults);
         }
 
-        // Data row colors
-        var cellBgColor = ParseSkColor("#ffffff");
-        var cellBorderColor = ParseSkColor("#e5e7eb");
-        var cellTextColor = ParseSkColor("#4b5563");
-
-        using var cellBgPaint = new SKPaint { Color = cellBgColor, Style = SKPaintStyle.Fill };
-        using var cellBorderPaint = new SKPaint { Color = cellBorderColor, Style = SKPaintStyle.Stroke, StrokeWidth = PixelsToPoints(1) };
-        using var cellTextPaint = new SKPaint
+        var cellDefaults = new TextStyleProperties
         {
-            Color = cellTextColor,
-            TextSize = PixelsToPoints(12),
-            Typeface = SKTypeface.FromFamilyName("Arial"),
-            IsAntialias = true
+            BackgroundColor = "#ffffff",
+            BorderColor = "#e5e7eb",
+            BorderWidth = 1,
+            Color = "#4b5563",
+            FontSize = 12,
+            FontFamily = "Arial",
+            Bold = false,
+            Padding = 5,
+            TextAlign = "left",
+            Opacity = 1
         };
 
         var displayData = data.Skip(startRow).Take(rowsToTake).ToList();
@@ -320,15 +537,17 @@ public class PdfGeneratorService
 
             for (int colIndex = 0; colIndex < columns.Count; colIndex++)
             {
-                var x = objX + colIndex * colWidth;
+                var x = objX + colXPt[colIndex];
                 var col = columns[colIndex];
-
-                canvas.DrawRect(x, y, colWidth, rowHeight, cellBgPaint);
-                canvas.DrawRect(x, y, colWidth, rowHeight, cellBorderPaint);
 
                 if (row.TryGetValue(col, out var value) && value != null)
                 {
-                    canvas.DrawText(value.ToString() ?? string.Empty, x + textPadding, y + rowHeight / 2 + PixelsToPoints(4), cellTextPaint);
+                    var (cellText, cellStyle) = TryExtractValueAndStyle(value);
+                    DrawStyledCell(canvas, x, y, colWidthsPt[colIndex], rowHeight, cellText, cellStyle, cellDefaults);
+                }
+                else
+                {
+                    DrawStyledCell(canvas, x, y, colWidthsPt[colIndex], rowHeight, string.Empty, null, cellDefaults);
                 }
             }
         }
@@ -355,6 +574,10 @@ public class PdfGeneratorService
                 break;
 
             case ReportObjectType.Table:
+                RenderTable(canvas, obj, allObjects);
+                break;
+
+            case ReportObjectType.Datatable:
                 RenderTable(canvas, obj, allObjects);
                 break;
 
@@ -555,7 +778,7 @@ public class PdfGeneratorService
         if (columns.Count == 0) return;
 
         var parentRegion = FindParentDataRegion(obj, allObjects);
-        var data = parentRegion?.Data ?? new List<Dictionary<string, object>>();
+        var data = obj.Data ?? parentRegion?.Data ?? new List<Dictionary<string, object>>();
 
         // Convert to points
         var objX = PixelsToPoints(obj.X);
@@ -564,51 +787,44 @@ public class PdfGeneratorService
         var objH = PixelsToPoints(obj.Height);
 
         var rowHeight = PixelsToPoints(30);
-        var colWidth = objW / columns.Count;
-        var textPadding = PixelsToPoints(5);
+        var (colWidthsPt, colXPt) = ComputeTableColumnLayout(objW, columns, props.ColumnWidths);
 
-        // Header colors
-        var headerBgColor = ParseSkColor("#f3f4f6");
-        var borderColor = ParseSkColor("#d1d5db");
-        var headerTextColor = ParseSkColor("#374151");
-
-        using var headerBgPaint = new SKPaint { Color = headerBgColor, Style = SKPaintStyle.Fill };
-        using var borderPaint = new SKPaint { Color = borderColor, Style = SKPaintStyle.Stroke, StrokeWidth = PixelsToPoints(1) };
-        using var headerTextPaint = new SKPaint
+        var headerDefaults = new TextStyleProperties
         {
-            Color = headerTextColor,
-            TextSize = PixelsToPoints(12),
-            Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright),
-            IsAntialias = true
+            BackgroundColor = "#f3f4f6",
+            BorderColor = "#d1d5db",
+            BorderWidth = 1,
+            Color = "#374151",
+            FontSize = 12,
+            FontFamily = "Arial",
+            Bold = true,
+            Padding = 5,
+            TextAlign = "left",
+            Opacity = 1
         };
 
-        // Draw header cells
+        // Draw header cells (with formatting)
         for (int i = 0; i < columns.Count; i++)
         {
-            var x = objX + i * colWidth;
+            var x = objX + colXPt[i];
             var y = objY;
-
-            // Header cell background
-            canvas.DrawRect(x, y, colWidth, rowHeight, headerBgPaint);
-            canvas.DrawRect(x, y, colWidth, rowHeight, borderPaint);
-
-            // Header text
-            canvas.DrawText(columns[i], x + textPadding, y + rowHeight / 2 + PixelsToPoints(4), headerTextPaint);
+            var col = columns[i];
+            var headerStyle = GetHeaderCellStyle(props, col);
+            DrawStyledCell(canvas, x, y, colWidthsPt[i], rowHeight, col, headerStyle, headerDefaults);
         }
 
-        // Data row colors
-        var cellBgColor = ParseSkColor("#ffffff");
-        var cellBorderColor = ParseSkColor("#e5e7eb");
-        var cellTextColor = ParseSkColor("#4b5563");
-
-        using var cellBgPaint = new SKPaint { Color = cellBgColor, Style = SKPaintStyle.Fill };
-        using var cellBorderPaint = new SKPaint { Color = cellBorderColor, Style = SKPaintStyle.Stroke, StrokeWidth = PixelsToPoints(1) };
-        using var cellTextPaint = new SKPaint
+        var cellDefaults = new TextStyleProperties
         {
-            Color = cellTextColor,
-            TextSize = PixelsToPoints(12),
-            Typeface = SKTypeface.FromFamilyName("Arial"),
-            IsAntialias = true
+            BackgroundColor = "#ffffff",
+            BorderColor = "#e5e7eb",
+            BorderWidth = 1,
+            Color = "#4b5563",
+            FontSize = 12,
+            FontFamily = "Arial",
+            Bold = false,
+            Padding = 5,
+            TextAlign = "left",
+            Opacity = 1
         };
 
         // Draw data rows
@@ -622,17 +838,17 @@ public class PdfGeneratorService
 
             for (int colIndex = 0; colIndex < columns.Count; colIndex++)
             {
-                var x = objX + colIndex * colWidth;
+                var x = objX + colXPt[colIndex];
                 var col = columns[colIndex];
 
-                // Cell background and border
-                canvas.DrawRect(x, y, colWidth, rowHeight, cellBgPaint);
-                canvas.DrawRect(x, y, colWidth, rowHeight, cellBorderPaint);
-
-                // Cell text
                 if (row.TryGetValue(col, out var value) && value != null)
                 {
-                    canvas.DrawText(value.ToString() ?? string.Empty, x + textPadding, y + rowHeight / 2 + PixelsToPoints(4), cellTextPaint);
+                    var (cellText, cellStyle) = TryExtractValueAndStyle(value);
+                    DrawStyledCell(canvas, x, y, colWidthsPt[colIndex], rowHeight, cellText, cellStyle, cellDefaults);
+                }
+                else
+                {
+                    DrawStyledCell(canvas, x, y, colWidthsPt[colIndex], rowHeight, string.Empty, null, cellDefaults);
                 }
             }
         }

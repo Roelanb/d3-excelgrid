@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Sidebar } from './components/Sidebar/Sidebar';
+import { TextStyleToolbar } from './components/TextStyleToolbar/TextStyleToolbar';
 import { Canvas } from './components/Canvas/Canvas';
+import { LlmPromptPanel } from './components/Llm/LlmPromptPanel';
 import { PropertiesPanel } from './components/PropertiesPanel/PropertiesPanel';
 import { Toolbar } from './components/Toolbar/Toolbar';
 import { ParametersPanel } from './components/ParametersPanel';
@@ -40,7 +42,13 @@ function App() {
         {activeTab === 'editor' ? (
           <>
             <Sidebar />
-            <Canvas />
+            <TextStyleToolbar />
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <Canvas />
+              <div className="flex-shrink-0">
+                <LlmPromptPanel />
+              </div>
+            </div>
             <div className="flex h-full flex-shrink-0">
               <button
                 type="button"
@@ -58,7 +66,9 @@ function App() {
               )}
             </div>
           </>
-        ) : (
+        ) : null}
+
+        {activeTab === 'run' && (
           <RunTab />
         )}
       </div>

@@ -165,7 +165,7 @@ export function TablePage() {
       // Create data cells
       const dataCells = new Map<string, Cell>();
       response.data.forEach((row, rowIndex) => {
-        Object.entries(row).forEach(([column, value], colIndex) => {
+        Object.entries(row).forEach(([_column, value], colIndex) => {
           const key = `${rowIndex + 1}-${colIndex}`;
           dataCells.set(key, {
             row: rowIndex + 1,

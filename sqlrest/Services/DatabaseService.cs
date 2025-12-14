@@ -260,6 +260,44 @@ public class DatabaseService
         return resultSets;
     }
 
+    public async Task<List<Dictionary<string, object?>>> ExecuteQueryAsync(string sql)
+    {
+        using var connection = await GetConnectionAsync();
+        using var command = new SqlCommand(sql, connection)
+        {
+            CommandType = CommandType.Text,
+            CommandTimeout = 60
+        };
+
+        var rows = new List<Dictionary<string, object?>>();
+        using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            var row = new Dictionary<string, object?>();
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                row[reader.GetName(i)] = reader.IsDBNull(i) ? null : NormalizeParameterValue(reader.GetValue(i));
+            }
+            rows.Add(row);
+        }
+
+        return rows;
+    }
+
+    public async Task<List<StoredProcedureResultColumnInfo>> GetQueryResultSchemaAsync(string sql)
+    {
+        using var connection = await GetConnectionAsync();
+        using var command = new SqlCommand(sql, connection)
+        {
+            CommandType = CommandType.Text,
+            CommandTimeout = 60
+        };
+
+        using var reader = await command.ExecuteReaderAsync(CommandBehavior.SchemaOnly);
+        var schemaColumns = reader.GetColumnSchema();
+        return schemaColumns.Select(MapDbColumn).ToList();
+    }
+
     public async Task<List<List<StoredProcedureResultColumnInfo>>> GetStoredProcedureResultSchemaAsync(
         string schema,
         string procedure,

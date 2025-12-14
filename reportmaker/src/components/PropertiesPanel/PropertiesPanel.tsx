@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useReportStore } from '../../hooks/useReportStore';
 import { api } from '../../services/api';
 import type { PageSettings } from '../../types';
@@ -6,17 +7,59 @@ import { generateBarcodeDataUrl } from '../../utils/barcode';
 import { substituteParameters } from '../../utils/parameterSubstitution';
 import { PAGE_PRESETS_PX } from '../../utils/constants';
 
-const PropertyGroup = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div className="mb-4 border-b border-gray-200 pb-4 last:border-0">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">{title}</h3>
-        <div className="space-y-3">
-            {children}
+const PropertyGroup = ({ title, children }: { title: string; children: React.ReactNode }) => {
+    const storageKey = `reportmaker.properties.group.${title}`;
+    const [open, setOpen] = useState<boolean>(() => {
+        try {
+            const raw = sessionStorage.getItem(storageKey);
+            if (raw === null) return true;
+            return raw === '1';
+        } catch {
+            return true;
+        }
+    });
+
+    useEffect(() => {
+        try {
+            sessionStorage.setItem(storageKey, open ? '1' : '0');
+        } catch {
+            // ignore
+        }
+    }, [open, storageKey]);
+
+    return (
+        <div className="mb-4 border-b border-gray-200 pb-4 last:border-0">
+            <button
+                type="button"
+                onClick={() => setOpen(v => !v)}
+                className="w-full flex items-center justify-between text-left mb-3"
+                aria-expanded={open}
+            >
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{title}</h3>
+                <ChevronDown
+                    size={16}
+                    className={`text-gray-400 transition-transform ${open ? 'rotate-0' : '-rotate-90'}`}
+                />
+            </button>
+
+            {open && (
+                <div className="space-y-3">
+                    {children}
+                </div>
+            )}
         </div>
-    </div>
-);
+    );
+};
 
 const getSqlRestSourceName = (dataSource: any): string => {
     return dataSource?.name || dataSource?.tableName || '';
+};
+
+const getSqlRestDisplayName = (dataSource: any): string => {
+    if (!dataSource) return '';
+    const sourceType = dataSource?.sourceType;
+    if (sourceType === 'query') return 'Query';
+    return getSqlRestSourceName(dataSource);
 };
 
 const splitFullName = (fullName: string): { schema: string; name: string } => {
@@ -110,28 +153,210 @@ const SelectInput = ({ label, value, onChange, options }: any) => (
     </div>
 );
 
-const DataRegionProperties = ({ selectedObject, updateObject, parameters }: any) => {
+const TableColumnManager = ({ selectedObject, updateObjectProperties }: any) => {
+    const currentColumns: string[] = selectedObject?.properties?.columns || [];
+    const currentWidths: Record<string, number | null> = selectedObject?.properties?.columnWidths || {};
+    const currentHeaderCellStyles: Record<string, any> = selectedObject?.properties?.tableHeaderCellStyles || {};
+
+    const [newColumnName, setNewColumnName] = useState('');
+    const [draftNames, setDraftNames] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        const next: Record<string, string> = {};
+        for (const c of currentColumns) next[c] = c;
+        setDraftNames(next);
+        setNewColumnName('');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedObject?.id]);
+
+    const commitColumns = (nextColumns: string[], nextWidths: Record<string, number | null>, nextHeaderCellStyles: Record<string, any>) => {
+        updateObjectProperties(selectedObject.id, {
+            columns: nextColumns,
+            columnWidths: nextWidths,
+            tableHeaderCellStyles: nextHeaderCellStyles,
+        });
+    };
+
+    const addColumn = () => {
+        const name = newColumnName.trim();
+        if (!name) return;
+        if (currentColumns.includes(name)) return;
+
+        const nextColumns = [...currentColumns, name];
+        const nextWidths = { ...currentWidths };
+        const nextHeaderCellStyles = { ...currentHeaderCellStyles };
+
+        commitColumns(nextColumns, nextWidths, nextHeaderCellStyles);
+        setDraftNames(prev => ({ ...prev, [name]: name }));
+        setNewColumnName('');
+    };
+
+    const removeColumn = (col: string) => {
+        const nextColumns = currentColumns.filter(c => c !== col);
+        const nextWidths = { ...currentWidths };
+        const nextHeaderCellStyles = { ...currentHeaderCellStyles };
+        delete nextWidths[col];
+        delete nextHeaderCellStyles[col];
+        commitColumns(nextColumns, nextWidths, nextHeaderCellStyles);
+    };
+
+    const renameColumn = (from: string, toRaw: string) => {
+        const to = toRaw.trim();
+        if (!to) return;
+        if (to === from) return;
+        if (currentColumns.includes(to)) return;
+
+        const nextColumns = currentColumns.map(c => (c === from ? to : c));
+        const nextWidths = { ...currentWidths };
+        const nextHeaderCellStyles = { ...currentHeaderCellStyles };
+
+        if (Object.prototype.hasOwnProperty.call(nextWidths, from)) {
+            nextWidths[to] = nextWidths[from];
+            delete nextWidths[from];
+        }
+
+        if (Object.prototype.hasOwnProperty.call(nextHeaderCellStyles, from)) {
+            nextHeaderCellStyles[to] = nextHeaderCellStyles[from];
+            delete nextHeaderCellStyles[from];
+        }
+
+        commitColumns(nextColumns, nextWidths, nextHeaderCellStyles);
+    };
+
+    const setWidthMode = (col: string, mode: 'auto' | 'fixed') => {
+        const nextWidths = { ...currentWidths };
+        if (mode === 'auto') {
+            nextWidths[col] = null;
+        } else {
+            const current = nextWidths[col];
+            nextWidths[col] = typeof current === 'number' && isFinite(current) && current > 0 ? current : 120;
+        }
+        commitColumns(currentColumns, nextWidths, currentHeaderCellStyles);
+    };
+
+    const setFixedWidth = (col: string, width: number) => {
+        const nextWidths = { ...currentWidths };
+        nextWidths[col] = Math.max(20, Math.floor(width));
+        commitColumns(currentColumns, nextWidths, currentHeaderCellStyles);
+    };
+
+    return (
+        <PropertyGroup title="Table Layout">
+            <div className="flex flex-col gap-2">
+                <label className="text-sm text-gray-600">Columns</label>
+
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        value={newColumnName}
+                        onChange={(e) => setNewColumnName(e.target.value)}
+                        placeholder="New column name"
+                        className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                    <button
+                        type="button"
+                        onClick={addColumn}
+                        className="px-3 py-1.5 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+                    >
+                        Add
+                    </button>
+                </div>
+
+                {currentColumns.length === 0 ? (
+                    <div className="text-xs text-gray-400">No columns yet.</div>
+                ) : (
+                    <div className="space-y-2">
+                        {currentColumns.map((col) => {
+                            const widthValue = currentWidths[col];
+                            const widthMode: 'auto' | 'fixed' = typeof widthValue === 'number' ? 'fixed' : 'auto';
+
+                            return (
+                                <div key={col} className="border border-gray-200 rounded p-2 bg-white">
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="text"
+                                            value={draftNames[col] ?? col}
+                                            onChange={(e) => setDraftNames(prev => ({ ...prev, [col]: e.target.value }))}
+                                            onBlur={() => renameColumn(col, (draftNames[col] ?? col))}
+                                            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => removeColumn(col)}
+                                            className="px-2 py-1 rounded border border-red-300 text-red-700 text-xs hover:bg-red-50"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <label className="text-xs text-gray-500">Width</label>
+                                        <select
+                                            value={widthMode}
+                                            onChange={(e) => setWidthMode(col, e.target.value as any)}
+                                            className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                                        >
+                                            <option value="auto">Auto</option>
+                                            <option value="fixed">Fixed</option>
+                                        </select>
+
+                                        {widthMode === 'fixed' && (
+                                            <input
+                                                type="number"
+                                                min={20}
+                                                max={2000}
+                                                value={typeof widthValue === 'number' ? widthValue : 120}
+                                                onChange={(e) => setFixedWidth(col, parseFloat(e.target.value) || 0)}
+                                                className="w-24 border border-gray-300 rounded px-2 py-1 text-sm text-right"
+                                            />
+                                        )}
+                                        {widthMode === 'fixed' && (
+                                            <span className="text-xs text-gray-500">px</span>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        </PropertyGroup>
+    );
+};
+
+const DataRegionProperties = ({ selectedObject, updateObject, parameters, effectiveDataSource }: any) => {
     const [tables, setTables] = useState<string[]>([]);
     const [views, setViews] = useState<string[]>([]);
     const [procedures, setProcedures] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
-    const [sourceType, setSourceType] = useState<'table' | 'view' | 'storedProcedure'>(
-        selectedObject.properties.dataSource?.sourceType || 'table'
+
+    const ds = effectiveDataSource || selectedObject.properties.dataSource;
+    const [sourceType, setSourceType] = useState<'table' | 'view' | 'storedProcedure' | 'query'>(
+        ds?.sourceType || 'table'
     );
-    const [selectedName, setSelectedName] = useState<string>(getSqlRestSourceName(selectedObject.properties.dataSource));
+    const [selectedName, setSelectedName] = useState<string>(getSqlRestSourceName(ds));
+    const [querySql, setQuerySql] = useState<string>(String(ds?.sql || ''));
     const [procedureParameters, setProcedureParameters] = useState<any[]>([]);
     const [procedureParamValues, setProcedureParamValues] = useState<Record<string, string>>(
-        selectedObject.properties.dataSource?.procedureParams || {}
+        ds?.procedureParams || {}
     );
 
     useEffect(() => {
-        setSourceType(selectedObject.properties.dataSource?.sourceType || 'table');
-        setSelectedName(getSqlRestSourceName(selectedObject.properties.dataSource));
-        setProcedureParamValues(selectedObject.properties.dataSource?.procedureParams || {});
-    }, [selectedObject?.id]);
+        const nextDs = effectiveDataSource || selectedObject.properties.dataSource;
+        setSourceType(nextDs?.sourceType || 'table');
+        setSelectedName(getSqlRestSourceName(nextDs));
+        setProcedureParamValues(nextDs?.procedureParams || {});
+        setQuerySql(String(nextDs?.sql || ''));
+    }, [selectedObject?.id, effectiveDataSource]);
 
     useEffect(() => {
         const fetchSources = async () => {
+            if (sourceType === 'query') {
+                setTables([]);
+                setViews([]);
+                setProcedures([]);
+                return;
+            }
             setLoading(true);
             try {
                 if (sourceType === 'table') {
@@ -196,30 +421,44 @@ const DataRegionProperties = ({ selectedObject, updateObject, parameters }: any)
                     <option value="table">Table</option>
                     <option value="view">View</option>
                     <option value="storedProcedure">Stored Procedure</option>
+                    <option value="query">Query</option>
                 </select>
             </div>
 
-            <div className="flex flex-col gap-1">
-                <label className="text-sm text-gray-600">
-                    {sourceType === 'storedProcedure' ? 'Stored Procedure' : sourceType === 'view' ? 'View' : 'Table'}
-                </label>
-                {loading ? (
-                    <div className="text-xs text-gray-400">Loading...</div>
-                ) : (
-                    <select
-                        className="w-full p-2 border border-gray-300 rounded"
-                        value={selectedName || ''}
-                        onChange={(e) => {
-                            setSelectedName(e.target.value);
-                        }}
-                    >
-                        <option value="">Select...</option>
-                        {(sourceType === 'table' ? tables : sourceType === 'view' ? views : procedures).map((item) => (
-                            <option key={item} value={item}>{item}</option>
-                        ))}
-                    </select>
-                )}
-            </div>
+            {sourceType !== 'query' ? (
+                <div className="flex flex-col gap-1">
+                    <label className="text-sm text-gray-600">
+                        {sourceType === 'storedProcedure' ? 'Stored Procedure' : sourceType === 'view' ? 'View' : 'Table'}
+                    </label>
+                    {loading ? (
+                        <div className="text-xs text-gray-400">Loading...</div>
+                    ) : (
+                        <select
+                            className="w-full p-2 border border-gray-300 rounded"
+                            value={selectedName || ''}
+                            onChange={(e) => {
+                                setSelectedName(e.target.value);
+                            }}
+                        >
+                            <option value="">Select...</option>
+                            {(sourceType === 'table' ? tables : sourceType === 'view' ? views : procedures).map((item) => (
+                                <option key={item} value={item}>{item}</option>
+                            ))}
+                        </select>
+                    )}
+                </div>
+            ) : (
+                <div className="flex flex-col gap-1">
+                    <label className="text-sm text-gray-600">SQL</label>
+                    <textarea
+                        className="w-full p-2 border border-gray-300 rounded font-mono text-xs min-h-[140px]"
+                        value={querySql}
+                        onChange={(e) => setQuerySql(e.target.value)}
+                        placeholder="SELECT ...\nFROM ...\nWHERE ..."
+                    />
+                    <div className="text-xs text-gray-500">Only single-statement SELECT / WITH queries are allowed.</div>
+                </div>
+            )}
 
             {sourceType === 'storedProcedure' && selectedName && procedureParameters.length > 0 && (
                 <div className="flex flex-col gap-2 mt-2">
@@ -252,8 +491,31 @@ const DataRegionProperties = ({ selectedObject, updateObject, parameters }: any)
             <button
                 type="button"
                 className="px-3 py-2 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-                disabled={!selectedName}
+                disabled={sourceType === 'query' ? !querySql.trim() : !selectedName}
                 onClick={async () => {
+                    if (sourceType === 'query') {
+                        const resolvedSql = substituteParameters(String(querySql ?? ''), parameters);
+                        if (!resolvedSql.trim()) return;
+
+                        const response = await api.executeQuery(resolvedSql);
+                        const data = response && response.data ? response.data : [];
+
+                        updateObject(selectedObject.id, {
+                            properties: {
+                                ...selectedObject.properties,
+                                dataSource: {
+                                    type: 'sqlrest',
+                                    sourceType,
+                                    name: 'query',
+                                    tableName: 'query',
+                                    sql: querySql,
+                                }
+                            },
+                            data: Array.isArray(data) ? data : []
+                        });
+                        return;
+                    }
+
                     if (!selectedName) return;
 
                     if (sourceType === 'storedProcedure') {
@@ -305,9 +567,9 @@ const DataRegionProperties = ({ selectedObject, updateObject, parameters }: any)
                 Connect
             </button>
 
-            {selectedName && (
+            {((sourceType === 'query' && querySql.trim()) || (sourceType !== 'query' && selectedName)) && (
                 <div className="text-xs text-green-600 mt-2">
-                    ✓ Selected: {selectedName}
+                    ✓ Selected: {sourceType === 'query' ? 'Query' : selectedName}
                 </div>
             )}
         </PropertyGroup>
@@ -323,6 +585,8 @@ export const PropertiesPanel = () => {
         canvasSettings,
         updateCanvasSettings,
         parameters,
+        reportMetadata,
+        setReportMetadata,
     } = useReportStore();
 
     const applyPageSettings = (partial: Partial<PageSettings>) => {
@@ -375,18 +639,35 @@ export const PropertiesPanel = () => {
             objCenterY <= obj.y + obj.height;
     }) : undefined;
 
+    const effectiveTableDataSource = (selectedObject?.type === 'table' || selectedObject?.type === 'datatable')
+        ? (selectedObject.properties.dataSource || parentDataRegion?.properties.dataSource)
+        : undefined;
+
     const [columns, setColumns] = useState<string[]>([]);
     const [loadingColumns, setLoadingColumns] = useState(false);
 
     useEffect(() => {
-        const ds = parentDataRegion?.properties.dataSource;
+        const ds = (selectedObject?.type === 'table' || selectedObject?.type === 'datatable')
+            ? effectiveTableDataSource
+            : parentDataRegion?.properties.dataSource;
         const sourceName = getSqlRestSourceName(ds);
 
-        if (ds && sourceName) {
+        if (ds && (sourceName || ds.sourceType === 'query')) {
             const fetchColumns = async () => {
                 setLoadingColumns(true);
                 try {
-                    if (ds.sourceType === 'storedProcedure') {
+                    if (ds.sourceType === 'query') {
+                        const rawSql = String(ds.sql || '');
+                        const resolvedSql = substituteParameters(rawSql, parameters);
+                        if (!resolvedSql.trim()) {
+                            setColumns([]);
+                            return;
+                        }
+
+                        const resultSets = await api.getQueryResultSchema(resolvedSql);
+                        const cols = (resultSets[0] || []).map((c: any) => c.name);
+                        setColumns(cols);
+                    } else if (ds.sourceType === 'storedProcedure') {
                         const { schema, name } = splitFullName(sourceName);
                         const rawParams = ds.procedureParams || {};
                         const resolvedParams = Object.fromEntries(
@@ -413,9 +694,16 @@ export const PropertiesPanel = () => {
             setColumns([]);
         }
     }, [
+        selectedObject?.type,
+        effectiveTableDataSource?.sourceType,
+        effectiveTableDataSource?.name,
+        effectiveTableDataSource?.tableName,
+        effectiveTableDataSource?.sql,
+        JSON.stringify(effectiveTableDataSource?.procedureParams || {}),
         parentDataRegion?.properties.dataSource?.sourceType,
         parentDataRegion?.properties.dataSource?.name,
         parentDataRegion?.properties.dataSource?.tableName,
+        parentDataRegion?.properties.dataSource?.sql,
         JSON.stringify(parentDataRegion?.properties.dataSource?.procedureParams || {}),
         parameters,
     ]);
@@ -428,6 +716,27 @@ export const PropertiesPanel = () => {
                     <div className="text-xs text-blue-600 font-medium mt-1 uppercase">page</div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4">
+                    <PropertyGroup title="Report">
+                        <TextInput
+                            label="Name"
+                            value={reportMetadata.name}
+                            onChange={(val: string) => setReportMetadata({ name: val })}
+                        />
+                        <div className="flex flex-col gap-1">
+                            <label className="text-sm text-gray-600">Description</label>
+                            <textarea
+                                value={reportMetadata.description}
+                                onChange={(e) => setReportMetadata({ description: e.target.value })}
+                                className="border border-gray-300 rounded px-2 py-1 text-sm min-h-[90px]"
+                            />
+                        </div>
+                        <TextInput
+                            label="Author"
+                            value={reportMetadata.author}
+                            onChange={(val: string) => setReportMetadata({ author: val })}
+                        />
+                    </PropertyGroup>
+
                     <PropertyGroup title="Page setup">
                         <SelectInput
                             label="Preset"
@@ -494,6 +803,27 @@ export const PropertiesPanel = () => {
                     <div className="text-xs text-blue-600 font-medium mt-1">{selectedIds.length} objects selected</div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4">
+                    <PropertyGroup title="Report">
+                        <TextInput
+                            label="Name"
+                            value={reportMetadata.name}
+                            onChange={(val: string) => setReportMetadata({ name: val })}
+                        />
+                        <div className="flex flex-col gap-1">
+                            <label className="text-sm text-gray-600">Description</label>
+                            <textarea
+                                value={reportMetadata.description}
+                                onChange={(e) => setReportMetadata({ description: e.target.value })}
+                                className="border border-gray-300 rounded px-2 py-1 text-sm min-h-[90px]"
+                            />
+                        </div>
+                        <TextInput
+                            label="Author"
+                            value={reportMetadata.author}
+                            onChange={(val: string) => setReportMetadata({ author: val })}
+                        />
+                    </PropertyGroup>
+
                     <div className="text-sm text-gray-500">
                         Multiple objects selected. Use alignment tools in the toolbar.
                     </div>
@@ -521,9 +851,30 @@ export const PropertiesPanel = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4">
+                <PropertyGroup title="Report">
+                    <TextInput
+                        label="Name"
+                        value={reportMetadata.name}
+                        onChange={(val: string) => setReportMetadata({ name: val })}
+                    />
+                    <div className="flex flex-col gap-1">
+                        <label className="text-sm text-gray-600">Description</label>
+                        <textarea
+                            value={reportMetadata.description}
+                            onChange={(e) => setReportMetadata({ description: e.target.value })}
+                            className="border border-gray-300 rounded px-2 py-1 text-sm min-h-[90px]"
+                        />
+                    </div>
+                    <TextInput
+                        label="Author"
+                        value={reportMetadata.author}
+                        onChange={(val: string) => setReportMetadata({ author: val })}
+                    />
+                </PropertyGroup>
+
                 {parentDataRegion && (
                     <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded text-xs text-blue-800">
-                        Inside Data Region: <strong>{getSqlRestSourceName(parentDataRegion.properties.dataSource) || 'Unconfigured'}</strong>
+                        Inside Data Region: <strong>{getSqlRestDisplayName(parentDataRegion.properties.dataSource) || 'Unconfigured'}</strong>
                     </div>
                 )}
 
@@ -557,7 +908,7 @@ export const PropertiesPanel = () => {
                     />
                 </PropertyGroup>
 
-                {selectedObject.type === 'text' && parentDataRegion && getSqlRestSourceName(parentDataRegion.properties.dataSource) && (
+                {selectedObject.type === 'text' && parentDataRegion && getSqlRestDisplayName(parentDataRegion.properties.dataSource) && (
                     <PropertyGroup title="Data Binding">
                         <div className="flex flex-col gap-1">
                             <label className="text-sm text-gray-600">Bind to Column</label>
@@ -572,7 +923,7 @@ export const PropertiesPanel = () => {
                                             updateObjectProperties(selectedObject.id, {
                                                 text: `[${col}]`,
                                                 dataBinding: {
-                                                    tableName: getSqlRestSourceName(parentDataRegion.properties.dataSource),
+                                                    tableName: getSqlRestDisplayName(parentDataRegion.properties.dataSource),
                                                     columnName: col
                                                 }
                                             });
@@ -595,7 +946,116 @@ export const PropertiesPanel = () => {
                     </PropertyGroup>
                 )}
 
-                {selectedObject.type === 'barcode' && parentDataRegion && getSqlRestSourceName(parentDataRegion.properties.dataSource) && (
+                {(selectedObject.type === 'table' || selectedObject.type === 'datatable') && (
+                    <TableColumnManager
+                        selectedObject={selectedObject}
+                        updateObjectProperties={updateObjectProperties}
+                    />
+                )}
+
+                {selectedObject.type === 'datatable' && (
+                    <PropertyGroup title="DataTable">
+                        <NumberInput
+                            label="Header Height"
+                            value={properties.dataTableHeaderHeight ?? 30}
+                            onChange={(val: number) => updateObjectProperties(selectedObject.id, { dataTableHeaderHeight: Math.max(10, Math.floor(val)) })}
+                            min={10}
+                            max={300}
+                        />
+                        <NumberInput
+                            label="Row Height"
+                            value={properties.dataTableRowHeight ?? 30}
+                            onChange={(val: number) => updateObjectProperties(selectedObject.id, { dataTableRowHeight: Math.max(10, Math.floor(val)) })}
+                            min={10}
+                            max={300}
+                        />
+
+                        <div className="flex items-center justify-between">
+                            <label className="text-sm text-gray-600">Totals Row</label>
+                            <input
+                                type="checkbox"
+                                checked={!!properties.dataTableTotalsRow?.enabled}
+                                onChange={(e) => updateObjectProperties(selectedObject.id, {
+                                    dataTableTotalsRow: {
+                                        enabled: e.target.checked,
+                                        aggregations: properties.dataTableTotalsRow?.aggregations || {},
+                                    }
+                                })}
+                            />
+                        </div>
+
+                        {!!properties.dataTableTotalsRow?.enabled && (
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm text-gray-600">Aggregations</label>
+                                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50 space-y-2">
+                                    {(properties.columns || []).length === 0 ? (
+                                        <div className="text-xs text-gray-400">Select columns first.</div>
+                                    ) : (
+                                        (properties.columns || []).map((col) => {
+                                            const currentAgg = properties.dataTableTotalsRow?.aggregations?.[col] || '';
+                                            return (
+                                                <div key={col} className="flex items-center justify-between gap-2">
+                                                    <div className="text-xs text-gray-700 truncate" title={col}>{col}</div>
+                                                    <select
+                                                        value={currentAgg}
+                                                        onChange={(e) => {
+                                                            const nextAgg = e.target.value;
+                                                            const prev = properties.dataTableTotalsRow?.aggregations || {};
+                                                            const next = { ...prev } as any;
+                                                            if (!nextAgg) {
+                                                                delete next[col];
+                                                            } else {
+                                                                next[col] = nextAgg;
+                                                            }
+                                                            updateObjectProperties(selectedObject.id, {
+                                                                dataTableTotalsRow: {
+                                                                    enabled: true,
+                                                                    aggregations: next,
+                                                                }
+                                                            });
+                                                        }}
+                                                        className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                                                    >
+                                                        <option value="">(none)</option>
+                                                        <option value="sum">sum</option>
+                                                        <option value="avg">avg</option>
+                                                        <option value="count">count</option>
+                                                        <option value="min">min</option>
+                                                        <option value="max">max</option>
+                                                    </select>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex flex-col gap-1">
+                            <label className="text-sm text-gray-600">Group By</label>
+                            {loadingColumns ? (
+                                <div className="text-xs text-gray-400">Loading columns...</div>
+                            ) : (
+                                <select
+                                    multiple
+                                    value={properties.dataTableGroupBy || []}
+                                    onChange={(e) => {
+                                        const next = Array.from(e.target.selectedOptions).map(o => o.value);
+                                        updateObjectProperties(selectedObject.id, { dataTableGroupBy: next });
+                                    }}
+                                    className="border border-gray-300 rounded px-2 py-1 text-sm bg-white min-h-[90px]"
+                                >
+                                    {columns.map((col) => (
+                                        <option key={col} value={col}>{col}</option>
+                                    ))}
+                                </select>
+                            )}
+                            <div className="text-xs text-gray-500">Hold Ctrl/Cmd to select multiple columns.</div>
+                        </div>
+                    </PropertyGroup>
+                )}
+
+                {selectedObject.type === 'barcode' && parentDataRegion && getSqlRestDisplayName(parentDataRegion.properties.dataSource) && (
                     <PropertyGroup title="Data Binding">
                         <div className="flex flex-col gap-1">
                             <label className="text-sm text-gray-600">Bind to Column</label>
@@ -607,7 +1067,7 @@ export const PropertiesPanel = () => {
                                     onChange={async (e) => {
                                         const col = e.target.value;
                                         if (col) {
-                                            const tableName = getSqlRestSourceName(parentDataRegion.properties.dataSource);
+                                            const tableName = getSqlRestDisplayName(parentDataRegion.properties.dataSource);
                                             const record = parentDataRegion.data && parentDataRegion.data.length > 0 ? parentDataRegion.data[0] : null;
                                             const value = record ? record[col] : undefined;
                                             const text = value !== undefined ? String(value) : '';
@@ -772,7 +1232,7 @@ export const PropertiesPanel = () => {
                     </PropertyGroup>
                 )}
 
-                {selectedObject.type === 'table' && parentDataRegion && getSqlRestSourceName(parentDataRegion.properties.dataSource) && (
+                {(selectedObject.type === 'table' || selectedObject.type === 'datatable') && getSqlRestDisplayName(effectiveTableDataSource) && (
                     <PropertyGroup title="Table Columns">
                         <div className="flex flex-col gap-2">
                             <label className="text-sm text-gray-600">Select Columns</label>
@@ -788,13 +1248,27 @@ export const PropertiesPanel = () => {
                                                 checked={(properties.columns || []).includes(col)}
                                                 onChange={(e) => {
                                                     const currentCols = properties.columns || [];
-                                                    let newCols;
+                                                    const currentWidths: Record<string, number | null> = (properties as any).columnWidths || {};
+                                                    const currentHeaderCellStyles: Record<string, any> = (properties as any).tableHeaderCellStyles || {};
+
+                                                    let newCols: string[];
+                                                    const nextWidths = { ...currentWidths };
+                                                    const nextHeaderCellStyles = { ...currentHeaderCellStyles };
+
                                                     if (e.target.checked) {
                                                         newCols = [...currentCols, col];
+                                                        if (!(col in nextWidths)) nextWidths[col] = null;
                                                     } else {
                                                         newCols = currentCols.filter(c => c !== col);
+                                                        delete nextWidths[col];
+                                                        delete nextHeaderCellStyles[col];
                                                     }
-                                                    updateObjectProperties(selectedObject.id, { columns: newCols });
+
+                                                    updateObjectProperties(selectedObject.id, {
+                                                        columns: newCols,
+                                                        columnWidths: nextWidths,
+                                                        tableHeaderCellStyles: nextHeaderCellStyles,
+                                                    });
                                                 }}
                                                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                             />
@@ -809,11 +1283,44 @@ export const PropertiesPanel = () => {
                     </PropertyGroup>
                 )}
 
+                {selectedObject.type === 'datatable' && getSqlRestDisplayName(effectiveTableDataSource) && (
+                    <PropertyGroup title="Available Columns (Drag into DataTable)">
+                        {loadingColumns ? (
+                            <div className="text-xs text-gray-400">Loading columns...</div>
+                        ) : (
+                            <div className="max-h-40 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
+                                {columns.map((col) => (
+                                    <div
+                                        key={col}
+                                        draggable
+                                        onDragStart={(e) => {
+                                            e.dataTransfer.setData('application/reportmaker-column', col);
+                                            e.dataTransfer.effectAllowed = 'copy';
+                                        }}
+                                        className="px-2 py-1 mb-1 bg-white border border-gray-200 rounded cursor-move hover:border-blue-400"
+                                    >
+                                        <div className="text-sm text-gray-700 select-none">{col}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </PropertyGroup>
+                )}
+
                 {selectedObject.type === 'dataRegion' && (
                     <DataRegionProperties
                         selectedObject={selectedObject}
                         updateObject={updateObject}
                         parameters={parameters}
+                    />
+                )}
+
+                {(selectedObject.type === 'table' || selectedObject.type === 'datatable') && (
+                    <DataRegionProperties
+                        selectedObject={selectedObject}
+                        updateObject={updateObject}
+                        parameters={parameters}
+                        effectiveDataSource={effectiveTableDataSource}
                     />
                 )}
 

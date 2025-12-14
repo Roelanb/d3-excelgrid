@@ -15,11 +15,13 @@ export const Canvas = () => {
         canvasSettings,
         addObject,
         selectObject,
+        setSelectedTableHeader,
         updateObject,
         updateObjects,
         updateObjectProperties,
         updateCanvasSettings,
         selectedIds,
+        selectedTableHeader,
         parameters
     } = useReportStore();
 
@@ -46,8 +48,37 @@ export const Canvas = () => {
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         const type = e.dataTransfer.getData('application/react-dnd-type') as ReportObjectType;
+        const droppedColumn = e.dataTransfer.getData('application/reportmaker-column');
 
         const zoom = canvasSettings.zoom ?? 1;
+
+        if (droppedColumn && svgRef.current) {
+            const rect = svgRef.current.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / zoom;
+            const y = (e.clientY - rect.top) / zoom;
+
+            // Find datatable under pointer
+            const target = reportObjects
+                .filter(o => o.type === 'datatable')
+                .slice()
+                .reverse()
+                .find(o => x >= o.x && x <= (o.x + o.width) && y >= o.y && y <= (o.y + o.height));
+
+            if (target) {
+                const currentCols = target.properties.columns || [];
+                if (!currentCols.includes(droppedColumn)) {
+                    const currentWidths: Record<string, number | null> = (target.properties as any).columnWidths || {};
+                    const currentHeaderCellStyles: Record<string, any> = (target.properties as any).tableHeaderCellStyles || {};
+                    updateObjectProperties(target.id, {
+                        columns: [...currentCols, droppedColumn],
+                        columnWidths: { ...currentWidths, [droppedColumn]: null },
+                        tableHeaderCellStyles: { ...currentHeaderCellStyles },
+                    });
+                }
+                selectObject(target.id);
+                return;
+            }
+        }
 
         if (type && svgRef.current) {
             const rect = svgRef.current.getBoundingClientRect();
@@ -255,7 +286,7 @@ export const Canvas = () => {
 
         enterGroups.append('g')
             .attr('class', 'object-table')
-            .style('pointer-events', 'none');
+            .style('pointer-events', 'all');
 
         // Selection overlay rect (shows dashed border when selected)
         enterGroups.append('rect')
@@ -268,6 +299,11 @@ export const Canvas = () => {
         allGroups
             .on('click', function (event, d) {
                 event.stopPropagation();
+                const target = event.target as Element | null;
+                if (target && (target as any).closest && (target as any).closest('.table-header')) {
+                    return;
+                }
+                setSelectedTableHeader(null);
                 selectObject(d.id, event.shiftKey);
             })
             .on('dblclick', function (event, d) {
@@ -508,15 +544,15 @@ export const Canvas = () => {
             .attr('opacity', d => d.properties.opacity || 1)
             .style('display', d => d.type === 'polyline' ? 'block' : 'none');
 
-        // Update Table
+        // Update Table / DataTable
         const tableGroups = allGroups.select<SVGGElement>('.object-table')
-            .style('display', d => d.type === 'table' ? 'block' : 'none');
+            .style('display', d => (d.type === 'table' || d.type === 'datatable') ? 'block' : 'none');
 
         tableGroups.each(function (d) {
             const g = d3.select(this);
             g.selectAll('*').remove(); // Clear previous content
 
-            if (d.type !== 'table') return;
+            if (d.type !== 'table' && d.type !== 'datatable') return;
 
             // Find parent Data Region
             const parentDataRegion = reportObjects.find(obj =>
@@ -529,46 +565,331 @@ export const Canvas = () => {
             );
 
             const columns = d.properties.columns || [];
-            const data = parentDataRegion?.data || [];
+            const data = (Array.isArray(d.data) ? d.data : (parentDataRegion?.data || []));
 
-            if (parentDataRegion && columns.length > 0) {
-                const rowHeight = 30;
-                const colWidth = d.width / columns.length;
+            const headerHeight = d.type === 'datatable'
+                ? (Number(d.properties.dataTableHeaderHeight) || 30)
+                : 30;
+            const rowHeight = d.type === 'datatable'
+                ? (Number(d.properties.dataTableRowHeight) || 30)
+                : 30;
+
+            const groupBy = (d.type === 'datatable' ? (d.properties.dataTableGroupBy || []) : []).filter(Boolean);
+            const totals = d.type === 'datatable' ? (d.properties.dataTableTotalsRow || {}) : {};
+            const totalsEnabled = d.type === 'datatable' ? !!totals.enabled : false;
+            const totalsAggregations = (d.type === 'datatable' ? (totals.aggregations || {}) : {}) as Record<string, any>;
+
+            const buildDisplayRows = () => {
+                if (d.type !== 'datatable' || groupBy.length === 0) {
+                    return data.map((row) => ({ kind: 'data' as const, row }));
+                }
+
+                const keyOf = (row: any) => groupBy.map(k => String(row?.[k] ?? '')).join(' | ');
+                const sorted = [...data].sort((a: any, b: any) => {
+                    const ka = keyOf(a);
+                    const kb = keyOf(b);
+                    return ka.localeCompare(kb);
+                });
+
+                const out: Array<{ kind: 'group'; label: string } | { kind: 'data'; row: any }> = [];
+                let currentKey: string | null = null;
+                for (const row of sorted) {
+                    const k = keyOf(row);
+                    if (k !== currentKey) {
+                        currentKey = k;
+                        out.push({ kind: 'group', label: k });
+                    }
+                    out.push({ kind: 'data', row });
+                }
+                return out;
+            };
+
+            const computeTotalsRow = () => {
+                if (d.type !== 'datatable' || !totalsEnabled) return null;
+                const res: Record<string, string> = {};
+                for (const col of columns) {
+                    const agg = totalsAggregations[col];
+                    if (!agg) continue;
+                    const values = data.map((r: any) => r?.[col]).filter((v: any) => v !== null && v !== undefined);
+                    const nums = values.map((v: any) => Number(v)).filter((n: any) => Number.isFinite(n));
+
+                    if (agg === 'count') {
+                        res[col] = String(values.length);
+                    } else if (agg === 'sum') {
+                        res[col] = String(nums.reduce((s: number, n: number) => s + n, 0));
+                    } else if (agg === 'avg') {
+                        res[col] = nums.length ? String(nums.reduce((s: number, n: number) => s + n, 0) / nums.length) : '';
+                    } else if (agg === 'min') {
+                        res[col] = nums.length ? String(Math.min(...nums)) : '';
+                    } else if (agg === 'max') {
+                        res[col] = nums.length ? String(Math.max(...nums)) : '';
+                    }
+                }
+                return res;
+            };
+
+            if (columns.length > 0 && data.length > 0) {
+                const columnWidths = (d.properties as any).columnWidths as Record<string, number | null> | undefined;
+
+                const fixedWidths = columns.map(col => {
+                    const v = columnWidths?.[col];
+                    return typeof v === 'number' && isFinite(v) && v > 0 ? v : null;
+                });
+                const fixedTotal = fixedWidths.reduce<number>((sum, v) => sum + (v ?? 0), 0);
+                const autoCount = fixedWidths.filter(v => v == null).length;
+                const autoWidth = autoCount > 0 ? Math.max(20, (d.width - fixedTotal) / autoCount) : 0;
+                const computedWidths = fixedWidths.map(v => v ?? autoWidth);
+                const colX = (() => {
+                    const xs: number[] = [];
+                    let acc = 0;
+                    for (const w of computedWidths) {
+                        xs.push(acc);
+                        acc += w;
+                    }
+                    return xs;
+                })();
 
                 // Render Header
                 const headerGroup = g.append('g').attr('class', 'table-header');
+
+                const headerBaseStyle = d.properties.tableHeaderStyle || {};
+                const headerCellStyles = d.properties.tableHeaderCellStyles || {};
+
+                const isHeaderRowSelected = selectedTableHeader?.tableId === d.id && selectedTableHeader?.column === null;
+
+                headerGroup.append('rect')
+                    .attr('width', d.width)
+                    .attr('height', headerHeight)
+                    .attr('fill', 'transparent')
+                    .attr('stroke', 'none')
+                    .attr('pointer-events', 'none');
+
                 columns.forEach((col, i) => {
+                    const colWidth = computedWidths[i];
+                    const mergedHeaderStyle = { ...headerBaseStyle, ...(headerCellStyles[col] || {}) };
+                    const padding = (mergedHeaderStyle.padding ?? 5);
+                    const align = (mergedHeaderStyle.textAlign ?? 'left');
+                    const textAnchor = align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start';
+                    const textX = align === 'center' ? (colWidth / 2) : align === 'right' ? (colWidth - padding) : padding;
+                    const isHeaderSelected = selectedTableHeader?.tableId === d.id && selectedTableHeader?.column === col;
+
                     const cellGroup = headerGroup.append('g')
-                        .attr('transform', `translate(${i * colWidth}, 0)`);
+                        .attr('transform', `translate(${colX[i]}, 0)`);
+
+                    cellGroup.style('cursor', 'pointer');
 
                     cellGroup.append('rect')
                         .attr('width', colWidth)
-                        .attr('height', rowHeight)
-                        .attr('fill', '#f3f4f6')
-                        .attr('stroke', '#d1d5db')
-                        .attr('stroke-width', 1);
+                        .attr('height', headerHeight)
+                        .attr('fill', mergedHeaderStyle.backgroundColor ?? '#f3f4f6')
+                        .attr('stroke', isHeaderSelected ? '#2563eb' : (mergedHeaderStyle.borderColor ?? '#d1d5db'))
+                        .attr('stroke-width', isHeaderSelected ? 2 : (mergedHeaderStyle.borderWidth ?? 1))
+                        .attr('opacity', mergedHeaderStyle.opacity ?? 1)
+                        .attr('pointer-events', 'all')
+                        .on('mousedown', function (event) {
+                            event.stopPropagation();
+                        })
+                        .on('click', function (event) {
+                            event.stopPropagation();
+                            selectObject(d.id);
+                            if (selectedTableHeader?.tableId === d.id && selectedTableHeader?.column === col) {
+                                setSelectedTableHeader({ tableId: d.id, column: null });
+                            } else {
+                                setSelectedTableHeader({ tableId: d.id, column: col });
+                            }
+                        });
 
                     cellGroup.append('text')
-                        .attr('x', 5)
-                        .attr('y', rowHeight / 2)
+                        .attr('x', textX)
+                        .attr('y', headerHeight / 2)
                         .attr('dy', '0.35em')
                         .text(col)
-                        .attr('font-size', 12)
-                        .attr('font-weight', 'bold')
-                        .attr('fill', '#374151');
+                        .attr('font-size', mergedHeaderStyle.fontSize ?? 12)
+                        .attr('font-family', mergedHeaderStyle.fontFamily ?? 'Arial')
+                        .attr('font-weight', (mergedHeaderStyle.bold ?? true) ? 'bold' : 'normal')
+                        .attr('font-style', (mergedHeaderStyle.italic ?? false) ? 'italic' : 'normal')
+                        .attr('text-decoration', `${(mergedHeaderStyle.underline ?? false) ? 'underline' : ''}${(mergedHeaderStyle.strikeThrough ?? false) ? ' line-through' : ''}`.trim() || 'none')
+                        .attr('fill', mergedHeaderStyle.color ?? '#374151')
+                        .attr('text-anchor', textAnchor)
+                        .attr('pointer-events', 'none');
                 });
 
-                // Render Data Rows (limit to what fits in height)
-                const maxRows = Math.floor((d.height - rowHeight) / rowHeight);
-                const displayData = data.slice(0, maxRows);
+                // Header row selection outline (drawn on top so it's visible)
+                headerGroup.append('rect')
+                    .attr('width', d.width)
+                    .attr('height', headerHeight)
+                    .attr('fill', 'transparent')
+                    .attr('stroke', isHeaderRowSelected ? '#2563eb' : 'none')
+                    .attr('stroke-width', isHeaderRowSelected ? 2 : 0)
+                    .attr('pointer-events', 'none');
 
-                displayData.forEach((row, rowIndex) => {
+                // Column resize handles (between columns)
+                if (columns.length >= 2) {
+                    let colResizeState: {
+                        leftCol: string;
+                        rightCol: string;
+                        startLeftWidth: number;
+                        startRightWidth: number;
+                        dx: number;
+                    } | null = null;
+
+                    const handleWidth = 8;
+                    const handlesData = columns.slice(0, -1).map((leftCol, i) => ({ leftCol, rightCol: columns[i + 1], index: i }));
+
+                    const resizeBehavior = d3.drag<SVGRectElement, any>()
+                        .on('start', function (event, h) {
+                            event.sourceEvent.stopPropagation();
+                            const i = h.index as number;
+                            colResizeState = {
+                                leftCol: h.leftCol,
+                                rightCol: h.rightCol,
+                                startLeftWidth: computedWidths[i],
+                                startRightWidth: computedWidths[i + 1],
+                                dx: 0,
+                            };
+                        })
+                        .on('drag', function (event) {
+                            if (!colResizeState) return;
+
+                            colResizeState.dx += event.dx;
+                            const minW = 20;
+
+                            let nextLeft = colResizeState.startLeftWidth + colResizeState.dx;
+                            let nextRight = colResizeState.startRightWidth - colResizeState.dx;
+
+                            if (nextLeft < minW) {
+                                const diff = minW - nextLeft;
+                                nextLeft = minW;
+                                nextRight -= diff;
+                            }
+                            if (nextRight < minW) {
+                                const diff = minW - nextRight;
+                                nextRight = minW;
+                                nextLeft -= diff;
+                            }
+
+                            nextLeft = Math.max(minW, nextLeft);
+                            nextRight = Math.max(minW, nextRight);
+
+                            const currentWidths: Record<string, number | null> = (d.properties as any).columnWidths || {};
+                            updateObjectProperties(d.id, {
+                                columnWidths: {
+                                    ...currentWidths,
+                                    [colResizeState.leftCol]: Math.floor(nextLeft),
+                                    [colResizeState.rightCol]: Math.floor(nextRight),
+                                }
+                            });
+                        })
+                        .on('end', function () {
+                            colResizeState = null;
+                        });
+
+                    headerGroup.selectAll<SVGRectElement, any>('rect.col-resize-handle')
+                        .data(handlesData)
+                        .enter()
+                        .append('rect')
+                        .attr('class', 'col-resize-handle')
+                        .attr('x', (h: any) => (colX[h.index] + computedWidths[h.index]) - handleWidth / 2)
+                        .attr('y', 0)
+                        .attr('width', handleWidth)
+                        .attr('height', headerHeight)
+                        .attr('fill', 'transparent')
+                        .style('cursor', 'col-resize')
+                        .on('mousedown', function (event) {
+                            event.stopPropagation();
+                        })
+                        .call(resizeBehavior as any);
+                }
+
+                // DataTable header/row height resize handles
+                if (d.type === 'datatable') {
+                    const rowResizeHandleHeight = 8;
+
+                    let headerResizeState: { dy: number; start: number } | null = null;
+                    const headerResize = d3.drag<SVGRectElement, any>()
+                        .on('start', function (event) {
+                            event.sourceEvent.stopPropagation();
+                            headerResizeState = { dy: 0, start: headerHeight };
+                        })
+                        .on('drag', function (event) {
+                            if (!headerResizeState) return;
+                            headerResizeState.dy += event.dy;
+                            const next = Math.max(10, Math.floor(headerResizeState.start + headerResizeState.dy));
+                            updateObjectProperties(d.id, { dataTableHeaderHeight: next });
+                        })
+                        .on('end', function () {
+                            headerResizeState = null;
+                        });
+
+                    headerGroup.append('rect')
+                        .attr('x', 0)
+                        .attr('y', headerHeight - rowResizeHandleHeight / 2)
+                        .attr('width', d.width)
+                        .attr('height', rowResizeHandleHeight)
+                        .attr('fill', 'transparent')
+                        .style('cursor', 'row-resize')
+                        .on('mousedown', function (event) { event.stopPropagation(); })
+                        .call(headerResize as any);
+
+                    let rowHeightResizeState: { dy: number; start: number } | null = null;
+                    const rowHeightResize = d3.drag<SVGRectElement, any>()
+                        .on('start', function (event) {
+                            event.sourceEvent.stopPropagation();
+                            rowHeightResizeState = { dy: 0, start: rowHeight };
+                        })
+                        .on('drag', function (event) {
+                            if (!rowHeightResizeState) return;
+                            rowHeightResizeState.dy += event.dy;
+                            const next = Math.max(10, Math.floor(rowHeightResizeState.start + rowHeightResizeState.dy));
+                            updateObjectProperties(d.id, { dataTableRowHeight: next });
+                        })
+                        .on('end', function () {
+                            rowHeightResizeState = null;
+                        });
+
+                    // Place handle at the bottom of the first data row slot
+                    g.append('rect')
+                        .attr('x', 0)
+                        .attr('y', headerHeight + rowHeight - rowResizeHandleHeight / 2)
+                        .attr('width', d.width)
+                        .attr('height', rowResizeHandleHeight)
+                        .attr('fill', 'transparent')
+                        .style('cursor', 'row-resize')
+                        .on('mousedown', function (event) { event.stopPropagation(); })
+                        .call(rowHeightResize as any);
+                }
+
+                const totalsHeight = totalsEnabled ? rowHeight : 0;
+                const maxRows = Math.floor((d.height - headerHeight - totalsHeight) / rowHeight);
+                const displayRows = buildDisplayRows().slice(0, Math.max(0, maxRows));
+
+                displayRows.forEach((entry, rowIndex) => {
                     const rowGroup = g.append('g')
-                        .attr('transform', `translate(0, ${(rowIndex + 1) * rowHeight})`);
+                        .attr('transform', `translate(0, ${headerHeight + rowIndex * rowHeight})`);
 
+                    if (entry.kind === 'group') {
+                        rowGroup.append('rect')
+                            .attr('width', d.width)
+                            .attr('height', rowHeight)
+                            .attr('fill', '#f9fafb')
+                            .attr('stroke', '#d1d5db')
+                            .attr('stroke-width', 1);
+                        rowGroup.append('text')
+                            .attr('x', 6)
+                            .attr('y', rowHeight / 2)
+                            .attr('dy', '0.35em')
+                            .text(entry.label)
+                            .attr('font-size', 12)
+                            .attr('font-weight', 'bold')
+                            .attr('fill', '#374151');
+                        return;
+                    }
+
+                    const row = entry.row;
                     columns.forEach((col, colIndex) => {
+                        const colWidth = computedWidths[colIndex];
                         const cellGroup = rowGroup.append('g')
-                            .attr('transform', `translate(${colIndex * colWidth}, 0)`);
+                            .attr('transform', `translate(${colX[colIndex]}, 0)`);
 
                         cellGroup.append('rect')
                             .attr('width', colWidth)
@@ -581,12 +902,41 @@ export const Canvas = () => {
                             .attr('x', 5)
                             .attr('y', rowHeight / 2)
                             .attr('dy', '0.35em')
-                            .text(String(row[col] || ''))
+                            .text(String(row?.[col] ?? ''))
                             .attr('font-size', 12)
                             .attr('fill', '#4b5563')
                             .style('clip-path', `inset(0 0 0 0)`);
                     });
                 });
+
+                const totalsRow = computeTotalsRow();
+                if (totalsEnabled && totalsRow) {
+                    const y = headerHeight + displayRows.length * rowHeight;
+                    const totalsGroup = g.append('g')
+                        .attr('transform', `translate(0, ${y})`);
+
+                    columns.forEach((col, colIndex) => {
+                        const colWidth = computedWidths[colIndex];
+                        const cellGroup = totalsGroup.append('g')
+                            .attr('transform', `translate(${colX[colIndex]}, 0)`);
+
+                        cellGroup.append('rect')
+                            .attr('width', colWidth)
+                            .attr('height', rowHeight)
+                            .attr('fill', '#f3f4f6')
+                            .attr('stroke', '#d1d5db')
+                            .attr('stroke-width', 1);
+
+                        cellGroup.append('text')
+                            .attr('x', 5)
+                            .attr('y', rowHeight / 2)
+                            .attr('dy', '0.35em')
+                            .text(String(totalsRow[col] ?? ''))
+                            .attr('font-size', 12)
+                            .attr('font-weight', 'bold')
+                            .attr('fill', '#374151');
+                    });
+                }
             } else {
                 // Placeholder
                 g.append('rect')
@@ -600,7 +950,9 @@ export const Canvas = () => {
                     .attr('x', d.width / 2)
                     .attr('y', d.height / 2)
                     .attr('text-anchor', 'middle')
-                    .text('Table (Drag into Data Region)')
+                    .text(columns.length === 0
+                        ? (d.type === 'datatable' ? 'DataTable (Select columns)' : 'Table (Select columns)')
+                        : (d.type === 'datatable' ? 'DataTable (Connect data source)' : 'Table (Connect data source)'))
                     .attr('fill', '#9ca3af')
                     .attr('font-size', 14);
             }
@@ -870,7 +1222,7 @@ export const Canvas = () => {
             .selectAll<SVGRectElement, typeof handles[0]>('.resize-handle')
             .call(resizeBehavior);
 
-    }, [reportObjects, canvasSettings, selectedIds, updateObject, selectObject, updateObjects, editingTextId, parameters]);
+    }, [reportObjects, canvasSettings, selectedIds, updateObject, selectObject, setSelectedTableHeader, selectedTableHeader, updateObjects, editingTextId, parameters]);
 
     // Keyboard Shortcuts
     useEffect(() => {
@@ -913,20 +1265,16 @@ export const Canvas = () => {
         if (!svgRef.current) return;
         if (editingTextId) return;
 
+        if ((e.target as any).closest('.report-object')) return;
+
         const zoom = canvasSettings.zoom ?? 1;
-
-        const target = e.target as SVGElement;
-        const isBackground = target === svgRef.current ||
-            target.classList.contains('grid-layer') ||
-            target.tagName === 'line';
-
-        if (!isBackground) return;
 
         const rect = svgRef.current.getBoundingClientRect();
         const x = (e.clientX - rect.left) / zoom;
         const y = (e.clientY - rect.top) / zoom;
 
         setSelectionRect({ startX: x, startY: y, endX: x, endY: y, active: true });
+        setSelectedTableHeader(null);
         selectObject(null);
     };
 
@@ -987,7 +1335,10 @@ export const Canvas = () => {
             className={`flex-1 bg-gray-200 overflow-auto flex flex-col ${(canvasSettings.zoom ?? 1) >= 1 ? 'items-start' : 'items-center'} justify-start p-8`}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
-            onClick={() => selectObject(null)}
+            onClick={() => {
+                setSelectedTableHeader(null);
+                selectObject(null);
+            }}
             onWheel={handleWheel}
         >
             {/* Page info bar */}

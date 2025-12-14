@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reportmaker
+  namespace: reportai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reportmaker
+  template:
+    metadata:
+      labels:
+        app: reportmaker
+    spec:
+      imagePullSecrets:
+        - name: acr-secret
+      containers:
+        - name: reportmaker
+          image: beecodersregistry.azurecr.io/reportai-reportmaker:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: runtime-config
+              mountPath: /usr/share/nginx/html/runtime-config.js
+              subPath: runtime-config.js
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: runtime-config
+          configMap:
+            name: reportmaker-runtime-config
+            items:
+              - key: runtime-config.js
+                path: runtime-config.js
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reportmaker
+  namespace: reportai
+spec:
+  selector:
+    app: reportmaker
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80

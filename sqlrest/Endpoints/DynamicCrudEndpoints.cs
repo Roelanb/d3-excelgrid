@@ -325,8 +325,20 @@ public class GetRecordsEndpoint : Endpoint<GetRecordsRequest>
 
     public override async Task HandleAsync(GetRecordsRequest req, CancellationToken ct)
     {
-        var result = await _dbService.GetRecordsAsync(req.Schema, req.Table, req.Page, req.PageSize, req.Search);
-        await SendAsync(result, cancellation: ct);
+        try
+        {
+            var result = await _dbService.GetRecordsAsync(req.Schema, req.Table, req.Page, req.PageSize, req.Search);
+            await SendAsync(result, cancellation: ct);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Number == 208)
+        {
+            // Invalid object name
+            await SendAsync(new { Error = sqlEx.Message }, 404, ct);
+        }
+        catch (Exception ex)
+        {
+            await SendAsync(new { Error = ex.Message, Details = ex.ToString() }, 500, ct);
+        }
     }
 }
 

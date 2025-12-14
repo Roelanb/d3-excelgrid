@@ -28,6 +28,7 @@ export const Sidebar = () => {
                 <DraggableItem type="image" icon={Image} label="Image" />
                 <DraggableItem type="chart" icon={BarChart} label="Chart" />
                 <DraggableItem type="table" icon={Table} label="Table" />
+                <DraggableItem type="datatable" icon={Table} label="DataTable" />
                 <DraggableItem type="barcode" icon={ScanBarcode} label="Barcode" />
                 <DraggableItem type="dataRegion" icon={Database} label="Data Region" />
                 <DraggableItem type="header" icon={RectangleHorizontal} label="Header" />

@@ -4,6 +4,7 @@ import { useReportStore } from '../../hooks/useReportStore';
 import { ParameterInput } from '../ParametersPanel';
 import { runDataConnections, applyDataUpdatesToObjects } from '../../utils/reportRun';
 import { reportGeneratorApi } from '../../services/reportGeneratorApi';
+import { getReportGeneratorBaseUrl } from '../../services/runtimeConfig';
 
 let lastAutoGenerateAtMs = 0;
 
@@ -11,6 +12,8 @@ export const RunTab: React.FC = () => {
     const { reportObjects, canvasSettings, parameters, setParameterValue, updateObjectsData } = useReportStore();
     const [isGeneratingViaApi, setIsGeneratingViaApi] = useState(false);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+    const reportGenBaseUrl = getReportGeneratorBaseUrl();
 
     const hasParameters = parameters.length > 0;
 
@@ -86,6 +89,7 @@ export const RunTab: React.FC = () => {
                         </button>
                         <div className="text-sm text-gray-500">
                             {isGeneratingViaApi ? 'Generating PDF via API...' : 'Generate a PDF preview via the Report Generator API'}
+                            <div className="text-xs text-gray-400">{reportGenBaseUrl}</div>
                         </div>
                     </div>
                 </div>

@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: excel-grid
+  namespace: reportai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: excel-grid
+  template:
+    metadata:
+      labels:
+        app: excel-grid
+    spec:
+      imagePullSecrets:
+        - name: acr-secret
+      containers:
+        - name: excel-grid
+          image: beecodersregistry.azurecr.io/reportai-excel-grid:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: runtime-config
+              mountPath: /usr/share/nginx/html/runtime-config.js
+              subPath: runtime-config.js
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: runtime-config
+          configMap:
+            name: excel-grid-runtime-config
+            items:
+              - key: runtime-config.js
+                path: runtime-config.js
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: excel-grid
+  namespace: reportai
+spec:
+  selector:
+    app: excel-grid
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80

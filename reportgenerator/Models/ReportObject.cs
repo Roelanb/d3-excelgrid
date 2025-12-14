@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace ReportGenerator.Models;
@@ -19,6 +20,9 @@ public enum ReportObjectType
 
     [JsonPropertyName("table")]
     Table,
+
+    [JsonPropertyName("datatable")]
+    Datatable,
 
     [JsonPropertyName("barcode")]
     Barcode,
@@ -73,6 +77,9 @@ public class ReportObject
 
     [JsonPropertyName("properties")]
     public ReportObjectProperties Properties { get; set; } = new();
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 
     /// <summary>
     /// Data records for data regions (populated at runtime)
@@ -188,11 +195,87 @@ public class ReportObjectProperties
 
     [JsonPropertyName("columns")]
     public List<string>? Columns { get; set; }
+
+    [JsonPropertyName("columnWidths")]
+    public Dictionary<string, double?>? ColumnWidths { get; set; }
+
+    [JsonPropertyName("tableHeaderStyle")]
+    public TextStyleProperties? TableHeaderStyle { get; set; }
+
+    [JsonPropertyName("tableHeaderCellStyles")]
+    public Dictionary<string, TextStyleProperties>? TableHeaderCellStyles { get; set; }
+
+    [JsonPropertyName("dataTableRowHeight")]
+    public double? DataTableRowHeight { get; set; }
+
+    [JsonPropertyName("dataTableHeaderHeight")]
+    public double? DataTableHeaderHeight { get; set; }
+
+    [JsonPropertyName("dataTableTotalsRow")]
+    public DataTableTotalsRow? DataTableTotalsRow { get; set; }
+
+    [JsonPropertyName("dataTableGroupBy")]
+    public List<string>? DataTableGroupBy { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+}
+
+public class DataTableTotalsRow
+{
+    [JsonPropertyName("enabled")]
+    public bool? Enabled { get; set; }
+
+    [JsonPropertyName("aggregations")]
+    public Dictionary<string, string>? Aggregations { get; set; }
+}
+
+public class TextStyleProperties
+{
+    [JsonPropertyName("fontSize")]
+    public double? FontSize { get; set; }
+
+    [JsonPropertyName("fontFamily")]
+    public string? FontFamily { get; set; }
+
+    [JsonPropertyName("bold")]
+    public bool? Bold { get; set; }
+
+    [JsonPropertyName("italic")]
+    public bool? Italic { get; set; }
+
+    [JsonPropertyName("underline")]
+    public bool? Underline { get; set; }
+
+    [JsonPropertyName("strikeThrough")]
+    public bool? StrikeThrough { get; set; }
+
+    [JsonPropertyName("color")]
+    public string? Color { get; set; }
+
+    [JsonPropertyName("backgroundColor")]
+    public string? BackgroundColor { get; set; }
+
+    [JsonPropertyName("opacity")]
+    public double? Opacity { get; set; }
+
+    [JsonPropertyName("borderWidth")]
+    public double? BorderWidth { get; set; }
+
+    [JsonPropertyName("borderColor")]
+    public string? BorderColor { get; set; }
+
+    [JsonPropertyName("padding")]
+    public double? Padding { get; set; }
+
+    [JsonPropertyName("textAlign")]
+    public string? TextAlign { get; set; }
 }
 
 /// <summary>
 /// Data source configuration for data regions
 /// </summary>
+[JsonConverter(typeof(DataSourceJsonConverter))]
 public class DataSource
 {
     [JsonPropertyName("type")]
@@ -209,6 +292,12 @@ public class DataSource
 
     [JsonPropertyName("procedureParams")]
     public Dictionary<string, string>? ProcedureParams { get; set; }
+
+    [JsonPropertyName("sql")]
+    public string? Sql { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
 
 /// <summary>
@@ -221,4 +310,7 @@ public class DataBinding
 
     [JsonPropertyName("columnName")]
     public required string ColumnName { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }

@@ -108,3 +108,14 @@ sqlrest/appsettings.Production.json
 excel-grid/deployment/azure.md
 excel-grid/deployment/credentials.json
 sqlrest/.vscode/settings.json
+
+
+# All secret files anywhere
+**/secrets.yaml
+secrets.yaml
+**/secrets.md
+secrets.md
+*.key
+*.pem
+*.p12
+*.pfx

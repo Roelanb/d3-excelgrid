@@ -1,6 +1,29 @@
-export type ReportObjectType = 'text' | 'image' | 'chart' | 'table' | 'barcode' | 'dataRegion' | 'header' | 'footer' | 'line' | 'rectangle' | 'ellipse' | 'polygon' | 'polyline';
+export type ReportObjectType = 'text' | 'image' | 'chart' | 'table' | 'datatable' | 'barcode' | 'dataRegion' | 'header' | 'footer' | 'line' | 'rectangle' | 'ellipse' | 'polygon' | 'polyline';
 
-export type SqlRestSourceType = 'table' | 'view' | 'storedProcedure';
+export type SqlRestSourceType = 'table' | 'view' | 'storedProcedure' | 'query';
+
+export interface TextStyleProperties {
+    fontSize?: number;
+    fontFamily?: string;
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    strikeThrough?: boolean;
+    color?: string;
+    backgroundColor?: string;
+    opacity?: number;
+    borderWidth?: number;
+    borderColor?: string;
+    padding?: number;
+    textAlign?: 'left' | 'center' | 'right';
+}
+
+export type DataTableAggregation = 'sum' | 'avg' | 'count' | 'min' | 'max';
+
+export interface DataTableTotalsRow {
+    enabled?: boolean;
+    aggregations?: Record<string, DataTableAggregation>;
+}
 
 export interface DataSource {
     type: 'sqlrest';
@@ -8,6 +31,7 @@ export interface DataSource {
     name?: string;
     procedureParams?: Record<string, string>;
     tableName?: string;
+    sql?: string;
 }
 
 export interface ReportObjectProperties {
@@ -49,6 +73,16 @@ export interface ReportObjectProperties {
     fillColor?: string;
     points?: string; // For polygon/polyline (SVG points format)
     columns?: string[]; // For Table objects: list of column names to display
+
+    columnWidths?: Record<string, number | null>; // For Table objects: per-column width in px (null/undefined = auto)
+
+    tableHeaderStyle?: TextStyleProperties;
+    tableHeaderCellStyles?: Record<string, TextStyleProperties>;
+
+    dataTableRowHeight?: number;
+    dataTableHeaderHeight?: number;
+    dataTableTotalsRow?: DataTableTotalsRow;
+    dataTableGroupBy?: string[];
 }
 
 export interface ReportObject {
@@ -90,6 +124,12 @@ export interface CanvasSettings {
     width: number;
     height: number;
     page: PageSettings;
+}
+
+export interface ReportMetadata {
+    name: string;
+    description: string;
+    author: string;
 }
 
 // Report Parameter Types

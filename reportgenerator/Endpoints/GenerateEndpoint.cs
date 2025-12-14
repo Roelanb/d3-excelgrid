@@ -32,6 +32,18 @@ public class GenerateEndpoint : Endpoint<GenerateRequest>
     {
         try
         {
+            var tableDebug = req.Report.ReportObjects
+                .Where(o => o.Type == ReportObjectType.Table)
+                .Select(o => new
+                {
+                    o.Id,
+                    HasTableHeaderStyle = o.Properties.TableHeaderStyle != null,
+                    TableHeaderCellStyleKeys = o.Properties.TableHeaderCellStyles?.Keys.ToArray() ?? Array.Empty<string>()
+                })
+                .ToList();
+
+            Logger.LogInformation("Generate report request received. Tables: {@Tables}", tableDebug);
+
             var pdfBytes = await _pdfGenerator.GenerateAsync(req);
 
             var filename = req.Output?.Filename ?? "report.pdf";

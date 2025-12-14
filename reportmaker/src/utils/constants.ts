@@ -27,6 +27,7 @@ export const DEFAULT_DIMENSIONS: Record<ReportObjectType, { width: number; heigh
     image: { width: 150, height: 150 },
     chart: { width: 300, height: 200 },
     table: { width: 300, height: 200 },
+    datatable: { width: 400, height: 240 },
     barcode: { width: 200, height: 100 },
     dataRegion: { width: 400, height: 300 },
     header: { width: 400, height: 80 },

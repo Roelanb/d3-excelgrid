@@ -1,5 +1,7 @@
 using FastEndpoints;
 using FastEndpoints.Swagger;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using QuestPDF.Infrastructure;
 using ReportGenerator.Services;
 
@@ -34,6 +36,15 @@ builder.Services.AddSingleton<ParameterSubstitutionService>();
 builder.Services.AddSingleton<BarcodeService>();
 builder.Services.AddSingleton<ImageService>();
 builder.Services.AddScoped<PdfGeneratorService>();
+
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    o.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+});
+
+builder.Services.AddHttpClient<SqlRestClient>();
+builder.Services.AddHttpClient<OpenRouterClient>();
+builder.Services.AddScoped<LlmReportService>();
 
 // Configure CORS
 var corsOrigins = builder.Configuration["CORS_ALLOWED_ORIGINS"]?.Split(',')

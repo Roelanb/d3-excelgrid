@@ -86,7 +86,6 @@ function ExcelGridComponent(
     headerHeight = 30,
     onSelectionChange,
     onClipboardChange,
-    onEditModeChange,
     onHeaderClick,
   } = props;
   const svgRef = useRef<SVGSVGElement>(null);

@@ -27,3 +27,7 @@ Parameters should be persisted in the json file of the report.
 
 Add the possbility to use the parameter in  the report objects.
 This can be done by using the {{parameterName}} syntax in the report object.
+
+
+
+[ ]

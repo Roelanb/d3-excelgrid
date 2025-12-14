@@ -79,3 +79,41 @@ Then the table should display all the rows of the selected table.
 
 [x] Add a header component, this is always on top of the report and appears on every page.
 [x] Add a footer component, this is always on bottom of the report and appears on every page.
+
+Editor layout improvments
+[X] Add a new report button and show the filename of the report in the title when I save it, or load a file
+[X] Show the text style buttons as a seperate toolbar row
+
+Can you put the text style toolbar vertivally to the left of the canvas, right of the components tab
+
+[X] On the proterties tab make the sections (like Layout, typography etc) collapsable
+[X] show the filename of the report in the title
+[ ] Add extra properties to the report, Report name, description, author, etc
+[ ] make the report parameters collapsed by default
+
+Sql editor
+[ ] Allow for complex sql queries to be used in the dataregion. Add a sql editor to edit the sql command easily.
+[ ] Improve the comples sql editor, add a button to edit the text in a larger window.
+
+Table layout improvments:
+- add the possibitlity to style the header row, allow the user to click on the header row or cell and use the textbox syyle options
+
+[ ] when a header cell or row is selected, show its properties in the properties tab 
+
+- add the possibility to define (add/remove/update) columns in the table
+
+- add the possibitlity to set the column width of each column to auto
+- add the possibitlity to set the column width of each column to a fixed value
+
+
+When the whole header is selected, and I change the backgound color, only the color of 1 cell is changed
+
+
+Integrate the data region properties directly in the table object. So that adding a table object to the canvas is possible without a data region.
+
+Create a new object called a datatable. This should act the same way as a datatable in Microsoft reporting services.
+It links to a database query and can be used to display data in a table. 
+The user can drag columns from the dataconenction to the table.
+The user canb resize columns and rows. 
+The user can devine a totals row.
+The user can add groupings to the table, base on 1 or multiple columns to group by.

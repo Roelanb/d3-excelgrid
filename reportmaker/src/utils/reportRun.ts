@@ -16,17 +16,28 @@ const splitFullName = (fullName: string): { schema: string; name: string } => {
 };
 
 export const runDataConnections = async (objects: ReportObject[], parameters: ReportParameter[]) => {
-    const dataRegions = objects.filter(o => o.type === 'dataRegion');
+    const dataRegions = objects.filter(o => o.type === 'dataRegion' || o.type === 'table' || o.type === 'datatable');
     const updates: { id: string; data: any[] }[] = [];
 
     for (const region of dataRegions) {
         const ds = region.properties?.dataSource;
         if (!ds || ds.type !== 'sqlrest') continue;
 
+        const sourceType = ds.sourceType || 'table';
+
+        if (sourceType === 'query') {
+            const rawSql = String(ds.sql || '');
+            const resolvedSql = substituteParameters(rawSql, parameters);
+            if (!resolvedSql.trim()) continue;
+
+            const response = await api.executeQuery(resolvedSql);
+            const data = response && response.data ? response.data : [];
+            updates.push({ id: region.id, data: Array.isArray(data) ? data : [] });
+            continue;
+        }
+
         const sourceName = getSqlRestSourceName(ds);
         if (!sourceName) continue;
-
-        const sourceType = ds.sourceType || 'table';
 
         if (sourceType === 'storedProcedure') {
             const { schema, name } = splitFullName(sourceName);

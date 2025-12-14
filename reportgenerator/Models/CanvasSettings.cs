@@ -26,7 +26,7 @@ public class CanvasSettings
     public double Height { get; set; }
 
     [JsonPropertyName("page")]
-    public required PageSettings Page { get; set; }
+    public PageSettings? Page { get; set; }
 }
 
 /// <summary>
@@ -47,7 +47,7 @@ public class PageSettings
     public double Height { get; set; }
 
     [JsonPropertyName("margins")]
-    public required PageMargins Margins { get; set; }
+    public PageMargins? Margins { get; set; }
 }
 
 /// <summary>

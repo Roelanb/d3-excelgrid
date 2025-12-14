@@ -1,4 +1,8 @@
-const API_BASE_URL = 'http://localhost:3200/api';
+import { getSqlRestBaseUrl } from './runtimeConfig';
+
+function getApiBaseUrl(): string {
+    return `${getSqlRestBaseUrl()}/api`;
+}
 
 interface LoginResponse {
     token: string;
@@ -15,9 +19,69 @@ export const api = {
         }
     },
 
+    async executeQuery(sql: string): Promise<any> {
+        await this.ensureToken();
+
+        try {
+            const response = await fetch(`${getApiBaseUrl()}/query`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ sql }),
+            });
+
+            if (response.status === 401) {
+                await this.login();
+                return this.executeQuery(sql);
+            }
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || 'Failed to execute query');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Execute query error:', error);
+            return null;
+        }
+    },
+
+    async getQueryResultSchema(sql: string): Promise<any[][]> {
+        await this.ensureToken();
+
+        try {
+            const response = await fetch(`${getApiBaseUrl()}/query/result-schema`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ sql }),
+            });
+
+            if (response.status === 401) {
+                await this.login();
+                return this.getQueryResultSchema(sql);
+            }
+
+            if (!response.ok) {
+                return [];
+            }
+
+            const data = await response.json();
+            return data.resultSets || data.ResultSets || [];
+        } catch (error) {
+            console.error('Get query result schema error:', error);
+            return [];
+        }
+    },
+
     async login() {
         try {
-            const response = await fetch(`${API_BASE_URL}/auth/login`, {
+            const response = await fetch(`${getApiBaseUrl()}/auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -46,7 +110,7 @@ export const api = {
         await this.ensureToken();
 
         try {
-            const response = await fetch(`${API_BASE_URL}/tables`, {
+            const response = await fetch(`${getApiBaseUrl()}/tables`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`,
                 },
@@ -74,7 +138,7 @@ export const api = {
         await this.ensureToken();
 
         try {
-            const response = await fetch(`${API_BASE_URL}/views`, {
+            const response = await fetch(`${getApiBaseUrl()}/views`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`,
                 },
@@ -101,7 +165,7 @@ export const api = {
         await this.ensureToken();
 
         try {
-            const response = await fetch(`${API_BASE_URL}/stored-procedures`, {
+            const response = await fetch(`${getApiBaseUrl()}/stored-procedures`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`,
                 },
@@ -135,7 +199,7 @@ export const api = {
                 [schema, table] = tableName.split('.');
             }
 
-            const response = await fetch(`${API_BASE_URL}/${schema}/${table}`, {
+            const response = await fetch(`${getApiBaseUrl()}/${schema}/${table}`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`,
                 },
@@ -167,7 +231,7 @@ export const api = {
             });
 
             const queryString = qs.toString();
-            const url = `${API_BASE_URL}/stored-procedures/${schema}/${procedure}${queryString ? `?${queryString}` : ''}`;
+            const url = `${getApiBaseUrl()}/stored-procedures/${schema}/${procedure}${queryString ? `?${queryString}` : ''}`;
 
             const response = await fetch(url, {
                 headers: {
@@ -195,7 +259,7 @@ export const api = {
         await this.ensureToken();
 
         try {
-            const response = await fetch(`${API_BASE_URL}/stored-procedures/${schema}/${procedure}/parameters`, {
+            const response = await fetch(`${getApiBaseUrl()}/stored-procedures/${schema}/${procedure}/parameters`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`,
                 },
@@ -227,7 +291,7 @@ export const api = {
                 if (v !== undefined && v !== null) qs.set(k, String(v));
             });
             const queryString = qs.toString();
-            const url = `${API_BASE_URL}/stored-procedures/${schema}/${procedure}/result-schema${queryString ? `?${queryString}` : ''}`;
+            const url = `${getApiBaseUrl()}/stored-procedures/${schema}/${procedure}/result-schema${queryString ? `?${queryString}` : ''}`;
 
             const response = await fetch(url, {
                 headers: {
@@ -262,7 +326,7 @@ export const api = {
                 [schema, table] = tableName.split('.');
             }
 
-            const response = await fetch(`${API_BASE_URL}/tables/${schema}/${table}/schema`);
+            const response = await fetch(`${getApiBaseUrl()}/tables/${schema}/${table}/schema`);
 
             if (!response.ok) {
                 return [];

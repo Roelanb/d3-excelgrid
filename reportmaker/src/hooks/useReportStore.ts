@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ReportObject, CanvasSettings, ReportObjectType, ReportObjectProperties, PageSettings, ReportParameter, ReportParameterType } from '../types';
+import type { ReportObject, CanvasSettings, ReportMetadata, ReportObjectType, ReportObjectProperties, PageSettings, ReportParameter, ReportParameterType } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { DEFAULT_DIMENSIONS, PAGE_PRESETS_PX } from '../utils/constants';
 
@@ -23,11 +23,20 @@ const DEFAULT_CANVAS_SETTINGS: CanvasSettings = {
     page: DEFAULT_PAGE,
 };
 
+const DEFAULT_REPORT_METADATA: ReportMetadata = {
+    name: '',
+    description: '',
+    author: '',
+};
+
 interface ReportState {
     reportObjects: ReportObject[];
     selectedIds: string[];
+    selectedTableHeader: { tableId: string; column: string | null } | null;
     canvasSettings: CanvasSettings;
+    reportMetadata: ReportMetadata;
     reportFileHandle: FileSystemFileHandle | null;
+    reportFileName: string | null;
     isDirty: boolean;
     parameters: ReportParameter[];
 
@@ -39,17 +48,24 @@ interface ReportState {
     removeObject: (id: string) => void;
     selectObject: (id: string | null, multi?: boolean) => void;
     toggleSelection: (id: string) => void;
+    setSelectedTableHeader: (selection: { tableId: string; column: string | null } | null) => void;
+    clearSelectedTableHeader: () => void;
     updateCanvasSettings: (settings: Partial<CanvasSettings>) => void;
     setObjects: (objects: ReportObject[]) => void;
     clipboard: ReportObject | null;
     copyObject: () => void;
     pasteObject: () => void;
     alignObjects: (type: AlignmentType) => void;
+    newReport: () => void;
     saveReport: () => Promise<boolean>;
     saveReportAs: () => Promise<boolean>;
-    loadReport: (data: { reportObjects: ReportObject[]; canvasSettings: CanvasSettings; parameters?: ReportParameter[] }) => void;
+    loadReport: (data: { reportObjects: ReportObject[]; canvasSettings: CanvasSettings; parameters?: ReportParameter[]; metadata?: ReportMetadata }) => void;
     loadReportFromFileSystem: () => Promise<void>;
     setReportFileHandle: (handle: FileSystemFileHandle | null) => void;
+    setReportFileName: (name: string | null) => void;
+
+    // Report metadata
+    setReportMetadata: (updates: Partial<ReportMetadata>) => void;
 
     // Parameter actions
     addParameter: (type: ReportParameterType) => void;
@@ -61,8 +77,11 @@ interface ReportState {
 export const useReportStore = create<ReportState>((set) => ({
     reportObjects: [],
     selectedIds: [],
+    selectedTableHeader: null,
     canvasSettings: DEFAULT_CANVAS_SETTINGS,
+    reportMetadata: DEFAULT_REPORT_METADATA,
     reportFileHandle: null,
+    reportFileName: null,
     isDirty: false,
     parameters: [],
 
@@ -107,6 +126,18 @@ export const useReportStore = create<ReportState>((set) => ({
                 opacity: 1,
                 rotation: 0,
                 backgroundColor: type === 'text' ? 'transparent' : (type === 'header' ? '#fef9c3' : (type === 'footer' ? '#d1fae5' : '#eeeeee')),
+                ...((type === 'table' || type === 'datatable') && {
+                    columns: [],
+                    columnWidths: {},
+                    tableHeaderStyle: {},
+                    tableHeaderCellStyles: {},
+                }),
+                ...(type === 'datatable' && {
+                    dataTableRowHeight: 30,
+                    dataTableHeaderHeight: 30,
+                    dataTableTotalsRow: { enabled: false, aggregations: {} },
+                    dataTableGroupBy: [],
+                }),
                 ...(type === 'header' && {
                     borderColor: '#facc15',
                     borderWidth: 2,
@@ -172,11 +203,12 @@ export const useReportStore = create<ReportState>((set) => ({
     removeObject: (id) => set((state) => ({
         reportObjects: state.reportObjects.filter((obj) => obj.id !== id),
         selectedIds: state.selectedIds.filter(selectedId => selectedId !== id),
+        selectedTableHeader: state.selectedTableHeader?.tableId === id ? null : state.selectedTableHeader,
         isDirty: true,
     })),
 
     selectObject: (id, multi = false) => set((state) => {
-        if (id === null) return { selectedIds: [] };
+        if (id === null) return { selectedIds: [], selectedTableHeader: null };
         if (multi) {
             return { selectedIds: state.selectedIds.includes(id) ? state.selectedIds : [...state.selectedIds, id] };
         }
@@ -188,6 +220,10 @@ export const useReportStore = create<ReportState>((set) => ({
             ? state.selectedIds.filter(selectedId => selectedId !== id)
             : [...state.selectedIds, id]
     })),
+
+    setSelectedTableHeader: (selection) => set(() => ({ selectedTableHeader: selection })),
+
+    clearSelectedTableHeader: () => set(() => ({ selectedTableHeader: null })),
 
     updateCanvasSettings: (settings) => set((state) => {
         const canvasSettingsRaw = { ...state.canvasSettings, ...settings };
@@ -371,6 +407,26 @@ export const useReportStore = create<ReportState>((set) => ({
 
     setReportFileHandle: (handle) => set(() => ({ reportFileHandle: handle })),
 
+    setReportFileName: (name) => set(() => ({ reportFileName: name })),
+
+    setReportMetadata: (updates) => set((state) => ({
+        reportMetadata: { ...state.reportMetadata, ...updates },
+        isDirty: true,
+    })),
+
+    newReport: () => set(() => ({
+        reportObjects: [],
+        selectedIds: [],
+        selectedTableHeader: null,
+        canvasSettings: DEFAULT_CANVAS_SETTINGS,
+        reportMetadata: DEFAULT_REPORT_METADATA,
+        reportFileHandle: null,
+        reportFileName: null,
+        clipboard: null,
+        parameters: [],
+        isDirty: false,
+    })),
+
     saveReport: async () => {
         const state = useReportStore.getState();
 
@@ -423,6 +479,7 @@ export const useReportStore = create<ReportState>((set) => ({
             reportObjects: objectsForSave,
             canvasSettings: state.canvasSettings,
             parameters: state.parameters,
+            metadata: state.reportMetadata,
         };
 
         const json = JSON.stringify(reportData, null, 2);
@@ -445,7 +502,7 @@ export const useReportStore = create<ReportState>((set) => ({
                 const writable = await fileHandle.createWritable();
                 await writable.write(new Blob([json], { type: 'application/json' }));
                 await writable.close();
-                set(() => ({ isDirty: false }));
+                set(() => ({ isDirty: false, reportFileName: fileHandle.name }));
                 return true;
             } catch {
                 return false;
@@ -462,7 +519,7 @@ export const useReportStore = create<ReportState>((set) => ({
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        set(() => ({ isDirty: false }));
+        set(() => ({ isDirty: false, reportFileHandle: null, reportFileName: fileName }));
         return true;
     },
 
@@ -521,6 +578,7 @@ export const useReportStore = create<ReportState>((set) => ({
             reportObjects: objectsForSave,
             canvasSettings: state.canvasSettings,
             parameters: state.parameters,
+            metadata: state.reportMetadata,
         };
 
         const json = JSON.stringify(reportData, null, 2);
@@ -538,7 +596,7 @@ export const useReportStore = create<ReportState>((set) => ({
                 const writable = await fileHandle.createWritable();
                 await writable.write(new Blob([json], { type: 'application/json' }));
                 await writable.close();
-                set(() => ({ isDirty: false }));
+                set(() => ({ isDirty: false, reportFileName: fileHandle.name }));
                 return true;
             } catch {
                 return false;
@@ -556,7 +614,7 @@ export const useReportStore = create<ReportState>((set) => ({
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        set(() => ({ reportFileHandle: null }));
+        set(() => ({ reportFileHandle: null, reportFileName: fileName }));
         return true;
     },
 
@@ -576,14 +634,25 @@ export const useReportStore = create<ReportState>((set) => ({
         const text = await file.text();
         const data = JSON.parse(text);
 
-        set(() => ({ reportFileHandle: fileHandle, isDirty: false }));
+        set(() => ({ reportFileHandle: fileHandle, reportFileName: file.name, isDirty: false }));
 
         useReportStore.getState().loadReport(data);
     },
 
-    loadReport: (data) => set(() => {
+    loadReport: (data) => set((state) => {
         const incoming: Partial<CanvasSettings> = (data as any)?.canvasSettings || {};
         const incomingPage: any = (incoming as any).page;
+
+        const incomingMetadata: ReportMetadata | undefined = (data as any)?.metadata || (data as any)?.reportMetadata;
+        const reportMetadata: ReportMetadata = incomingMetadata
+            ? {
+                name: String((incomingMetadata as any).name ?? ''),
+                description: String((incomingMetadata as any).description ?? ''),
+                author: String((incomingMetadata as any).author ?? ''),
+            }
+            : ((data as any)?.metadata === undefined && (data as any)?.reportMetadata === undefined && (data as any)?.reportObjects && (data as any)?.canvasSettings)
+                ? (state.reportMetadata || DEFAULT_REPORT_METADATA)
+                : DEFAULT_REPORT_METADATA;
 
         const zoom = (typeof (incoming as any).zoom === 'number' && Number.isFinite((incoming as any).zoom))
             ? Math.max(0.1, (incoming as any).zoom)
@@ -649,6 +718,7 @@ export const useReportStore = create<ReportState>((set) => ({
                 height: page.height,
                 page,
             },
+            reportMetadata,
             parameters: data.parameters || [],
             selectedIds: [],
             isDirty: false,

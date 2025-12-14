@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: excel-grid-runtime-config
+  namespace: reportai
+data:
+  runtime-config.js: |-
+    window.__RUNTIME_CONFIG__ = window.__RUNTIME_CONFIG__ || {};
+    window.__RUNTIME_CONFIG__.VITE_API_BASE_URL = "https://sqlrest.example.com";
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reportmaker-runtime-config
+  namespace: reportai
+data:
+  runtime-config.js: |-
+    window.__RUNTIME_CONFIG__ = window.__RUNTIME_CONFIG__ || {};
+    window.__RUNTIME_CONFIG__.SQLREST_BASE_URL = "https://sqlrest.example.com";
+    window.__RUNTIME_CONFIG__.REPORTGEN_BASE_URL = "https://reportgenerator.example.com";
