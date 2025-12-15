@@ -76,6 +76,8 @@ export interface ReportObjectProperties {
 
     columnWidths?: Record<string, number | null>; // For Table objects: per-column width in px (null/undefined = auto)
 
+    tableColumnLabels?: Record<string, string>;
+
     tableHeaderStyle?: TextStyleProperties;
     tableHeaderCellStyles?: Record<string, TextStyleProperties>;
 
@@ -162,4 +164,12 @@ export interface ReportParameter {
     defaultValue?: string | number | boolean | string[] | number[] | DateRangeValue;
     value?: string | number | boolean | string[] | number[] | DateRangeValue;
     listOptions?: string[];          // For list types: available options to choose from
+}
+
+export interface ReportDefinition {
+    version?: number;
+    reportObjects: ReportObject[];
+    canvasSettings: CanvasSettings;
+    parameters?: ReportParameter[];
+    metadata?: ReportMetadata;
 }

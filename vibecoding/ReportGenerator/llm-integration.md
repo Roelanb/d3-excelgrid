@@ -28,3 +28,14 @@ Do not show a list of the tables or views in the LLM panel. Only show a prompt f
 Also allow the prompt to interact with the existing report allowing for changes by the ai on the report.
 
 Keep a history of the prompts and the responses. Use this with subsequent prompts to generate or adjust the report.
+
+Update the LLM integration in the report maker to use the new datatable object and improved header and footer objects.
+Also make use of the report parameters like name, description, author, etc.
+
+Add a selection of base llms to use. Add to the list:
+- mistralai/devstral-2512
+- qwen/qwen3-coder
+- x-ai/grok-code-fast-1
+- openai/gpt-5.2
+- anthropic/claude-opus-4.5
+- google/gemini-3-pro-preview

@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "reportObjects": [
+    {
+      "id": "title",
+      "type": "text",
+      "x": 20,
+      "y": 20,
+      "width": 754,
+      "height": 60,
+      "properties": {
+        "text": "Table Example",
+        "fontSize": 28,
+        "fontFamily": "Arial",
+        "color": "#111827",
+        "bold": true
+      }
+    },
+    {
+      "id": "table1",
+      "type": "table",
+      "x": 20,
+      "y": 100,
+      "width": 754,
+      "height": 963,
+      "properties": {
+        "columns": [
+          "Item",
+          "Qty",
+          "UnitPrice",
+          "Total"
+        ],
+        "tableColumnLabels": {
+          "Item": "Item",
+          "Qty": "Qty",
+          "UnitPrice": "Unit Price",
+          "Total": "Total"
+        },
+        "columnWidths": {
+          "Item": 320,
+          "Qty": 60,
+          "UnitPrice": 140,
+          "Total": 140
+        },
+        "tableHeaderStyle": {
+          "backgroundColor": "#f3f4f6",
+          "borderColor": "#d1d5db",
+          "borderWidth": 1,
+          "color": "#111827",
+          "fontSize": 12,
+          "fontFamily": "Arial",
+          "bold": true,
+          "padding": 6,
+          "textAlign": "left",
+          "opacity": 1
+        },
+        "tableHeaderCellStyles": {
+          "Qty": {
+            "textAlign": "right"
+          },
+          "UnitPrice": {
+            "textAlign": "right"
+          },
+          "Total": {
+            "textAlign": "right"
+          }
+        }
+      }
+    }
+  ],
+  "canvasSettings": {
+    "showGrid": false,
+    "snapToGrid": false,
+    "gridSize": 10,
+    "zoom": 1,
+    "width": 794,
+    "height": 1123,
+    "page": {
+      "preset": "A4",
+      "orientation": "portrait",
+      "width": 794,
+      "height": 1123,
+      "margins": {
+        "top": 20,
+        "right": 20,
+        "bottom": 20,
+        "left": 20
+      }
+    }
+  },
+  "parameters": []
+}

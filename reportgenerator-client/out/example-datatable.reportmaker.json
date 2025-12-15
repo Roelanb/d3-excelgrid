@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "reportObjects": [
+    {
+      "id": "title",
+      "type": "text",
+      "x": 20,
+      "y": 20,
+      "width": 754,
+      "height": 60,
+      "properties": {
+        "text": "Datatable Example (grouped)",
+        "fontSize": 28,
+        "fontFamily": "Arial",
+        "color": "#111827",
+        "bold": true
+      }
+    },
+    {
+      "id": "datatable1",
+      "type": "datatable",
+      "x": 20,
+      "y": 100,
+      "width": 754,
+      "height": 963,
+      "properties": {
+        "columns": [
+          "Category",
+          "Name",
+          "Qty",
+          "Price",
+          "Total"
+        ],
+        "dataTableGroupBy": [
+          "Category"
+        ],
+        "columnWidths": {
+          "Category": 140,
+          "Name": 240,
+          "Qty": 70,
+          "Price": 110,
+          "Total": 110
+        },
+        "tableHeaderCellStyles": {
+          "Qty": {
+            "textAlign": "right"
+          },
+          "Price": {
+            "textAlign": "right"
+          },
+          "Total": {
+            "textAlign": "right"
+          }
+        }
+      }
+    }
+  ],
+  "canvasSettings": {
+    "showGrid": false,
+    "snapToGrid": false,
+    "gridSize": 10,
+    "zoom": 1,
+    "width": 794,
+    "height": 1123,
+    "page": {
+      "preset": "A4",
+      "orientation": "portrait",
+      "width": 794,
+      "height": 1123,
+      "margins": {
+        "top": 20,
+        "right": 20,
+        "bottom": 20,
+        "left": 20
+      }
+    }
+  },
+  "parameters": []
+}

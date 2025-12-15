@@ -88,12 +88,15 @@ Can you put the text style toolbar vertivally to the left of the canvas, right o
 
 [X] On the proterties tab make the sections (like Layout, typography etc) collapsable
 [X] show the filename of the report in the title
-[ ] Add extra properties to the report, Report name, description, author, etc
-[ ] make the report parameters collapsed by default
+[X] Add extra properties to the report, Report name, description, author, etc
+[X] make the report parameters collapsed by default
+[ ] add a version nr to the report json structure.
+[ ] Add a report metadata object, this can be used to add the page number, total page count, current date and time to the report.
+[ ] Save busy text can be improved
 
 Sql editor
 [ ] Allow for complex sql queries to be used in the dataregion. Add a sql editor to edit the sql command easily.
-[ ] Improve the comples sql editor, add a button to edit the text in a larger window.
+[ ] Improve the complex sql editor, add a button to edit the text in a larger window.
 
 Table layout improvments:
 - add the possibitlity to style the header row, allow the user to click on the header row or cell and use the textbox syyle options
@@ -114,6 +117,20 @@ Integrate the data region properties directly in the table object. So that addin
 Create a new object called a datatable. This should act the same way as a datatable in Microsoft reporting services.
 It links to a database query and can be used to display data in a table. 
 The user can drag columns from the dataconenction to the table.
-The user canb resize columns and rows. 
+The user can resize columns and rows. 
 The user can devine a totals row.
 The user can add groupings to the table, base on 1 or multiple columns to group by.
+
+The grouping is fine in the editor view, but it is not rendered on the pdf preview
+
+On the DataTable object, redesign the way cell formatting is done.
+Allow for right clicking a cell, which will bring up a popup control where the user can change the style of the cell.
+Start by implmenting this on the header cells of the table.
+
+Ok, not bad, now make the font size a drop down list, add the font drop down list and allow for editing the text in a text filled in the popup.
+
+
+[x] Add a dark/light theme to the application.
+in the reportmaker, apply the dark theme correctly also on the properties tab and llm tab
+
+[x] Allow drag and drop of report json files to the application.

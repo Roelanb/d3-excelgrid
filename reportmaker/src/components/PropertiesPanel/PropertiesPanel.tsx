@@ -28,17 +28,17 @@ const PropertyGroup = ({ title, children }: { title: string; children: React.Rea
     }, [open, storageKey]);
 
     return (
-        <div className="mb-4 border-b border-gray-200 pb-4 last:border-0">
+        <div className="mb-4 border-b border-gray-200 dark:border-gray-800 pb-4 last:border-0">
             <button
                 type="button"
                 onClick={() => setOpen(v => !v)}
                 className="w-full flex items-center justify-between text-left mb-3"
                 aria-expanded={open}
             >
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{title}</h3>
+                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{title}</h3>
                 <ChevronDown
                     size={16}
-                    className={`text-gray-400 transition-transform ${open ? 'rotate-0' : '-rotate-90'}`}
+                    className={`text-gray-400 dark:text-gray-500 transition-transform ${open ? 'rotate-0' : '-rotate-90'}`}
                 />
             </button>
 
@@ -73,12 +73,12 @@ const splitFullName = (fullName: string): { schema: string; name: string } => {
 
 const NumberInput = ({ label, value, onChange, min = 0, max, step = 1 }: any) => (
     <div className="flex items-center justify-between">
-        <label className="text-sm text-gray-600">{label}</label>
+        <label className="text-sm text-gray-600 dark:text-gray-300">{label}</label>
         <input
             type="number"
             value={value || 0}
             onChange={(e) => onChange(parseFloat(e.target.value))}
-            className="w-20 border border-gray-300 rounded px-2 py-1 text-sm text-right"
+            className="w-20 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm text-right bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
             min={min}
             max={max}
             step={step}
@@ -91,7 +91,7 @@ const ColorInput = ({ label, value, onChange }: any) => {
 
     return (
         <div className="flex items-center justify-between">
-            <label className="text-sm text-gray-600">{label}</label>
+            <label className="text-sm text-gray-600 dark:text-gray-300">{label}</label>
             <div className="flex items-center gap-2">
                 <button
                     type="button"
@@ -110,7 +110,7 @@ const ColorInput = ({ label, value, onChange }: any) => {
                             inputRef.current.click();
                         }
                     }}
-                    className="w-8 h-8 border border-gray-300 rounded"
+                    className="w-8 h-8 border border-gray-300 dark:border-gray-700 rounded"
                     style={{ backgroundColor: value || '#000000' }}
                 />
                 <input
@@ -120,7 +120,7 @@ const ColorInput = ({ label, value, onChange }: any) => {
                     onChange={(e) => onChange(e.target.value)}
                     className="fixed opacity-0 w-1 h-1 pointer-events-none"
                 />
-                <span className="text-xs text-gray-500 font-mono">{value}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">{value}</span>
             </div>
         </div>
     );
@@ -128,23 +128,23 @@ const ColorInput = ({ label, value, onChange }: any) => {
 
 const TextInput = ({ label, value, onChange }: any) => (
     <div className="flex flex-col gap-1">
-        <label className="text-sm text-gray-600">{label}</label>
+        <label className="text-sm text-gray-600 dark:text-gray-300">{label}</label>
         <input
             type="text"
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
+            className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
         />
     </div>
 );
 
 const SelectInput = ({ label, value, onChange, options }: any) => (
     <div className="flex items-center justify-between">
-        <label className="text-sm text-gray-600">{label}</label>
+        <label className="text-sm text-gray-600 dark:text-gray-300">{label}</label>
         <select
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+            className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
         >
             {options.map((opt: string) => (
                 <option key={opt} value={opt}>{opt}</option>
@@ -243,7 +243,7 @@ const TableColumnManager = ({ selectedObject, updateObjectProperties }: any) => 
     return (
         <PropertyGroup title="Table Layout">
             <div className="flex flex-col gap-2">
-                <label className="text-sm text-gray-600">Columns</label>
+                <label className="text-sm text-gray-600 dark:text-gray-300">Columns</label>
 
                 <div className="flex gap-2">
                     <input
@@ -251,7 +251,7 @@ const TableColumnManager = ({ selectedObject, updateObjectProperties }: any) => 
                         value={newColumnName}
                         onChange={(e) => setNewColumnName(e.target.value)}
                         placeholder="New column name"
-                        className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
+                        className="flex-1 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                     />
                     <button
                         type="button"
@@ -263,7 +263,7 @@ const TableColumnManager = ({ selectedObject, updateObjectProperties }: any) => 
                 </div>
 
                 {currentColumns.length === 0 ? (
-                    <div className="text-xs text-gray-400">No columns yet.</div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500">No columns yet.</div>
                 ) : (
                     <div className="space-y-2">
                         {currentColumns.map((col) => {
@@ -271,30 +271,30 @@ const TableColumnManager = ({ selectedObject, updateObjectProperties }: any) => 
                             const widthMode: 'auto' | 'fixed' = typeof widthValue === 'number' ? 'fixed' : 'auto';
 
                             return (
-                                <div key={col} className="border border-gray-200 rounded p-2 bg-white">
+                                <div key={col} className="border border-gray-200 dark:border-gray-800 rounded p-2 bg-white dark:bg-gray-900">
                                     <div className="flex items-center gap-2">
                                         <input
                                             type="text"
                                             value={draftNames[col] ?? col}
                                             onChange={(e) => setDraftNames(prev => ({ ...prev, [col]: e.target.value }))}
                                             onBlur={() => renameColumn(col, (draftNames[col] ?? col))}
-                                            className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
+                                            className="flex-1 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
                                         />
                                         <button
                                             type="button"
                                             onClick={() => removeColumn(col)}
-                                            className="px-2 py-1 rounded border border-red-300 text-red-700 text-xs hover:bg-red-50"
+                                            className="px-2 py-1 rounded border border-red-300 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs hover:bg-red-50 dark:hover:bg-red-950/30"
                                         >
                                             Remove
                                         </button>
                                     </div>
 
                                     <div className="mt-2 flex items-center gap-2">
-                                        <label className="text-xs text-gray-500">Width</label>
+                                        <label className="text-xs text-gray-500 dark:text-gray-400">Width</label>
                                         <select
                                             value={widthMode}
                                             onChange={(e) => setWidthMode(col, e.target.value as any)}
-                                            className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                                            className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
                                         >
                                             <option value="auto">Auto</option>
                                             <option value="fixed">Fixed</option>
@@ -307,11 +307,11 @@ const TableColumnManager = ({ selectedObject, updateObjectProperties }: any) => 
                                                 max={2000}
                                                 value={typeof widthValue === 'number' ? widthValue : 120}
                                                 onChange={(e) => setFixedWidth(col, parseFloat(e.target.value) || 0)}
-                                                className="w-24 border border-gray-300 rounded px-2 py-1 text-sm text-right"
+                                                className="w-24 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm text-right bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
                                             />
                                         )}
                                         {widthMode === 'fixed' && (
-                                            <span className="text-xs text-gray-500">px</span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">px</span>
                                         )}
                                     </div>
                                 </div>
@@ -406,9 +406,9 @@ const DataRegionProperties = ({ selectedObject, updateObject, parameters, effect
     return (
         <PropertyGroup title="Data Source">
             <div className="flex flex-col gap-1">
-                <label className="text-sm text-gray-600">Type</label>
+                <label className="text-sm text-gray-600 dark:text-gray-300">Type</label>
                 <select
-                    className="w-full p-2 border border-gray-300 rounded"
+                    className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
                     value={sourceType}
                     onChange={(e) => {
                         const nextType = e.target.value as any;
@@ -427,14 +427,14 @@ const DataRegionProperties = ({ selectedObject, updateObject, parameters, effect
 
             {sourceType !== 'query' ? (
                 <div className="flex flex-col gap-1">
-                    <label className="text-sm text-gray-600">
+                    <label className="text-sm text-gray-600 dark:text-gray-300">
                         {sourceType === 'storedProcedure' ? 'Stored Procedure' : sourceType === 'view' ? 'View' : 'Table'}
                     </label>
                     {loading ? (
-                        <div className="text-xs text-gray-400">Loading...</div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500">Loading...</div>
                     ) : (
                         <select
-                            className="w-full p-2 border border-gray-300 rounded"
+                            className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
                             value={selectedName || ''}
                             onChange={(e) => {
                                 setSelectedName(e.target.value);
@@ -449,31 +449,31 @@ const DataRegionProperties = ({ selectedObject, updateObject, parameters, effect
                 </div>
             ) : (
                 <div className="flex flex-col gap-1">
-                    <label className="text-sm text-gray-600">SQL</label>
+                    <label className="text-sm text-gray-600 dark:text-gray-300">SQL</label>
                     <textarea
-                        className="w-full p-2 border border-gray-300 rounded font-mono text-xs min-h-[140px]"
+                        className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded font-mono text-xs min-h-[140px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                         value={querySql}
                         onChange={(e) => setQuerySql(e.target.value)}
                         placeholder="SELECT ...\nFROM ...\nWHERE ..."
                     />
-                    <div className="text-xs text-gray-500">Only single-statement SELECT / WITH queries are allowed.</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Only single-statement SELECT / WITH queries are allowed.</div>
                 </div>
             )}
 
             {sourceType === 'storedProcedure' && selectedName && procedureParameters.length > 0 && (
                 <div className="flex flex-col gap-2 mt-2">
-                    <div className="text-sm text-gray-600">Parameters</div>
-                    <div className="max-h-40 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
+                    <div className="text-sm text-gray-600 dark:text-gray-300">Parameters</div>
+                    <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-800 rounded p-2 bg-gray-50 dark:bg-gray-950/40">
                         {procedureParameters.map((p: any) => {
                             const rawName = p.name || '';
                             const key = rawName.startsWith('@') ? rawName.substring(1) : rawName;
                             return (
                                 <div key={rawName} className="flex items-center justify-between gap-2 mb-2">
-                                    <div className="text-xs text-gray-700 truncate" title={`${rawName} (${p.type})`}>
+                                    <div className="text-xs text-gray-700 dark:text-gray-200 truncate" title={`${rawName} (${p.type})`}>
                                         {rawName}
                                     </div>
                                     <input
-                                        className="w-32 border border-gray-300 rounded px-2 py-1 text-sm"
+                                        className="w-32 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                                         value={procedureParamValues[key] || ''}
                                         onChange={(e) => {
                                             const next = { ...procedureParamValues, [key]: e.target.value };
@@ -710,9 +710,9 @@ export const PropertiesPanel = () => {
 
     if (selectedIds.length === 0) {
         return (
-            <div className="w-full bg-white border-l border-gray-200 flex flex-col h-full">
-                <div className="p-4 border-b border-gray-200 bg-gray-50">
-                    <h2 className="font-semibold text-gray-700">Properties</h2>
+            <div className="w-full bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 flex flex-col h-full">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950/40">
+                    <h2 className="font-semibold text-gray-700 dark:text-gray-100">Properties</h2>
                     <div className="text-xs text-blue-600 font-medium mt-1 uppercase">page</div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4">
@@ -723,11 +723,11 @@ export const PropertiesPanel = () => {
                             onChange={(val: string) => setReportMetadata({ name: val })}
                         />
                         <div className="flex flex-col gap-1">
-                            <label className="text-sm text-gray-600">Description</label>
+                            <label className="text-sm text-gray-600 dark:text-gray-300">Description</label>
                             <textarea
                                 value={reportMetadata.description}
                                 onChange={(e) => setReportMetadata({ description: e.target.value })}
-                                className="border border-gray-300 rounded px-2 py-1 text-sm min-h-[90px]"
+                                className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm min-h-[90px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
                             />
                         </div>
                         <TextInput
@@ -797,9 +797,9 @@ export const PropertiesPanel = () => {
 
     if (selectedIds.length > 1) {
         return (
-            <div className="w-full bg-white border-l border-gray-200 flex flex-col h-full">
-                <div className="p-4 border-b border-gray-200 bg-gray-50">
-                    <h2 className="font-semibold text-gray-700">Properties</h2>
+            <div className="w-full bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 flex flex-col h-full">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950/40">
+                    <h2 className="font-semibold text-gray-700 dark:text-gray-100">Properties</h2>
                     <div className="text-xs text-blue-600 font-medium mt-1">{selectedIds.length} objects selected</div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4">
@@ -810,11 +810,11 @@ export const PropertiesPanel = () => {
                             onChange={(val: string) => setReportMetadata({ name: val })}
                         />
                         <div className="flex flex-col gap-1">
-                            <label className="text-sm text-gray-600">Description</label>
+                            <label className="text-sm text-gray-600 dark:text-gray-300">Description</label>
                             <textarea
                                 value={reportMetadata.description}
                                 onChange={(e) => setReportMetadata({ description: e.target.value })}
-                                className="border border-gray-300 rounded px-2 py-1 text-sm min-h-[90px]"
+                                className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm min-h-[90px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
                             />
                         </div>
                         <TextInput
@@ -824,7 +824,7 @@ export const PropertiesPanel = () => {
                         />
                     </PropertyGroup>
 
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
                         Multiple objects selected. Use alignment tools in the toolbar.
                     </div>
                 </div>
@@ -834,7 +834,7 @@ export const PropertiesPanel = () => {
 
     if (!selectedObject) {
         return (
-            <div className="w-full bg-gray-50 border-l border-gray-200 p-4 flex items-center justify-center text-gray-400 text-sm">
+            <div className="w-full bg-gray-50 dark:bg-gray-950/40 border-l border-gray-200 dark:border-gray-700 p-4 flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
                 Select an item to edit properties
             </div>
         );
@@ -843,10 +843,10 @@ export const PropertiesPanel = () => {
     const { properties } = selectedObject;
 
     return (
-        <div className="w-full bg-white border-l border-gray-200 flex flex-col h-full">
-            <div className="p-4 border-b border-gray-200 bg-gray-50">
-                <h2 className="font-semibold text-gray-700">Properties</h2>
-                <div className="text-xs text-gray-500 mt-1">ID: {selectedObject.id.slice(0, 8)}...</div>
+        <div className="w-full bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 flex flex-col h-full">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950/40">
+                <h2 className="font-semibold text-gray-700 dark:text-gray-100">Properties</h2>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">ID: {selectedObject.id.slice(0, 8)}...</div>
                 <div className="text-xs text-blue-600 font-medium mt-1 uppercase">{selectedObject.type}</div>
             </div>
 
@@ -858,11 +858,11 @@ export const PropertiesPanel = () => {
                         onChange={(val: string) => setReportMetadata({ name: val })}
                     />
                     <div className="flex flex-col gap-1">
-                        <label className="text-sm text-gray-600">Description</label>
+                        <label className="text-sm text-gray-600 dark:text-gray-300">Description</label>
                         <textarea
                             value={reportMetadata.description}
                             onChange={(e) => setReportMetadata({ description: e.target.value })}
-                            className="border border-gray-300 rounded px-2 py-1 text-sm min-h-[90px]"
+                            className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm min-h-[90px] bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
                         />
                     </div>
                     <TextInput
@@ -873,7 +873,7 @@ export const PropertiesPanel = () => {
                 </PropertyGroup>
 
                 {parentDataRegion && (
-                    <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded text-xs text-blue-800">
+                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40 rounded text-xs text-blue-800 dark:text-blue-200">
                         Inside Data Region: <strong>{getSqlRestDisplayName(parentDataRegion.properties.dataSource) || 'Unconfigured'}</strong>
                     </div>
                 )}
@@ -911,9 +911,9 @@ export const PropertiesPanel = () => {
                 {selectedObject.type === 'text' && parentDataRegion && getSqlRestDisplayName(parentDataRegion.properties.dataSource) && (
                     <PropertyGroup title="Data Binding">
                         <div className="flex flex-col gap-1">
-                            <label className="text-sm text-gray-600">Bind to Column</label>
+                            <label className="text-sm text-gray-600 dark:text-gray-300">Bind to Column</label>
                             {loadingColumns ? (
-                                <div className="text-xs text-gray-400">Loading columns...</div>
+                                <div className="text-xs text-gray-400 dark:text-gray-500">Loading columns...</div>
                             ) : (
                                 <select
                                     value={properties.dataBinding?.columnName || ''}
@@ -934,7 +934,7 @@ export const PropertiesPanel = () => {
                                             });
                                         }
                                     }}
-                                    className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                                    className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
                                 >
                                     <option value="">None</option>
                                     {columns.map((col) => (
@@ -946,7 +946,7 @@ export const PropertiesPanel = () => {
                     </PropertyGroup>
                 )}
 
-                {(selectedObject.type === 'table' || selectedObject.type === 'datatable') && (
+                {selectedObject.type === 'table' && (
                     <TableColumnManager
                         selectedObject={selectedObject}
                         updateObjectProperties={updateObjectProperties}
@@ -971,7 +971,7 @@ export const PropertiesPanel = () => {
                         />
 
                         <div className="flex items-center justify-between">
-                            <label className="text-sm text-gray-600">Totals Row</label>
+                            <label className="text-sm text-gray-600 dark:text-gray-300">Totals Row</label>
                             <input
                                 type="checkbox"
                                 checked={!!properties.dataTableTotalsRow?.enabled}
@@ -986,16 +986,16 @@ export const PropertiesPanel = () => {
 
                         {!!properties.dataTableTotalsRow?.enabled && (
                             <div className="flex flex-col gap-2">
-                                <label className="text-sm text-gray-600">Aggregations</label>
-                                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50 space-y-2">
+                                <label className="text-sm text-gray-600 dark:text-gray-300">Aggregations</label>
+                                <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-800 rounded p-2 bg-gray-50 dark:bg-gray-950/40 space-y-2">
                                     {(properties.columns || []).length === 0 ? (
-                                        <div className="text-xs text-gray-400">Select columns first.</div>
+                                        <div className="text-xs text-gray-400 dark:text-gray-500">Select columns first.</div>
                                     ) : (
                                         (properties.columns || []).map((col) => {
                                             const currentAgg = properties.dataTableTotalsRow?.aggregations?.[col] || '';
                                             return (
                                                 <div key={col} className="flex items-center justify-between gap-2">
-                                                    <div className="text-xs text-gray-700 truncate" title={col}>{col}</div>
+                                                    <div className="text-xs text-gray-700 dark:text-gray-200 truncate" title={col}>{col}</div>
                                                     <select
                                                         value={currentAgg}
                                                         onChange={(e) => {
@@ -1014,7 +1014,7 @@ export const PropertiesPanel = () => {
                                                                 }
                                                             });
                                                         }}
-                                                        className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                                                        className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
                                                     >
                                                         <option value="">(none)</option>
                                                         <option value="sum">sum</option>
@@ -1032,9 +1032,9 @@ export const PropertiesPanel = () => {
                         )}
 
                         <div className="flex flex-col gap-1">
-                            <label className="text-sm text-gray-600">Group By</label>
+                            <label className="text-sm text-gray-600 dark:text-gray-300">Group By</label>
                             {loadingColumns ? (
-                                <div className="text-xs text-gray-400">Loading columns...</div>
+                                <div className="text-xs text-gray-400 dark:text-gray-500">Loading columns...</div>
                             ) : (
                                 <select
                                     multiple
@@ -1043,14 +1043,14 @@ export const PropertiesPanel = () => {
                                         const next = Array.from(e.target.selectedOptions).map(o => o.value);
                                         updateObjectProperties(selectedObject.id, { dataTableGroupBy: next });
                                     }}
-                                    className="border border-gray-300 rounded px-2 py-1 text-sm bg-white min-h-[90px]"
+                                    className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-[90px]"
                                 >
                                     {columns.map((col) => (
                                         <option key={col} value={col}>{col}</option>
                                     ))}
                                 </select>
                             )}
-                            <div className="text-xs text-gray-500">Hold Ctrl/Cmd to select multiple columns.</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Hold Ctrl/Cmd to select multiple columns.</div>
                         </div>
                     </PropertyGroup>
                 )}
@@ -1058,9 +1058,9 @@ export const PropertiesPanel = () => {
                 {selectedObject.type === 'barcode' && parentDataRegion && getSqlRestDisplayName(parentDataRegion.properties.dataSource) && (
                     <PropertyGroup title="Data Binding">
                         <div className="flex flex-col gap-1">
-                            <label className="text-sm text-gray-600">Bind to Column</label>
+                            <label className="text-sm text-gray-600 dark:text-gray-300">Bind to Column</label>
                             {loadingColumns ? (
-                                <div className="text-xs text-gray-400">Loading columns...</div>
+                                <div className="text-xs text-gray-400 dark:text-gray-500">Loading columns...</div>
                             ) : (
                                 <select
                                     value={properties.dataBinding?.columnName || ''}
@@ -1098,7 +1098,7 @@ export const PropertiesPanel = () => {
                                             });
                                         }
                                     }}
-                                    className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                                    className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
                                 >
                                     <option value="">None</option>
                                     {columns.map((col) => (
@@ -1173,7 +1173,7 @@ export const PropertiesPanel = () => {
                             onChange={(val: string) => updateObjectProperties(selectedObject.id, { text: val })}
                         />
                         <div className="flex items-center justify-between">
-                            <label className="text-sm text-gray-600">Include Text</label>
+                            <label className="text-sm text-gray-600 dark:text-gray-300">Include Text</label>
                             <input
                                 type="checkbox"
                                 checked={!!properties.barcodeIncludeText}
@@ -1232,14 +1232,14 @@ export const PropertiesPanel = () => {
                     </PropertyGroup>
                 )}
 
-                {(selectedObject.type === 'table' || selectedObject.type === 'datatable') && getSqlRestDisplayName(effectiveTableDataSource) && (
+                {selectedObject.type === 'table' && getSqlRestDisplayName(effectiveTableDataSource) && (
                     <PropertyGroup title="Table Columns">
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm text-gray-600">Select Columns</label>
+                            <label className="text-sm text-gray-600 dark:text-gray-300">Select Columns</label>
                             {loadingColumns ? (
-                                <div className="text-xs text-gray-400">Loading columns...</div>
+                                <div className="text-xs text-gray-400 dark:text-gray-500">Loading columns...</div>
                             ) : (
-                                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
+                                <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-800 rounded p-2 bg-gray-50 dark:bg-gray-950/40">
                                     {columns.map((col) => (
                                         <div key={col} className="flex items-center gap-2 mb-1">
                                             <input
@@ -1270,9 +1270,9 @@ export const PropertiesPanel = () => {
                                                         tableHeaderCellStyles: nextHeaderCellStyles,
                                                     });
                                                 }}
-                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                className="rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
                                             />
-                                            <label htmlFor={`col-${col}`} className="text-sm text-gray-700 cursor-pointer select-none">
+                                            <label htmlFor={`col-${col}`} className="text-sm text-gray-700 dark:text-gray-200 cursor-pointer select-none">
                                                 {col}
                                             </label>
                                         </div>
@@ -1286,9 +1286,9 @@ export const PropertiesPanel = () => {
                 {selectedObject.type === 'datatable' && getSqlRestDisplayName(effectiveTableDataSource) && (
                     <PropertyGroup title="Available Columns (Drag into DataTable)">
                         {loadingColumns ? (
-                            <div className="text-xs text-gray-400">Loading columns...</div>
+                            <div className="text-xs text-gray-400 dark:text-gray-500">Loading columns...</div>
                         ) : (
-                            <div className="max-h-40 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
+                            <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-800 rounded p-2 bg-gray-50 dark:bg-gray-950/40">
                                 {columns.map((col) => (
                                     <div
                                         key={col}
@@ -1297,9 +1297,9 @@ export const PropertiesPanel = () => {
                                             e.dataTransfer.setData('application/reportmaker-column', col);
                                             e.dataTransfer.effectAllowed = 'copy';
                                         }}
-                                        className="px-2 py-1 mb-1 bg-white border border-gray-200 rounded cursor-move hover:border-blue-400"
+                                        className="px-2 py-1 mb-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded cursor-move hover:border-blue-400"
                                     >
-                                        <div className="text-sm text-gray-700 select-none">{col}</div>
+                                        <div className="text-sm text-gray-700 dark:text-gray-200 select-none">{col}</div>
                                     </div>
                                 ))}
                             </div>

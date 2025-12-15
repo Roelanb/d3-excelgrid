@@ -11,18 +11,18 @@ const DraggableItem = ({ type, icon: Icon, label }: { type: ReportObjectType; ic
         <div
             draggable
             onDragStart={handleDragStart}
-            className="flex items-center gap-3 p-3 mb-2 bg-white border border-gray-200 rounded cursor-move hover:bg-gray-50 hover:border-blue-400 transition-colors shadow-sm"
+            className="flex items-center gap-3 p-3 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded cursor-move hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-400 transition-colors shadow-sm"
         >
-            <Icon size={20} className="text-gray-600" />
-            <span className="text-sm font-medium text-gray-700">{label}</span>
+            <Icon size={20} className="text-gray-600 dark:text-gray-300" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{label}</span>
         </div>
     );
 };
 
 export const Sidebar = () => {
     return (
-        <div className="w-64 bg-gray-100 border-r border-gray-200 p-4 flex flex-col h-full">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Components</h2>
+        <div className="w-64 bg-gray-100 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 p-4 flex flex-col h-full">
+            <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Components</h2>
             <div className="flex-1 overflow-y-auto">
                 <DraggableItem type="text" icon={Type} label="Text" />
                 <DraggableItem type="image" icon={Image} label="Image" />
@@ -34,7 +34,7 @@ export const Sidebar = () => {
                 <DraggableItem type="header" icon={RectangleHorizontal} label="Header" />
                 <DraggableItem type="footer" icon={RectangleHorizontal} label="Footer" />
 
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-6 mb-4">Shapes</h3>
+                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-6 mb-4">Shapes</h3>
                 <DraggableItem type="line" icon={Minus} label="Line" />
                 <DraggableItem type="rectangle" icon={Square} label="Rectangle" />
                 <DraggableItem type="ellipse" icon={Circle} label="Ellipse" />

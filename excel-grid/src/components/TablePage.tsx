@@ -16,12 +16,14 @@ import {
   AppBar,
   Toolbar as MuiToolbar,
   IconButton,
+  Tooltip,
 } from '@mui/material';
-import { ArrowBack, Refresh } from '@mui/icons-material';
+import { ArrowBack, Refresh, Brightness4, Brightness7 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ExcelGrid, type ExcelGridHandle } from './ExcelGrid';
 import { fetchTableSchema, fetchTableData, discoverSchemasAndTables, type PaginatedResponse, type SchemaTable } from '../services/sqlRestApi';
 import type { Cell, TableMetadata } from '../types/cell';
+import { useColorMode } from '../hooks/useColorMode.tsx';
 
 interface TablePageState {
   loading: boolean;
@@ -43,6 +45,7 @@ export function TablePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const gridRef = useRef<ExcelGridHandle>(null);
+  const { mode, toggleMode } = useColorMode();
 
   // State management
   const [state, setState] = useState<TablePageState>({
@@ -305,6 +308,11 @@ export function TablePage() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Fast Table Component
           </Typography>
+          <Tooltip title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+            <IconButton color="inherit" onClick={toggleMode}>
+              {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
+            </IconButton>
+          </Tooltip>
           <IconButton color="inherit" onClick={() => loadTableData()} disabled={state.loading}>
             <Refresh />
           </IconButton>

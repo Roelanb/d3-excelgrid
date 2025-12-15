@@ -1,4 +1,4 @@
-import type { ReportParameter, DateRangeValue } from '../types';
+import type { ReportMetadata, ReportParameter, DateRangeValue } from '../types';
 
 /**
  * Formats a parameter value for display
@@ -97,4 +97,33 @@ export const extractParameterNames = (text: string): string[] => {
     }
 
     return names;
+};
+
+export const mergeReportMetadataParameters = (
+    parameters: ReportParameter[],
+    metadata: ReportMetadata | null | undefined
+): ReportParameter[] => {
+    if (!metadata) return parameters;
+
+    const has = new Set(parameters.map(p => p.name));
+    const extras: ReportParameter[] = [];
+
+    const add = (name: string, value: string) => {
+        if (!name || has.has(name)) return;
+        extras.push({
+            id: `__meta_${name}`,
+            name,
+            type: 'string',
+            required: false,
+            value,
+            label: name,
+        });
+        has.add(name);
+    };
+
+    add('reportName', String(metadata.name ?? ''));
+    add('reportDescription', String(metadata.description ?? ''));
+    add('reportAuthor', String(metadata.author ?? ''));
+
+    return extras.length ? [...parameters, ...extras] : parameters;
 };

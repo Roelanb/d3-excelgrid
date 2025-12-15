@@ -1,5 +1,5 @@
-import { Container, Typography, Box, Button, Stack, Snackbar, Alert } from '@mui/material';
-import { GitHub } from '@mui/icons-material';
+import { Container, Typography, Box, Button, Stack, Snackbar, Alert, IconButton, Tooltip } from '@mui/material';
+import { GitHub, Brightness4, Brightness7 } from '@mui/icons-material';
 import { Routes, Route, Link } from 'react-router-dom';
 import { useRef, useState } from 'react';
 import { ExcelGrid, type ExcelGridHandle } from './components/ExcelGrid';
@@ -9,6 +9,7 @@ import { SQLConnectionDialog } from './components/SQLConnectionDialog';
 import { TablePage } from './components/TablePage';
 import type { CellFormatting, Cell, CellType, DatabaseMetadata } from './types/cell';
 import './App.css';
+import { useColorMode } from './hooks/useColorMode.tsx';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
 
 function HomePage() {
   const gridRef = useRef<ExcelGridHandle>(null);
+  const { mode, toggleMode } = useColorMode();
   const [counter, setCounter] = useState(1);
   const [hasSelection, setHasSelection] = useState(false);
   const [currentFormatting, setCurrentFormatting] = useState<CellFormatting | undefined>(undefined);
@@ -234,7 +236,15 @@ function HomePage() {
                 A high-performance, feature-rich Excel-like grid built with React, TypeScript, and D3.js
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <Tooltip title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+                <IconButton
+                  onClick={toggleMode}
+                  sx={{ color: 'white', backgroundColor: 'rgba(255, 255, 255, 0.18)', '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.28)' } }}
+                >
+                  {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
+                </IconButton>
+              </Tooltip>
               <Button
                 variant="contained"
                 component={Link}

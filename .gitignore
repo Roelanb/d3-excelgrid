@@ -105,6 +105,7 @@ sqlrest/appsettings.json
 sqlrest/appsettings.Development.json
 sqlrest/appsettings.Test.json
 sqlrest/appsettings.Production.json
+reportgenerator/appsettings.Development.json
 excel-grid/deployment/azure.md
 excel-grid/deployment/credentials.json
 sqlrest/.vscode/settings.json

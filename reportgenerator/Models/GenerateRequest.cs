@@ -49,6 +49,9 @@ public class OutputOptions
 /// </summary>
 public class ReportDefinition
 {
+    [JsonPropertyName("version")]
+    public int? Version { get; set; }
+
     [JsonPropertyName("reportObjects")]
     public List<ReportObject> ReportObjects { get; set; } = new();
 
@@ -57,4 +60,19 @@ public class ReportDefinition
 
     [JsonPropertyName("parameters")]
     public List<ReportParameter>? Parameters { get; set; }
+
+    [JsonPropertyName("metadata")]
+    public ReportMetadata? Metadata { get; set; }
+}
+
+public class ReportMetadata
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("author")]
+    public string? Author { get; set; }
 }

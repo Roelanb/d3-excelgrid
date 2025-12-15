@@ -9,7 +9,7 @@
 
 
 # Replace with token from login response
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiI0ZWE0NDMwMC0zMDNjLTQ4YmEtYjExNi1hM2EyMWVlNWM3ZWMiLCJleHAiOjE3NjU2MDkwNDYsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.7xwKnnoaE4qgM-94tqIunSqKja9oplD79WQ4Rm3xJug
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiJiZjgxYmVjMi02M2M0LTQwZWItYTU1Ni0xZGNlYmIxZTE0MDkiLCJleHAiOjE3NjU3OTIwNDQsImlzcyI6IlNxbFJlc3RBcGkiLCJhdWQiOiJTcWxSZXN0QXBpIn0.S4MU5fIWJH6Rl65jM0gJu41ZO1PLzva7zatTv7oslS0
 
 ###############################################################################
 ### 1. Health Check (Public)

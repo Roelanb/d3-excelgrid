@@ -65,3 +65,5 @@ Adding a rectangle object to the top right corner of the page, (with margins 40p
 Allow for a data region to span multiple pages. If in a data region, a table is defined, depending on the data, the table may span multiple pages. 
 
 Change the report parameter format from {{parameterName}} to @parameterName. This is to prevent the parameter from being evaluated as a js expression.
+
+The headers and footers should be rendered on every page, currently they are only rendered on the first page.

@@ -199,6 +199,9 @@ public class ReportObjectProperties
     [JsonPropertyName("columnWidths")]
     public Dictionary<string, double?>? ColumnWidths { get; set; }
 
+    [JsonPropertyName("tableColumnLabels")]
+    public Dictionary<string, string>? TableColumnLabels { get; set; }
+
     [JsonPropertyName("tableHeaderStyle")]
     public TextStyleProperties? TableHeaderStyle { get; set; }
 

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { reportGeneratorApi } from '../../services/reportGeneratorApi';
 import { useReportStore } from '../../hooks/useReportStore';
-import type { CanvasSettings, ReportObject, ReportParameter } from '../../types';
+import type { CanvasSettings, ReportMetadata, ReportObject, ReportParameter } from '../../types';
 
 type LlmHistoryItem = {
     prompt: string;
@@ -10,13 +10,24 @@ type LlmHistoryItem = {
         reportObjects: ReportObject[];
         canvasSettings: CanvasSettings;
         parameters: ReportParameter[];
+        metadata?: ReportMetadata;
     };
 };
 
 const HISTORY_STORAGE_KEY = 'reportmaker_llm_history_v1';
+const MODEL_STORAGE_KEY = 'reportmaker_llm_model_v1';
+
+const LLM_MODELS = [
+    'mistralai/devstral-2512',
+    'qwen/qwen3-coder',
+    'x-ai/grok-code-fast-1',
+    'openai/gpt-5.2',
+    'anthropic/claude-opus-4.5',
+    'google/gemini-3-pro-preview',
+] as const;
 
 export const LlmPromptPanel: React.FC = () => {
-    const { reportObjects, canvasSettings, parameters, loadReport } = useReportStore();
+    const { reportObjects, canvasSettings, parameters, reportMetadata, loadReport } = useReportStore();
 
     const [isOpen, setIsOpen] = useState(true);
     const [prompt, setPrompt] = useState('');
@@ -25,6 +36,22 @@ export const LlmPromptPanel: React.FC = () => {
     const [history, setHistory] = useState<LlmHistoryItem[]>([]);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [expandedHistoryIndex, setExpandedHistoryIndex] = useState<number | null>(null);
+    const [model, setModel] = useState<string>(() => {
+        try {
+            const stored = localStorage.getItem(MODEL_STORAGE_KEY);
+            return stored && stored.trim() ? stored.trim() : LLM_MODELS[0];
+        } catch {
+            return LLM_MODELS[0];
+        }
+    });
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(MODEL_STORAGE_KEY, model);
+        } catch {
+            // ignore
+        }
+    }, [model]);
 
     useEffect(() => {
         try {
@@ -74,14 +101,17 @@ export const LlmPromptPanel: React.FC = () => {
                 })),
                 canvasSettings,
                 parameters,
+                metadata: reportMetadata,
             };
 
             const result = await reportGeneratorApi.generateReportWithLlm(currentPrompt, {
+                model,
                 history,
                 report: {
                     reportObjects: currentReport.reportObjects,
                     canvasSettings: currentReport.canvasSettings,
                     parameters: currentReport.parameters,
+                    metadata: currentReport.metadata,
                 },
             });
 
@@ -91,6 +121,7 @@ export const LlmPromptPanel: React.FC = () => {
                     reportObjects: result.reportObjects || [],
                     canvasSettings: result.canvasSettings,
                     parameters: result.parameters || [],
+                    metadata: result.metadata,
                 },
             }];
 
@@ -100,6 +131,7 @@ export const LlmPromptPanel: React.FC = () => {
                 reportObjects: result.reportObjects || [],
                 canvasSettings: result.canvasSettings,
                 parameters: result.parameters || [],
+                metadata: result.metadata,
             });
         } catch (e: any) {
             setError(e?.message || 'Failed to generate report via LLM');
@@ -109,12 +141,12 @@ export const LlmPromptPanel: React.FC = () => {
     };
 
     return (
-        <div className="bg-white border-t border-gray-200">
+        <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
             {isLoading && (
                 <div className="fixed inset-0 z-50 bg-gray-900/40 flex items-center justify-center">
-                    <div className="bg-white rounded-lg shadow-xl px-6 py-4 border border-gray-200">
-                        <div className="text-sm font-medium text-gray-800">Generating report…</div>
-                        <div className="mt-1 text-xs text-gray-500">Waiting for LLM response</div>
+                    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl px-6 py-4 border border-gray-200 dark:border-gray-700">
+                        <div className="text-sm font-medium text-gray-800 dark:text-gray-100">Generating report…</div>
+                        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">Waiting for LLM response</div>
                     </div>
                 </div>
             )}
@@ -125,14 +157,14 @@ export const LlmPromptPanel: React.FC = () => {
                     onMouseDown={() => setIsHistoryOpen(false)}
                 >
                     <div
-                        className="bg-white rounded-lg shadow-xl border border-gray-200 w-[min(900px,95vw)] max-h-[85vh] overflow-hidden"
+                        className="bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 w-[min(900px,95vw)] max-h-[85vh] overflow-hidden"
                         onMouseDown={(e) => e.stopPropagation()}
                     >
-                        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                            <div className="text-sm font-semibold text-gray-800">LLM History</div>
+                        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                            <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">LLM History</div>
                             <button
                                 type="button"
-                                className="text-sm text-gray-600 hover:text-gray-900"
+                                className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
                                 onClick={() => setIsHistoryOpen(false)}
                             >
                                 Close
@@ -141,7 +173,7 @@ export const LlmPromptPanel: React.FC = () => {
 
                         <div className="p-4 overflow-auto max-h-[calc(85vh-52px)]">
                             {history.length === 0 ? (
-                                <div className="text-sm text-gray-500">No history yet.</div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400">No history yet.</div>
                             ) : (
                                 <div className="space-y-3">
                                     {history
@@ -151,16 +183,16 @@ export const LlmPromptPanel: React.FC = () => {
                                             const isExpanded = expandedHistoryIndex === idx;
                                             const json = JSON.stringify(item.report, null, 2);
                                             return (
-                                                <div key={idx} className="border border-gray-200 rounded">
+                                                <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded">
                                                     <button
                                                         type="button"
-                                                        className="w-full text-left px-3 py-2 bg-gray-50 hover:bg-gray-100 flex items-center justify-between"
+                                                        className="w-full text-left px-3 py-2 bg-gray-50 dark:bg-gray-950/40 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-between"
                                                         onClick={() => setExpandedHistoryIndex(v => (v === idx ? null : idx))}
                                                     >
-                                                        <div className="text-sm font-medium text-gray-800 truncate">
+                                                        <div className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
                                                             {item.prompt}
                                                         </div>
-                                                        <div className="text-xs text-gray-500 ml-3 flex-shrink-0">
+                                                        <div className="text-xs text-gray-500 dark:text-gray-400 ml-3 flex-shrink-0">
                                                             {isExpanded ? 'Hide' : 'Show'}
                                                         </div>
                                                     </button>
@@ -168,10 +200,10 @@ export const LlmPromptPanel: React.FC = () => {
                                                     {isExpanded && (
                                                         <div className="p-3">
                                                             <div className="flex items-center justify-between mb-2">
-                                                                <div className="text-xs font-semibold text-gray-600">Response (report JSON)</div>
+                                                                <div className="text-xs font-semibold text-gray-600 dark:text-gray-300">Response (report JSON)</div>
                                                                 <button
                                                                     type="button"
-                                                                    className="text-xs text-blue-700 hover:text-blue-900"
+                                                                    className="text-xs text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-200"
                                                                     onClick={async () => {
                                                                         try {
                                                                             await navigator.clipboard.writeText(json);
@@ -199,7 +231,7 @@ export const LlmPromptPanel: React.FC = () => {
             <button
                 type="button"
                 onClick={() => setIsOpen(v => !v)}
-                className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
                 <div className="flex items-center gap-2">
                     <span>LLM Prompt</span>
@@ -207,7 +239,7 @@ export const LlmPromptPanel: React.FC = () => {
                 <div className="flex items-center gap-3">
                     <button
                         type="button"
-                        className="text-xs text-blue-700 hover:text-blue-900"
+                        className="text-xs text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-200"
                         onClick={(e) => {
                             e.stopPropagation();
                             setIsHistoryOpen(true);
@@ -221,9 +253,21 @@ export const LlmPromptPanel: React.FC = () => {
 
             {isOpen && (
                 <div className="px-4 pb-4">
+                    <div className="mb-2 flex items-center gap-2">
+                        <label className="text-xs text-gray-600 dark:text-gray-300 font-medium">Model</label>
+                        <select
+                            value={model}
+                            onChange={(e) => setModel(e.target.value)}
+                            className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-xs bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
+                        >
+                            {LLM_MODELS.map((m) => (
+                                <option key={m} value={m}>{m}</option>
+                            ))}
+                        </select>
+                    </div>
                     <div className="flex items-start gap-3">
                         <textarea
-                            className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[110px]"
+                            className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[110px]"
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
                             placeholder="e.g. Move the title to the header, add a table of customers, and change the footer text"
@@ -239,7 +283,7 @@ export const LlmPromptPanel: React.FC = () => {
                     </div>
 
                     {error && (
-                        <div className="mt-2 text-sm text-red-600">
+                        <div className="mt-2 text-sm text-red-600 dark:text-red-400">
                             {error}
                         </div>
                     )}

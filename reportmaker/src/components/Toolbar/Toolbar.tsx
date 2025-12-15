@@ -2,13 +2,14 @@ import {
     Grid, MousePointer2, AlignLeft, AlignRight, AlignCenterHorizontal, AlignCenterVertical,
     AlignVerticalJustifyCenter, AlignHorizontalJustifyCenter, RectangleHorizontal, RectangleVertical,
     Save, Upload,
-    Maximize2, ChevronDown, Settings
+    Maximize2, ChevronDown, Settings, Sun, Moon
 } from 'lucide-react';
 import { useReportStore } from '../../hooks/useReportStore';
 import { useState, useRef, useEffect } from 'react';
 import type { AlignmentType } from '../../hooks/useReportStore';
 import type { PageSettings } from '../../types';
 import { PAGE_PRESETS_PX } from '../../utils/constants';
+import { useTheme } from '../../hooks/useTheme.tsx';
 const ZOOM_PRESETS: { label: string; value: number }[] = [
     { label: '50%', value: 0.5 },
     { label: '75%', value: 0.75 },
@@ -19,6 +20,7 @@ const ZOOM_PRESETS: { label: string; value: number }[] = [
 
 export const Toolbar = () => {
     const { canvasSettings, updateCanvasSettings, selectedIds, alignObjects, newReport, saveReport, saveReportAs, loadReport, loadReportFromFileSystem, setReportFileHandle, setReportFileName, reportFileHandle, reportFileName, isDirty } = useReportStore();
+    const { mode, toggleMode } = useTheme();
     const [showPageSetup, setShowPageSetup] = useState(false);
     const [showSaveMenu, setShowSaveMenu] = useState(false);
     const [showZoomDropdown, setShowZoomDropdown] = useState(false);
@@ -153,7 +155,7 @@ export const Toolbar = () => {
     const isMultipleSelected = selectedIds.length >= 2;
 
     return (
-        <div className="bg-white border-b border-gray-200 shadow-sm z-10 relative">
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm z-10 relative">
             {showSavedToast && (
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-3 py-1.5 rounded shadow">
                     Saved
@@ -161,15 +163,15 @@ export const Toolbar = () => {
             )}
 
             <div className="h-12 flex items-center px-4 gap-4">
-                <div className="flex items-center gap-2 border-r border-gray-200 pr-4">
+                <div className="flex items-center gap-2 border-r border-gray-200 dark:border-gray-700 pr-4">
                     <span className="font-bold text-lg text-blue-600">ReportMaker</span>
-                    <span className="text-xs text-gray-500">{reportFileName || 'Untitled'}{isDirty ? ' *' : ''}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{reportFileName || 'Untitled'}{isDirty ? ' *' : ''}</span>
                 </div>
 
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => updateCanvasSettings({ showGrid: !canvasSettings.showGrid })}
-                        className={`p-2 rounded hover:bg-gray-100 ${canvasSettings.showGrid ? 'bg-blue-50 text-blue-600' : 'text-gray-600'}`}
+                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${canvasSettings.showGrid ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}
                         title="Toggle Grid"
                     >
                         <Grid size={18} />
@@ -177,7 +179,7 @@ export const Toolbar = () => {
 
                     <button
                         onClick={() => updateCanvasSettings({ snapToGrid: !canvasSettings.snapToGrid })}
-                        className={`p-2 rounded hover:bg-gray-100 ${canvasSettings.snapToGrid ? 'bg-blue-50 text-blue-600' : 'text-gray-600'}`}
+                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${canvasSettings.snapToGrid ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}
                         title="Snap to Grid"
                     >
                         <MousePointer2 size={18} />
@@ -191,7 +193,7 @@ export const Toolbar = () => {
                                 setShowPageSetup(false);
                                 setShowSaveMenu(false);
                             }}
-                            className={`flex items-center gap-1 px-2 py-1 border border-gray-300 rounded hover:bg-gray-50 text-sm ${showZoomDropdown ? 'bg-blue-50 text-blue-700' : 'text-gray-700'}`}
+                            className={`flex items-center gap-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800 text-sm ${showZoomDropdown ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'}`}
                             title="Zoom"
                         >
                             <Maximize2 size={14} />
@@ -199,7 +201,7 @@ export const Toolbar = () => {
                             <ChevronDown size={14} />
                         </button>
                         {showZoomDropdown && (
-                            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[110px] overflow-hidden">
+                            <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 min-w-[110px] overflow-hidden">
                                 {ZOOM_PRESETS.map(z => (
                                     <button
                                         key={z.value}
@@ -208,7 +210,7 @@ export const Toolbar = () => {
                                             updateCanvasSettings({ zoom: z.value });
                                             setShowZoomDropdown(false);
                                         }}
-                                        className={`w-full text-left px-3 py-2 hover:bg-blue-50 text-sm ${Math.abs((canvasSettings.zoom ?? 1) - z.value) < 0.001 ? 'bg-blue-100 text-blue-700' : ''}`}
+                                        className={`w-full text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-sm ${Math.abs((canvasSettings.zoom ?? 1) - z.value) < 0.001 ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300' : ''}`}
                                     >
                                         {z.label}
                                     </button>
@@ -220,22 +222,22 @@ export const Toolbar = () => {
                     <div className="relative" ref={pageSetupRef}>
                         <button
                             onClick={() => { setShowPageSetup(!showPageSetup); }}
-                            className={`p-2 rounded hover:bg-gray-100 ${showPageSetup ? 'bg-blue-50 text-blue-600' : 'text-gray-600'}`}
+                            className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${showPageSetup ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}
                             title="Page Setup"
                         >
                             <Settings size={18} />
                         </button>
                         {showPageSetup && (
-                            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-[320px] p-3">
-                                <div className="text-sm font-semibold text-gray-700 mb-2">Page setup</div>
+                            <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 w-[320px] p-3">
+                                <div className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Page setup</div>
 
                                 <div className="grid grid-cols-2 gap-2">
-                                    <label className="text-xs text-gray-600 flex flex-col gap-1">
+                                    <label className="text-xs text-gray-600 dark:text-gray-300 flex flex-col gap-1">
                                         Preset
                                         <select
                                             value={canvasSettings.page.preset}
                                             onChange={(e) => applyPageSettings({ preset: e.target.value as PageSettings['preset'] })}
-                                            className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                            className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950"
                                         >
                                             <option value="A4">A4</option>
                                             <option value="Letter">Letter</option>
@@ -243,12 +245,12 @@ export const Toolbar = () => {
                                         </select>
                                     </label>
 
-                                    <label className="text-xs text-gray-600 flex flex-col gap-1">
+                                    <label className="text-xs text-gray-600 dark:text-gray-300 flex flex-col gap-1">
                                         Orientation
                                         <select
                                             value={canvasSettings.page.orientation}
                                             onChange={(e) => applyPageSettings({ orientation: e.target.value as PageSettings['orientation'] })}
-                                            className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                            className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950"
                                         >
                                             <option value="portrait">Portrait</option>
                                             <option value="landscape">Landscape</option>
@@ -257,69 +259,69 @@ export const Toolbar = () => {
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-2 mt-2">
-                                    <label className="text-xs text-gray-600 flex flex-col gap-1">
+                                    <label className="text-xs text-gray-600 dark:text-gray-300 flex flex-col gap-1">
                                         Width (px)
                                         <input
                                             type="number"
                                             value={canvasSettings.page.width}
                                             onChange={(e) => applyPageSettings({ preset: 'Custom', width: parseInt(e.target.value) || canvasSettings.page.width })}
-                                            className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                            className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950"
                                             min={100}
                                             disabled={canvasSettings.page.preset !== 'Custom'}
                                         />
                                     </label>
-                                    <label className="text-xs text-gray-600 flex flex-col gap-1">
+                                    <label className="text-xs text-gray-600 dark:text-gray-300 flex flex-col gap-1">
                                         Height (px)
                                         <input
                                             type="number"
                                             value={canvasSettings.page.height}
                                             onChange={(e) => applyPageSettings({ preset: 'Custom', height: parseInt(e.target.value) || canvasSettings.page.height })}
-                                            className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                            className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950"
                                             min={100}
                                             disabled={canvasSettings.page.preset !== 'Custom'}
                                         />
                                     </label>
                                 </div>
 
-                                <div className="text-xs font-semibold text-gray-700 mt-3">Margins (px)</div>
+                                <div className="text-xs font-semibold text-gray-700 dark:text-gray-200 mt-3">Margins (px)</div>
                                 <div className="grid grid-cols-2 gap-2 mt-1">
-                                    <label className="text-xs text-gray-600 flex flex-col gap-1">
+                                    <label className="text-xs text-gray-600 dark:text-gray-300 flex flex-col gap-1">
                                         Top
                                         <input
                                             type="number"
                                             value={canvasSettings.page.margins.top}
                                             onChange={(e) => applyPageSettings({ margins: { ...canvasSettings.page.margins, top: parseInt(e.target.value) || 0 } })}
-                                            className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                            className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950"
                                             min={0}
                                         />
                                     </label>
-                                    <label className="text-xs text-gray-600 flex flex-col gap-1">
+                                    <label className="text-xs text-gray-600 dark:text-gray-300 flex flex-col gap-1">
                                         Right
                                         <input
                                             type="number"
                                             value={canvasSettings.page.margins.right}
                                             onChange={(e) => applyPageSettings({ margins: { ...canvasSettings.page.margins, right: parseInt(e.target.value) || 0 } })}
-                                            className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                            className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950"
                                             min={0}
                                         />
                                     </label>
-                                    <label className="text-xs text-gray-600 flex flex-col gap-1">
+                                    <label className="text-xs text-gray-600 dark:text-gray-300 flex flex-col gap-1">
                                         Bottom
                                         <input
                                             type="number"
                                             value={canvasSettings.page.margins.bottom}
                                             onChange={(e) => applyPageSettings({ margins: { ...canvasSettings.page.margins, bottom: parseInt(e.target.value) || 0 } })}
-                                            className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                            className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950"
                                             min={0}
                                         />
                                     </label>
-                                    <label className="text-xs text-gray-600 flex flex-col gap-1">
+                                    <label className="text-xs text-gray-600 dark:text-gray-300 flex flex-col gap-1">
                                         Left
                                         <input
                                             type="number"
                                             value={canvasSettings.page.margins.left}
                                             onChange={(e) => applyPageSettings({ margins: { ...canvasSettings.page.margins, left: parseInt(e.target.value) || 0 } })}
-                                            className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                            className="border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm bg-white dark:bg-gray-950"
                                             min={0}
                                         />
                                     </label>
@@ -329,11 +331,22 @@ export const Toolbar = () => {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-1 border-l border-gray-200 pl-4">
+                <div className="ml-auto flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={toggleMode}
+                        className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300"
+                        title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                    >
+                        {mode === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-1 border-l border-gray-200 dark:border-gray-700 pl-4">
                     <button
                         onClick={() => handleAlign('left')}
                         disabled={!isMultipleSelected}
-                        className={`p-2 rounded hover:bg-gray-100 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600'}`}
+                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 dark:text-gray-300'}`}
                         title="Align Left"
                     >
                         <AlignLeft size={18} />
@@ -341,7 +354,7 @@ export const Toolbar = () => {
                     <button
                         onClick={() => handleAlign('center-horizontal')}
                         disabled={!isMultipleSelected}
-                        className={`p-2 rounded hover:bg-gray-100 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600'}`}
+                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 dark:text-gray-300'}`}
                         title="Center Horizontal"
                     >
                         <AlignCenterHorizontal size={18} />
@@ -349,7 +362,7 @@ export const Toolbar = () => {
                     <button
                         onClick={() => handleAlign('right')}
                         disabled={!isMultipleSelected}
-                        className={`p-2 rounded hover:bg-gray-100 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600'}`}
+                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 dark:text-gray-300'}`}
                         title="Align Right"
                     >
                         <AlignRight size={18} />
@@ -357,7 +370,7 @@ export const Toolbar = () => {
                     <button
                         onClick={() => handleAlign('top')}
                         disabled={!isMultipleSelected}
-                        className={`p-2 rounded hover:bg-gray-100 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600'}`}
+                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 dark:text-gray-300'}`}
                         title="Align Top"
                     >
                         <AlignCenterVertical size={18} style={{ transform: 'rotate(180deg)' }} />
@@ -365,26 +378,26 @@ export const Toolbar = () => {
                     <button
                         onClick={() => handleAlign('center-vertical')}
                         disabled={!isMultipleSelected}
-                        className={`p-2 rounded hover:bg-gray-100 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600'}`}
+                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 dark:text-gray-300'}`}
                         title="Center Vertical"
                     >
-                        <AlignCenterVertical size={18} />
+                        <AlignVerticalJustifyCenter size={18} />
                     </button>
                     <button
                         onClick={() => handleAlign('bottom')}
                         disabled={!isMultipleSelected}
-                        className={`p-2 rounded hover:bg-gray-100 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600'}`}
+                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 dark:text-gray-300'}`}
                         title="Align Bottom"
                     >
                         <AlignCenterVertical size={18} />
                     </button>
                 </div>
 
-                <div className="flex items-center gap-1 border-l border-gray-200 pl-4">
+                <div className="flex items-center gap-1 border-l border-gray-200 dark:border-gray-700 pl-4">
                     <button
                         onClick={() => handleAlign('distribute-horizontal')}
                         disabled={!isMultipleSelected}
-                        className={`p-2 rounded hover:bg-gray-100 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600'}`}
+                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 dark:text-gray-300'}`}
                         title="Distribute Horizontal"
                     >
                         <AlignHorizontalJustifyCenter size={18} />
@@ -392,7 +405,7 @@ export const Toolbar = () => {
                     <button
                         onClick={() => handleAlign('distribute-vertical')}
                         disabled={!isMultipleSelected}
-                        className={`p-2 rounded hover:bg-gray-100 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600'}`}
+                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 dark:text-gray-300'}`}
                         title="Distribute Vertical"
                     >
                         <AlignVerticalJustifyCenter size={18} />
@@ -400,7 +413,7 @@ export const Toolbar = () => {
                     <button
                         onClick={() => handleAlign('same-width')}
                         disabled={!isMultipleSelected}
-                        className={`p-2 rounded hover:bg-gray-100 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600'}`}
+                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 dark:text-gray-300'}`}
                         title="Same Width"
                     >
                         <RectangleHorizontal size={18} />
@@ -408,14 +421,14 @@ export const Toolbar = () => {
                     <button
                         onClick={() => handleAlign('same-height')}
                         disabled={!isMultipleSelected}
-                        className={`p-2 rounded hover:bg-gray-100 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600'}`}
+                        className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${!isMultipleSelected ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 dark:text-gray-300'}`}
                         title="Same Height"
                     >
                         <RectangleVertical size={18} />
                     </button>
                 </div>
 
-                <div className="flex items-center gap-2 border-l border-gray-200 pl-4">
+                <div className="flex items-center gap-2 border-l border-gray-200 dark:border-gray-700 pl-4">
                     <div className="relative" ref={saveMenuRef}>
                         <div className="flex">
                             <button

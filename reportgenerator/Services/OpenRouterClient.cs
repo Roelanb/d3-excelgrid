@@ -19,10 +19,12 @@ public class OpenRouterClient
 
     private string Model => _configuration["OPENROUTER_MODEL"] ?? "mistralai/devstral-2512";
 
-    public async Task<string> ChatAsync(string systemPrompt, string userPrompt, CancellationToken ct)
+    public async Task<string> ChatAsync(string systemPrompt, string userPrompt, string? modelOverride, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(ApiKey))
             throw new InvalidOperationException("OPENROUTER_API_KEY is not configured");
+
+        var model = string.IsNullOrWhiteSpace(modelOverride) ? Model : modelOverride.Trim();
 
         var url = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -32,7 +34,7 @@ public class OpenRouterClient
 
         req.Content = JsonContent.Create(new
         {
-            model = Model,
+            model,
             temperature = 0.2,
             messages = new object[]
             {

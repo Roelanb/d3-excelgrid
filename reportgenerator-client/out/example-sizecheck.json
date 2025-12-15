@@ -1,0 +1,127 @@
+{
+  "report": {
+    "reportObjects": [
+      {
+        "id": "title",
+        "type": "text",
+        "x": 70,
+        "y": 30,
+        "width": 704,
+        "height": 60,
+        "properties": {
+          "text": "A4 Layout Test (margin: 20px)",
+          "fontSize": 28,
+          "fontFamily": "Arial",
+          "color": "#111827",
+          "bold": true
+        }
+      },
+      {
+        "id": "subtitle",
+        "type": "text",
+        "x": 70,
+        "y": 90,
+        "width": 704,
+        "height": 40,
+        "properties": {
+          "text": "Rectangles mark the 4 corners of the content area",
+          "fontSize": 16,
+          "fontFamily": "Arial",
+          "color": "#374151"
+        }
+      },
+      {
+        "id": "corner_tl",
+        "type": "rectangle",
+        "x": 20,
+        "y": 20,
+        "width": 40,
+        "height": 40,
+        "properties": {
+          "strokeWidth": 2,
+          "strokeColor": "#ef4444",
+          "fillColor": "transparent"
+        }
+      },
+      {
+        "id": "corner_tr",
+        "type": "rectangle",
+        "x": 734,
+        "y": 20,
+        "width": 40,
+        "height": 40,
+        "properties": {
+          "strokeWidth": 2,
+          "strokeColor": "#3b82f6",
+          "fillColor": "transparent"
+        }
+      },
+      {
+        "id": "corner_bl",
+        "type": "rectangle",
+        "x": 20,
+        "y": 1063,
+        "width": 40,
+        "height": 40,
+        "properties": {
+          "strokeWidth": 2,
+          "strokeColor": "#22c55e",
+          "fillColor": "transparent"
+        }
+      },
+      {
+        "id": "corner_br",
+        "type": "rectangle",
+        "x": 734,
+        "y": 1063,
+        "width": 40,
+        "height": 40,
+        "properties": {
+          "strokeWidth": 2,
+          "strokeColor": "#a855f7",
+          "fillColor": "transparent"
+        }
+      },
+      {
+        "id": "footer",
+        "type": "text",
+        "x": 70,
+        "y": 1073,
+        "width": 704,
+        "height": 30,
+        "properties": {
+          "text": "Expected: A4 (595 x 842 pts) with 20px margins",
+          "fontSize": 12,
+          "fontFamily": "Arial",
+          "color": "#6b7280"
+        }
+      }
+    ],
+    "canvasSettings": {
+      "showGrid": false,
+      "snapToGrid": false,
+      "gridSize": 10,
+      "zoom": 1,
+      "width": 794,
+      "height": 1123,
+      "page": {
+        "preset": "A4",
+        "orientation": "portrait",
+        "width": 794,
+        "height": 1123,
+        "margins": {
+          "top": 20,
+          "right": 20,
+          "bottom": 20,
+          "left": 20
+        }
+      }
+    },
+    "parameters": []
+  },
+  "data": {},
+  "output": {
+    "format": "pdf",
+    "filename": "example-sizecheck.pdf"
+  }
+}

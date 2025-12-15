@@ -1,6 +1,6 @@
 import { api } from '../services/api';
-import { substituteParameters } from './parameterSubstitution';
-import type { ReportObject, ReportParameter } from '../types';
+import { mergeReportMetadataParameters, substituteParameters } from './parameterSubstitution';
+import type { ReportMetadata, ReportObject, ReportParameter } from '../types';
 
 const getSqlRestSourceName = (dataSource: any): string => {
     return dataSource?.name || dataSource?.tableName || '';
@@ -15,9 +15,15 @@ const splitFullName = (fullName: string): { schema: string; name: string } => {
     return { schema: 'dbo', name: fullName };
 };
 
-export const runDataConnections = async (objects: ReportObject[], parameters: ReportParameter[]) => {
+export const runDataConnections = async (
+    objects: ReportObject[],
+    parameters: ReportParameter[],
+    reportMetadata?: ReportMetadata | null
+) => {
     const dataRegions = objects.filter(o => o.type === 'dataRegion' || o.type === 'table' || o.type === 'datatable');
     const updates: { id: string; data: any[] }[] = [];
+
+    const parametersWithMetadata = mergeReportMetadataParameters(parameters, reportMetadata);
 
     for (const region of dataRegions) {
         const ds = region.properties?.dataSource;
@@ -27,7 +33,7 @@ export const runDataConnections = async (objects: ReportObject[], parameters: Re
 
         if (sourceType === 'query') {
             const rawSql = String(ds.sql || '');
-            const resolvedSql = substituteParameters(rawSql, parameters);
+            const resolvedSql = substituteParameters(rawSql, parametersWithMetadata);
             if (!resolvedSql.trim()) continue;
 
             const response = await api.executeQuery(resolvedSql);
@@ -43,7 +49,7 @@ export const runDataConnections = async (objects: ReportObject[], parameters: Re
             const { schema, name } = splitFullName(sourceName);
             const rawParams = ds.procedureParams || {};
             const resolvedParams = Object.fromEntries(
-                Object.entries(rawParams).map(([k, v]) => [k, substituteParameters(String(v ?? ''), parameters)])
+                Object.entries(rawParams).map(([k, v]) => [k, substituteParameters(String(v ?? ''), parametersWithMetadata)])
             ) as Record<string, string>;
 
             const response = await api.executeStoredProcedure(schema, name, resolvedParams);

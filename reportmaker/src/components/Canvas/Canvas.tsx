@@ -29,6 +29,68 @@ export const Canvas = () => {
     const [editingTextValue, setEditingTextValue] = useState<string>('');
     const [editingTextBox, setEditingTextBox] = useState<{ x: number; y: number; width: number; height: number; rotation: number } | null>(null);
 
+    const [datatableHeaderMenu, setDatatableHeaderMenu] = useState<{
+        x: number;
+        y: number;
+        tableId: string;
+        column: string;
+    } | null>(null);
+
+    const getTableHeaderLabel = (obj: ReportObject, col: string) => {
+        const labels = (obj.properties as any).tableColumnLabels as Record<string, string> | undefined;
+        const label = labels?.[col];
+        return (typeof label === 'string' && label.trim()) ? label : col;
+    };
+
+    const removeDatatableColumn = (tableId: string, col: string) => {
+        const table = reportObjects.find(o => o.id === tableId);
+        if (!table || table.type !== 'datatable') return;
+
+        const currentCols: string[] = table.properties.columns || [];
+        if (!currentCols.includes(col)) return;
+
+        const nextCols = currentCols.filter(c => c !== col);
+
+        const currentWidths: Record<string, number | null> = (table.properties as any).columnWidths || {};
+        const currentHeaderCellStyles: Record<string, any> = (table.properties as any).tableHeaderCellStyles || {};
+        const currentLabels: Record<string, string> = (table.properties as any).tableColumnLabels || {};
+
+        const nextWidths = { ...currentWidths };
+        const nextHeaderCellStyles = { ...currentHeaderCellStyles };
+        const nextLabels = { ...currentLabels };
+        delete nextWidths[col];
+        delete nextHeaderCellStyles[col];
+        delete nextLabels[col];
+
+        const totals = (table.properties as any).dataTableTotalsRow;
+        const nextTotals = totals
+            ? {
+                ...totals,
+                aggregations: (() => {
+                    const a = { ...(totals.aggregations || {}) };
+                    delete a[col];
+                    return a;
+                })(),
+            }
+            : undefined;
+
+        const groupBy: string[] = ((table.properties as any).dataTableGroupBy || []).filter(Boolean);
+        const nextGroupBy = groupBy.filter(c => c !== col);
+
+        updateObjectProperties(tableId, {
+            columns: nextCols,
+            columnWidths: nextWidths,
+            tableHeaderCellStyles: nextHeaderCellStyles,
+            tableColumnLabels: nextLabels,
+            ...(nextTotals ? { dataTableTotalsRow: nextTotals } : {}),
+            dataTableGroupBy: nextGroupBy,
+        });
+
+        if (selectedTableHeader?.tableId === tableId && selectedTableHeader?.column === col) {
+            setSelectedTableHeader({ tableId, column: null });
+        }
+    };
+
     const commitTextEdit = () => {
         if (!editingTextId) return;
         updateObjectProperties(editingTextId, { text: editingTextValue });
@@ -69,10 +131,12 @@ export const Canvas = () => {
                 if (!currentCols.includes(droppedColumn)) {
                     const currentWidths: Record<string, number | null> = (target.properties as any).columnWidths || {};
                     const currentHeaderCellStyles: Record<string, any> = (target.properties as any).tableHeaderCellStyles || {};
+                    const currentLabels: Record<string, string> = (target.properties as any).tableColumnLabels || {};
                     updateObjectProperties(target.id, {
                         columns: [...currentCols, droppedColumn],
                         columnWidths: { ...currentWidths, [droppedColumn]: null },
                         tableHeaderCellStyles: { ...currentHeaderCellStyles },
+                        tableColumnLabels: { ...currentLabels },
                     });
                 }
                 selectObject(target.id);
@@ -664,55 +728,219 @@ export const Canvas = () => {
                     .attr('stroke', 'none')
                     .attr('pointer-events', 'none');
 
-                columns.forEach((col, i) => {
-                    const colWidth = computedWidths[i];
-                    const mergedHeaderStyle = { ...headerBaseStyle, ...(headerCellStyles[col] || {}) };
-                    const padding = (mergedHeaderStyle.padding ?? 5);
-                    const align = (mergedHeaderStyle.textAlign ?? 'left');
-                    const textAnchor = align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start';
-                    const textX = align === 'center' ? (colWidth / 2) : align === 'right' ? (colWidth - padding) : padding;
-                    const isHeaderSelected = selectedTableHeader?.tableId === d.id && selectedTableHeader?.column === col;
+                const headerCells = columns.map((col, i) => ({ col, i, x: colX[i], w: computedWidths[i] }));
+                const cellSelection = headerGroup
+                    .selectAll<SVGGElement, { col: string; i: number; x: number; w: number }>('g.table-header-cell')
+                    .data(headerCells, (h: any) => h.col);
 
-                    const cellGroup = headerGroup.append('g')
-                        .attr('transform', `translate(${colX[i]}, 0)`);
+                const enterCell = cellSelection
+                    .enter()
+                    .append('g')
+                    .attr('class', 'table-header-cell');
 
-                    cellGroup.style('cursor', 'pointer');
+                enterCell.append('rect').attr('class', 'table-header-cell-rect');
+                enterCell.append('text').attr('class', 'table-header-cell-text');
 
-                    cellGroup.append('rect')
-                        .attr('width', colWidth)
-                        .attr('height', headerHeight)
-                        .attr('fill', mergedHeaderStyle.backgroundColor ?? '#f3f4f6')
-                        .attr('stroke', isHeaderSelected ? '#2563eb' : (mergedHeaderStyle.borderColor ?? '#d1d5db'))
-                        .attr('stroke-width', isHeaderSelected ? 2 : (mergedHeaderStyle.borderWidth ?? 1))
-                        .attr('opacity', mergedHeaderStyle.opacity ?? 1)
-                        .attr('pointer-events', 'all')
-                        .on('mousedown', function (event) {
-                            event.stopPropagation();
+                const mergedCells = enterCell.merge(cellSelection as any);
+                cellSelection.exit().remove();
+
+                mergedCells
+                    .attr('transform', (h) => `translate(${h.x}, 0)`)
+                    .style('cursor', d.type === 'datatable' ? 'grab' : 'pointer');
+
+                mergedCells.select<SVGRectElement>('rect.table-header-cell-rect')
+                    .attr('width', (h) => h.w)
+                    .attr('height', headerHeight)
+                    .attr('fill', (h) => {
+                        const mergedHeaderStyle = { ...headerBaseStyle, ...(headerCellStyles[h.col] || {}) };
+                        return mergedHeaderStyle.backgroundColor ?? '#f3f4f6';
+                    })
+                    .attr('stroke', (h) => {
+                        const mergedHeaderStyle = { ...headerBaseStyle, ...(headerCellStyles[h.col] || {}) };
+                        const isHeaderSelected = selectedTableHeader?.tableId === d.id && selectedTableHeader?.column === h.col;
+                        return isHeaderSelected ? '#2563eb' : (mergedHeaderStyle.borderColor ?? '#d1d5db');
+                    })
+                    .attr('stroke-width', (h) => {
+                        const mergedHeaderStyle = { ...headerBaseStyle, ...(headerCellStyles[h.col] || {}) };
+                        const isHeaderSelected = selectedTableHeader?.tableId === d.id && selectedTableHeader?.column === h.col;
+                        return isHeaderSelected ? 2 : (mergedHeaderStyle.borderWidth ?? 1);
+                    })
+                    .attr('opacity', (h) => {
+                        const mergedHeaderStyle = { ...headerBaseStyle, ...(headerCellStyles[h.col] || {}) };
+                        return mergedHeaderStyle.opacity ?? 1;
+                    })
+                    .attr('pointer-events', 'all')
+                    .style('cursor', d.type === 'datatable' ? 'grab' : 'pointer')
+                    .on('mousedown', function (event) {
+                        event.stopPropagation();
+                    })
+                    .on('contextmenu', function (event, h) {
+                        if (d.type !== 'datatable') return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        selectObject(d.id);
+                        setSelectedTableHeader(null);
+                        setDatatableHeaderMenu({ x: event.clientX, y: event.clientY, tableId: d.id, column: h.col });
+                    })
+                    .on('click', function (event, h) {
+                        if ((event as any).defaultPrevented) return;
+                        event.stopPropagation();
+                        selectObject(d.id);
+                        if (d.type === 'datatable') {
+                            setSelectedTableHeader(null);
+                            return;
+                        }
+
+                        if (selectedTableHeader?.tableId === d.id && selectedTableHeader?.column === h.col) {
+                            setSelectedTableHeader({ tableId: d.id, column: null });
+                        } else {
+                            setSelectedTableHeader({ tableId: d.id, column: h.col });
+                        }
+                    });
+
+                mergedCells.select<SVGTextElement>('text.table-header-cell-text')
+                    .attr('x', (h) => {
+                        const mergedHeaderStyle = { ...headerBaseStyle, ...(headerCellStyles[h.col] || {}) };
+                        const padding = (mergedHeaderStyle.padding ?? 5);
+                        const align = (mergedHeaderStyle.textAlign ?? 'left');
+                        return align === 'center' ? (h.w / 2) : align === 'right' ? (h.w - padding) : padding;
+                    })
+                    .attr('y', headerHeight / 2)
+                    .attr('dy', '0.35em')
+                    .text((h) => getTableHeaderLabel(d, h.col))
+                    .attr('font-size', (h) => {
+                        const mergedHeaderStyle = { ...headerBaseStyle, ...(headerCellStyles[h.col] || {}) };
+                        return mergedHeaderStyle.fontSize ?? 12;
+                    })
+                    .attr('font-family', (h) => {
+                        const mergedHeaderStyle = { ...headerBaseStyle, ...(headerCellStyles[h.col] || {}) };
+                        return mergedHeaderStyle.fontFamily ?? 'Arial';
+                    })
+                    .attr('font-weight', (h) => {
+                        const mergedHeaderStyle = { ...headerBaseStyle, ...(headerCellStyles[h.col] || {}) };
+                        return (mergedHeaderStyle.bold ?? true) ? 'bold' : 'normal';
+                    })
+                    .attr('font-style', (h) => {
+                        const mergedHeaderStyle = { ...headerBaseStyle, ...(headerCellStyles[h.col] || {}) };
+                        return (mergedHeaderStyle.italic ?? false) ? 'italic' : 'normal';
+                    })
+                    .attr('text-decoration', (h) => {
+                        const mergedHeaderStyle = { ...headerBaseStyle, ...(headerCellStyles[h.col] || {}) };
+                        const underline = (mergedHeaderStyle.underline ?? false) ? 'underline' : '';
+                        const strike = (mergedHeaderStyle.strikeThrough ?? false) ? ' line-through' : '';
+                        return `${underline}${strike}`.trim() || 'none';
+                    })
+                    .attr('fill', (h) => {
+                        const mergedHeaderStyle = { ...headerBaseStyle, ...(headerCellStyles[h.col] || {}) };
+                        return mergedHeaderStyle.color ?? '#374151';
+                    })
+                    .attr('text-anchor', (h) => {
+                        const mergedHeaderStyle = { ...headerBaseStyle, ...(headerCellStyles[h.col] || {}) };
+                        const align = (mergedHeaderStyle.textAlign ?? 'left');
+                        return align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start';
+                    })
+                    .attr('pointer-events', 'none');
+
+                if (d.type === 'datatable' && columns.length >= 2) {
+                    let reorderState: { sourceCol: string; targetIndex: number } | null = null;
+                    let suppressHeaderClick = false;
+                    let dragMoved = false;
+
+                    const ensureIndicator = () => {
+                        const existing = headerGroup.selectAll<SVGLineElement, any>('line.col-reorder-indicator').data([0]);
+                        existing.enter()
+                            .append('line')
+                            .attr('class', 'col-reorder-indicator')
+                            .attr('y1', 0)
+                            .attr('y2', headerHeight)
+                            .attr('stroke', '#2563eb')
+                            .attr('stroke-width', 2)
+                            .attr('opacity', 0);
+                    };
+
+                    const setIndicator = (x: number, visible: boolean) => {
+                        ensureIndicator();
+                        headerGroup.select<SVGLineElement>('line.col-reorder-indicator')
+                            .attr('x1', x)
+                            .attr('x2', x)
+                            .attr('opacity', visible ? 1 : 0);
+                    };
+
+                    const computeTargetIndex = (px: number) => {
+                        for (let i = 0; i < columns.length; i++) {
+                            const mid = colX[i] + computedWidths[i] / 2;
+                            if (px < mid) return i;
+                        }
+                        return columns.length;
+                    };
+
+                    const reorderDrag = d3.drag<SVGGElement, { col: string; i: number; x: number; w: number }>()
+                        .on('start', function (event, h) {
+                            event.sourceEvent.stopPropagation();
+                            if (event.sourceEvent.cancelable) event.sourceEvent.preventDefault();
+                            if ((event.sourceEvent as MouseEvent).button !== 0) return;
+                            dragMoved = false;
+                            reorderState = { sourceCol: h.col, targetIndex: h.i };
+                            setIndicator(h.x, true);
                         })
-                        .on('click', function (event) {
-                            event.stopPropagation();
-                            selectObject(d.id);
-                            if (selectedTableHeader?.tableId === d.id && selectedTableHeader?.column === col) {
-                                setSelectedTableHeader({ tableId: d.id, column: null });
-                            } else {
-                                setSelectedTableHeader({ tableId: d.id, column: col });
+                        .on('drag', function (event) {
+                            if (!reorderState) return;
+                            if (Math.abs(event.dx) + Math.abs(event.dy) > 0) dragMoved = true;
+                            const [px] = d3.pointer(event.sourceEvent, headerGroup.node() as any);
+                            reorderState.targetIndex = computeTargetIndex(px);
+
+                            const x = reorderState.targetIndex >= columns.length
+                                ? (colX[columns.length - 1] + computedWidths[columns.length - 1])
+                                : colX[reorderState.targetIndex];
+                            setIndicator(x, true);
+                        })
+                        .on('end', function () {
+                            if (!reorderState) return;
+                            const sourceCol = reorderState.sourceCol;
+                            let targetIndex = reorderState.targetIndex;
+
+                            setIndicator(0, false);
+
+                            const current = d.properties.columns || [];
+                            if (current.length < 2) {
+                                reorderState = null;
+                                return;
                             }
+
+                            const currentSourceIndex = current.indexOf(sourceCol);
+                            if (currentSourceIndex < 0) {
+                                reorderState = null;
+                                return;
+                            }
+
+                            const next = current.slice();
+                            next.splice(currentSourceIndex, 1);
+
+                            if (targetIndex > next.length) targetIndex = next.length;
+                            if (targetIndex > currentSourceIndex) targetIndex = Math.max(0, targetIndex - 1);
+                            next.splice(targetIndex, 0, sourceCol);
+
+                            if (JSON.stringify(next) !== JSON.stringify(current)) {
+                                updateObjectProperties(d.id, { columns: next });
+                            }
+
+                            if (dragMoved) {
+                                suppressHeaderClick = true;
+                                setTimeout(() => {
+                                    suppressHeaderClick = false;
+                                }, 0);
+                            }
+
+                            reorderState = null;
                         });
 
-                    cellGroup.append('text')
-                        .attr('x', textX)
-                        .attr('y', headerHeight / 2)
-                        .attr('dy', '0.35em')
-                        .text(col)
-                        .attr('font-size', mergedHeaderStyle.fontSize ?? 12)
-                        .attr('font-family', mergedHeaderStyle.fontFamily ?? 'Arial')
-                        .attr('font-weight', (mergedHeaderStyle.bold ?? true) ? 'bold' : 'normal')
-                        .attr('font-style', (mergedHeaderStyle.italic ?? false) ? 'italic' : 'normal')
-                        .attr('text-decoration', `${(mergedHeaderStyle.underline ?? false) ? 'underline' : ''}${(mergedHeaderStyle.strikeThrough ?? false) ? ' line-through' : ''}`.trim() || 'none')
-                        .attr('fill', mergedHeaderStyle.color ?? '#374151')
-                        .attr('text-anchor', textAnchor)
-                        .attr('pointer-events', 'none');
-                });
+                    mergedCells.select<SVGRectElement>('rect.table-header-cell-rect')
+                        .on('click.suppress-after-drag', function (event) {
+                            if (!suppressHeaderClick) return;
+                            if ((event as any).cancelable) event.preventDefault();
+                        })
+                        .call(reorderDrag as any);
+                }
 
                 // Header row selection outline (drawn on top so it's visible)
                 headerGroup.append('rect')
@@ -1336,6 +1564,7 @@ export const Canvas = () => {
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onClick={() => {
+                setDatatableHeaderMenu(null);
                 setSelectedTableHeader(null);
                 selectObject(null);
             }}
@@ -1367,6 +1596,262 @@ export const Canvas = () => {
                     height: canvasSettings.height * (canvasSettings.zoom ?? 1)
                 }}
             >
+                {datatableHeaderMenu && (
+                    <div
+                        className="fixed z-50 bg-white border border-gray-200 rounded shadow-lg min-w-[180px]"
+                        style={{ left: datatableHeaderMenu.x, top: datatableHeaderMenu.y }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                            if (e.key !== 'Enter') return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDatatableHeaderMenu(null);
+                        }}
+                        onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }}
+                    >
+                        {(() => {
+                            const table = reportObjects.find(o => o.id === datatableHeaderMenu.tableId);
+                            if (!table) return null;
+                            const col = datatableHeaderMenu.column;
+
+                            const baseStyle: Record<string, unknown> = (table.properties as any).tableHeaderStyle || {};
+                            const cellStyles: Record<string, Record<string, unknown>> = (table.properties as any).tableHeaderCellStyles || {};
+                            const currentCell: Record<string, unknown> = cellStyles[col] || {};
+                            const effective: Record<string, unknown> = { ...baseStyle, ...currentCell };
+
+                            const FONT_FAMILIES = ['Arial', 'Times New Roman', 'Courier New', 'Verdana', 'Helvetica', 'Georgia', 'Trebuchet MS'];
+                            const FONT_SIZES = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64, 72];
+
+                            const asString = (v: unknown, fallback: string) => (typeof v === 'string' ? v : fallback);
+                            const asNumber = (v: unknown, fallback: number) => {
+                                const n = typeof v === 'number' ? v : Number(v);
+                                return Number.isFinite(n) ? n : fallback;
+                            };
+
+                            const updateCellStyle = (key: string, value: unknown) => {
+                                updateObjectProperties(datatableHeaderMenu.tableId, {
+                                    tableHeaderCellStyles: {
+                                        ...cellStyles,
+                                        [col]: {
+                                            ...currentCell,
+                                            [key]: value,
+                                        }
+                                    }
+                                });
+                            };
+
+                            const resetCellStyle = () => {
+                                const next = { ...cellStyles };
+                                delete next[col];
+                                updateObjectProperties(datatableHeaderMenu.tableId, {
+                                    tableHeaderCellStyles: next,
+                                });
+                            };
+
+                            const labels: Record<string, string> = (table.properties as any).tableColumnLabels || {};
+                            const currentLabel = (labels[col] ?? col) as string;
+
+                            return (
+                                <div className="p-3 border-b border-gray-200">
+                                    <div className="text-xs font-semibold text-gray-600 mb-2">
+                                        Header cell: {col}
+                                    </div>
+
+                                    <label className="text-xs text-gray-500 flex flex-col gap-1 mb-2">
+                                        Header text
+                                        <input
+                                            type="text"
+                                            value={currentLabel}
+                                            onChange={(e) => {
+                                                updateObjectProperties(datatableHeaderMenu.tableId, {
+                                                    tableColumnLabels: { ...labels, [col]: e.target.value },
+                                                });
+                                            }}
+                                            className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                                        />
+                                    </label>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <label className="text-xs text-gray-500 flex flex-col gap-1">
+                                            Background
+                                            <input
+                                                type="color"
+                                                value={asString(effective.backgroundColor, '#f3f4f6')}
+                                                onChange={(e) => updateCellStyle('backgroundColor', e.target.value)}
+                                                className="w-full h-8 border border-gray-200 rounded"
+                                            />
+                                        </label>
+
+                                        <label className="text-xs text-gray-500 flex flex-col gap-1">
+                                            Text
+                                            <input
+                                                type="color"
+                                                value={asString(effective.color, '#374151')}
+                                                onChange={(e) => updateCellStyle('color', e.target.value)}
+                                                className="w-full h-8 border border-gray-200 rounded"
+                                            />
+                                        </label>
+
+                                        <label className="text-xs text-gray-500 flex flex-col gap-1">
+                                            Border
+                                            <input
+                                                type="color"
+                                                value={asString(effective.borderColor, '#d1d5db')}
+                                                onChange={(e) => updateCellStyle('borderColor', e.target.value)}
+                                                className="w-full h-8 border border-gray-200 rounded"
+                                            />
+                                        </label>
+
+                                        <label className="text-xs text-gray-500 flex flex-col gap-1">
+                                            Border width
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                step={1}
+                                                value={asNumber(effective.borderWidth, 1)}
+                                                onChange={(e) => updateCellStyle('borderWidth', Number(e.target.value))}
+                                                className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                                            />
+                                        </label>
+
+                                        <label className="text-xs text-gray-500 flex flex-col gap-1">
+                                            Font size
+                                            <select
+                                                value={String(asNumber(effective.fontSize, 12))}
+                                                onChange={(e) => updateCellStyle('fontSize', Number(e.target.value))}
+                                                className="w-full border border-gray-300 rounded px-2 py-1 text-xs bg-white"
+                                            >
+                                                {FONT_SIZES.map(s => (
+                                                    <option key={s} value={s}>{s}px</option>
+                                                ))}
+                                            </select>
+                                        </label>
+
+                                        <label className="text-xs text-gray-500 flex flex-col gap-1">
+                                            Font
+                                            <select
+                                                value={asString(effective.fontFamily, 'Arial')}
+                                                onChange={(e) => updateCellStyle('fontFamily', e.target.value)}
+                                                className="w-full border border-gray-300 rounded px-2 py-1 text-xs bg-white"
+                                            >
+                                                {FONT_FAMILIES.map(f => (
+                                                    <option key={f} value={f}>{f}</option>
+                                                ))}
+                                            </select>
+                                        </label>
+
+                                        <label className="text-xs text-gray-500 flex flex-col gap-1">
+                                            Padding
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                step={1}
+                                                value={asNumber(effective.padding, 5)}
+                                                onChange={(e) => updateCellStyle('padding', Number(e.target.value))}
+                                                className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                                            />
+                                        </label>
+
+                                        <label className="text-xs text-gray-500 flex flex-col gap-1 col-span-2">
+                                            Align
+                                            <select
+                                                value={asString(effective.textAlign, 'left')}
+                                                onChange={(e) => updateCellStyle('textAlign', e.target.value)}
+                                                className="w-full border border-gray-300 rounded px-2 py-1 text-xs bg-white"
+                                            >
+                                                <option value="left">Left</option>
+                                                <option value="center">Center</option>
+                                                <option value="right">Right</option>
+                                            </select>
+                                        </label>
+
+                                        <label className="text-xs text-gray-500 flex flex-col gap-1 col-span-2">
+                                            Opacity
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                max={1}
+                                                step={0.1}
+                                                value={asNumber(effective.opacity, 1)}
+                                                onChange={(e) => updateCellStyle('opacity', Number(e.target.value))}
+                                                className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                                            />
+                                        </label>
+                                    </div>
+
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        <label className="text-xs text-gray-600 flex items-center gap-1">
+                                            <input
+                                                type="checkbox"
+                                                checked={!!effective.bold}
+                                                onChange={(e) => updateCellStyle('bold', e.target.checked)}
+                                            />
+                                            Bold
+                                        </label>
+                                        <label className="text-xs text-gray-600 flex items-center gap-1">
+                                            <input
+                                                type="checkbox"
+                                                checked={!!effective.italic}
+                                                onChange={(e) => updateCellStyle('italic', e.target.checked)}
+                                            />
+                                            Italic
+                                        </label>
+                                        <label className="text-xs text-gray-600 flex items-center gap-1">
+                                            <input
+                                                type="checkbox"
+                                                checked={!!effective.underline}
+                                                onChange={(e) => updateCellStyle('underline', e.target.checked)}
+                                            />
+                                            Underline
+                                        </label>
+                                        <label className="text-xs text-gray-600 flex items-center gap-1">
+                                            <input
+                                                type="checkbox"
+                                                checked={!!effective.strikeThrough}
+                                                onChange={(e) => updateCellStyle('strikeThrough', e.target.checked)}
+                                            />
+                                            Strike
+                                        </label>
+                                    </div>
+
+                                    <div className="mt-3 flex items-center justify-between">
+                                        <button
+                                            type="button"
+                                            className="text-xs text-gray-600 hover:text-gray-900"
+                                            onClick={() => {
+                                                resetCellStyle();
+                                            }}
+                                        >
+                                            Reset style
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="text-xs text-gray-600 hover:text-gray-900"
+                                            onClick={() => setDatatableHeaderMenu(null)}
+                                        >
+                                            Close
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                        <button
+                            type="button"
+                            className="w-full text-left px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+                            onClick={() => {
+                                removeDatatableColumn(datatableHeaderMenu.tableId, datatableHeaderMenu.column);
+                                setDatatableHeaderMenu(null);
+                            }}
+                        >
+                            Remove column
+                        </button>
+                    </div>
+                )}
+
                 {editingTextId && editingTextBox && (
                     <textarea
                         value={editingTextValue}

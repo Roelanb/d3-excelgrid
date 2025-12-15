@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ReportObject, CanvasSettings, ReportMetadata, ReportObjectType, ReportObjectProperties, PageSettings, ReportParameter, ReportParameterType } from '../types';
+import type { ReportDefinition, ReportObject, CanvasSettings, ReportMetadata, ReportObjectType, ReportObjectProperties, PageSettings, ReportParameter, ReportParameterType } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { DEFAULT_DIMENSIONS, PAGE_PRESETS_PX } from '../utils/constants';
 
@@ -35,6 +35,7 @@ interface ReportState {
     selectedTableHeader: { tableId: string; column: string | null } | null;
     canvasSettings: CanvasSettings;
     reportMetadata: ReportMetadata;
+    reportVersion: number;
     reportFileHandle: FileSystemFileHandle | null;
     reportFileName: string | null;
     isDirty: boolean;
@@ -59,7 +60,7 @@ interface ReportState {
     newReport: () => void;
     saveReport: () => Promise<boolean>;
     saveReportAs: () => Promise<boolean>;
-    loadReport: (data: { reportObjects: ReportObject[]; canvasSettings: CanvasSettings; parameters?: ReportParameter[]; metadata?: ReportMetadata }) => void;
+    loadReport: (data: ReportDefinition) => void;
     loadReportFromFileSystem: () => Promise<void>;
     setReportFileHandle: (handle: FileSystemFileHandle | null) => void;
     setReportFileName: (name: string | null) => void;
@@ -80,6 +81,7 @@ export const useReportStore = create<ReportState>((set) => ({
     selectedTableHeader: null,
     canvasSettings: DEFAULT_CANVAS_SETTINGS,
     reportMetadata: DEFAULT_REPORT_METADATA,
+    reportVersion: 1,
     reportFileHandle: null,
     reportFileName: null,
     isDirty: false,
@@ -420,6 +422,7 @@ export const useReportStore = create<ReportState>((set) => ({
         selectedTableHeader: null,
         canvasSettings: DEFAULT_CANVAS_SETTINGS,
         reportMetadata: DEFAULT_REPORT_METADATA,
+        reportVersion: 1,
         reportFileHandle: null,
         reportFileName: null,
         clipboard: null,
@@ -475,7 +478,8 @@ export const useReportStore = create<ReportState>((set) => ({
             }
         }));
 
-        const reportData = {
+        const reportData: ReportDefinition = {
+            version: state.reportVersion,
             reportObjects: objectsForSave,
             canvasSettings: state.canvasSettings,
             parameters: state.parameters,
@@ -574,7 +578,8 @@ export const useReportStore = create<ReportState>((set) => ({
             }
         }));
 
-        const reportData = {
+        const reportData: ReportDefinition = {
+            version: state.reportVersion,
             reportObjects: objectsForSave,
             canvasSettings: state.canvasSettings,
             parameters: state.parameters,
@@ -640,6 +645,9 @@ export const useReportStore = create<ReportState>((set) => ({
     },
 
     loadReport: (data) => set((state) => {
+        const reportVersion = (typeof (data as any)?.version === 'number' && Number.isFinite((data as any).version))
+            ? Math.max(1, Math.floor((data as any).version))
+            : 1;
         const incoming: Partial<CanvasSettings> = (data as any)?.canvasSettings || {};
         const incomingPage: any = (incoming as any).page;
 
@@ -719,6 +727,7 @@ export const useReportStore = create<ReportState>((set) => ({
                 page,
             },
             reportMetadata,
+            reportVersion,
             parameters: data.parameters || [],
             selectedIds: [],
             isDirty: false,

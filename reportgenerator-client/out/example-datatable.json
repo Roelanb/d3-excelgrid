@@ -1,0 +1,173 @@
+{
+  "report": {
+    "reportObjects": [
+      {
+        "id": "title",
+        "type": "text",
+        "x": 20,
+        "y": 20,
+        "width": 754,
+        "height": 60,
+        "properties": {
+          "text": "Datatable Example (grouped)",
+          "fontSize": 28,
+          "fontFamily": "Arial",
+          "color": "#111827",
+          "bold": true
+        }
+      },
+      {
+        "id": "datatable1",
+        "type": "datatable",
+        "x": 20,
+        "y": 100,
+        "width": 754,
+        "height": 963,
+        "properties": {
+          "columns": [
+            "Category",
+            "Name",
+            "Qty",
+            "Price",
+            "Total"
+          ],
+          "dataTableGroupBy": [
+            "Category"
+          ],
+          "columnWidths": {
+            "Category": 140,
+            "Name": 240,
+            "Qty": 70,
+            "Price": 110,
+            "Total": 110
+          },
+          "tableHeaderCellStyles": {
+            "Qty": {
+              "textAlign": "right"
+            },
+            "Price": {
+              "textAlign": "right"
+            },
+            "Total": {
+              "textAlign": "right"
+            }
+          }
+        }
+      }
+    ],
+    "canvasSettings": {
+      "showGrid": false,
+      "snapToGrid": false,
+      "gridSize": 10,
+      "zoom": 1,
+      "width": 794,
+      "height": 1123,
+      "page": {
+        "preset": "A4",
+        "orientation": "portrait",
+        "width": 794,
+        "height": 1123,
+        "margins": {
+          "top": 20,
+          "right": 20,
+          "bottom": 20,
+          "left": 20
+        }
+      }
+    },
+    "parameters": []
+  },
+  "data": {
+    "datatable1": [
+      {
+        "Category": "Hardware",
+        "Name": "Keyboard",
+        "Qty": 3,
+        "Price": {
+          "value": "\u20AC 49.95",
+          "style": {
+            "textAlign": "right"
+          }
+        },
+        "Total": {
+          "value": "\u20AC 149.85",
+          "style": {
+            "textAlign": "right"
+          }
+        }
+      },
+      {
+        "Category": "Hardware",
+        "Name": "Monitor",
+        "Qty": 1,
+        "Price": {
+          "value": "\u20AC 229.00",
+          "style": {
+            "textAlign": "right"
+          }
+        },
+        "Total": {
+          "value": "\u20AC 229.00",
+          "style": {
+            "textAlign": "right"
+          }
+        }
+      },
+      {
+        "Category": "Hardware",
+        "Name": "USB-C Dock",
+        "Qty": 2,
+        "Price": {
+          "value": "\u20AC 139.00",
+          "style": {
+            "textAlign": "right"
+          }
+        },
+        "Total": {
+          "value": "\u20AC 278.00",
+          "style": {
+            "textAlign": "right"
+          }
+        }
+      },
+      {
+        "Category": "Software",
+        "Name": "IDE License",
+        "Qty": 5,
+        "Price": {
+          "value": "\u20AC 19.00",
+          "style": {
+            "textAlign": "right"
+          }
+        },
+        "Total": {
+          "value": "\u20AC 95.00",
+          "style": {
+            "textAlign": "right"
+          }
+        }
+      },
+      {
+        "Category": "Software",
+        "Name": "Antivirus",
+        "Qty": 10,
+        "Price": {
+          "value": "\u20AC 4.50",
+          "style": {
+            "textAlign": "right"
+          }
+        },
+        "Total": {
+          "value": "\u20AC 45.00",
+          "style": {
+            "textAlign": "right"
+          }
+        }
+      }
+    ]
+  },
+  "output": {
+    "format": "pdf",
+    "filename": "example-datatable.pdf"
+  }
+}

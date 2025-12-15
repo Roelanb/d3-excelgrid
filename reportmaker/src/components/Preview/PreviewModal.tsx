@@ -10,7 +10,7 @@ interface PreviewModalProps {
 }
 
 export const PreviewModal: React.FC<PreviewModalProps> = ({ isOpen, onClose }) => {
-    const { reportObjects, canvasSettings, parameters, updateObjectsData } = useReportStore();
+    const { reportObjects, canvasSettings, parameters, reportMetadata, updateObjectsData } = useReportStore();
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
     useEffect(() => {
@@ -29,7 +29,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({ isOpen, onClose }) =
         try {
             if (pdfUrl) URL.revokeObjectURL(pdfUrl);
 
-            const dataUpdates = await runDataConnections(reportObjects, parameters);
+            const dataUpdates = await runDataConnections(reportObjects, parameters, reportMetadata);
             const dataMap: Record<string, any[]> = {};
             for (const update of dataUpdates) {
                 dataMap[update.id] = update.data;

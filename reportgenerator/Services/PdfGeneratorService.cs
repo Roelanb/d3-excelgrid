@@ -16,6 +16,11 @@ public class PdfGeneratorService
     private readonly BarcodeService _barcodeService;
     private readonly ImageService _imageService;
 
+    private sealed record TableDisplayRow(
+        bool IsGroup,
+        string? GroupLabel,
+        Dictionary<string, object>? Row);
+
     private sealed record TablePaginationInfo(
         int RowsFirstPage,
         int RowsOtherPages,
@@ -57,6 +62,63 @@ public class PdfGeneratorService
                 obj.Data = regionData;
             }
         }
+    }
+
+    private static int GetTableDisplayRowCount(ReportObject obj, List<Dictionary<string, object>> data)
+    {
+        if (obj.Type != ReportObjectType.Datatable) return data.Count;
+        var groupBy = obj.Properties.DataTableGroupBy?.Where(c => !string.IsNullOrWhiteSpace(c)).ToList() ?? new List<string>();
+        if (groupBy.Count == 0) return data.Count;
+
+        var sorted = data
+            .OrderBy(r => BuildGroupKey(r, groupBy), StringComparer.Ordinal)
+            .ToList();
+
+        string? current = null;
+        var groups = 0;
+        foreach (var row in sorted)
+        {
+            var k = BuildGroupKey(row, groupBy);
+            if (!string.Equals(k, current, StringComparison.Ordinal))
+            {
+                current = k;
+                groups++;
+            }
+        }
+
+        return data.Count + groups;
+    }
+
+    private static List<TableDisplayRow> BuildTableDisplayRows(ReportObject obj, List<Dictionary<string, object>> data)
+    {
+        if (obj.Type != ReportObjectType.Datatable) return data.Select(r => new TableDisplayRow(false, null, r)).ToList();
+
+        var groupBy = obj.Properties.DataTableGroupBy?.Where(c => !string.IsNullOrWhiteSpace(c)).ToList() ?? new List<string>();
+        if (groupBy.Count == 0) return data.Select(r => new TableDisplayRow(false, null, r)).ToList();
+
+        var sorted = data
+            .OrderBy(r => BuildGroupKey(r, groupBy), StringComparer.Ordinal)
+            .ToList();
+
+        var outRows = new List<TableDisplayRow>(sorted.Count + 8);
+        string? current = null;
+        foreach (var row in sorted)
+        {
+            var k = BuildGroupKey(row, groupBy);
+            if (!string.Equals(k, current, StringComparison.Ordinal))
+            {
+                current = k;
+                outRows.Add(new TableDisplayRow(true, k, null));
+            }
+            outRows.Add(new TableDisplayRow(false, null, row));
+        }
+
+        return outRows;
+    }
+
+    private static string BuildGroupKey(Dictionary<string, object> row, List<string> groupBy)
+    {
+        return string.Join(" | ", groupBy.Select(k => row.TryGetValue(k, out var v) ? (v?.ToString() ?? string.Empty) : string.Empty));
     }
 
     // Screen DPI (pixels per inch) - standard browser resolution
@@ -115,6 +177,16 @@ public class PdfGeneratorService
         if (cellStyles != null && cellStyles.TryGetValue(column, out var s))
             perCell = s;
         return MergeStyles(baseStyle, perCell);
+    }
+
+    private static string GetHeaderLabel(ReportObjectProperties props, string column)
+    {
+        if (props.TableColumnLabels != null && props.TableColumnLabels.TryGetValue(column, out var label))
+        {
+            if (!string.IsNullOrWhiteSpace(label))
+                return label;
+        }
+        return column;
     }
 
     private static (string Text, TextStyleProperties? Style) TryExtractValueAndStyle(object? value)
@@ -350,6 +422,43 @@ public class PdfGeneratorService
         var marginTopPt = PixelsToPoints(marginTopPx);
         var marginBottomPt = PixelsToPoints(marginBottomPx);
 
+        var header = report.ReportObjects.FirstOrDefault(o => o.Type == ReportObjectType.Header);
+        var footer = report.ReportObjects.FirstOrDefault(o => o.Type == ReportObjectType.Footer);
+
+        var headerBottomPx = header != null ? header.Y + header.Height : 0;
+        var footerTopPx = footer != null ? footer.Y : pageHeightPx;
+        var reservedBottomPx = Math.Max(0, pageHeightPx - footerTopPx);
+        var contentStartPx = Math.Max(marginTopPx, headerBottomPx);
+        var contentEndPx = pageHeightPx - marginBottomPx - reservedBottomPx;
+
+        bool ShouldRepeatOnEveryPage(ReportObject obj)
+        {
+            if (obj.Type is ReportObjectType.Table or ReportObjectType.Datatable or ReportObjectType.DataRegion)
+                return false;
+
+            if (obj.Type is ReportObjectType.Header or ReportObjectType.Footer)
+                return true;
+
+            var centerX = obj.X + obj.Width / 2;
+            var centerY = obj.Y + obj.Height / 2;
+
+            if (header != null)
+            {
+                if (centerX >= header.X && centerX <= header.X + header.Width &&
+                    centerY >= header.Y && centerY <= header.Y + header.Height)
+                    return true;
+            }
+
+            if (footer != null)
+            {
+                if (centerX >= footer.X && centerX <= footer.X + footer.Width &&
+                    centerY >= footer.Y && centerY <= footer.Y + footer.Height)
+                    return true;
+            }
+
+            return false;
+        }
+
         var tablePagination = new Dictionary<string, TablePaginationInfo>();
         foreach (var table in report.ReportObjects.Where(o => o.Type == ReportObjectType.Table || o.Type == ReportObjectType.Datatable))
         {
@@ -359,28 +468,30 @@ public class PdfGeneratorService
 
             var parentRegion = FindParentDataRegion(table, report.ReportObjects);
             var tableData = table.Data ?? parentRegion?.Data;
-            var dataCount = tableData?.Count ?? 0;
-            if (dataCount <= 0) continue;
+            if (tableData == null || tableData.Count <= 0) continue;
+
+            var displayRowCount = GetTableDisplayRowCount(table, tableData);
+            if (displayRowCount <= 0) continue;
 
             const double rowHeightPx = 30;
 
-            var availableHeightFirstPx = Math.Min(table.Height, (pageHeightPx - marginBottomPx) - table.Y);
+            var availableHeightFirstPx = Math.Min(table.Height, contentEndPx - table.Y);
             var rowsFirstPage = (int)Math.Floor((availableHeightFirstPx - rowHeightPx) / rowHeightPx);
             if (rowsFirstPage < 1) rowsFirstPage = 1;
 
-            var yOtherPx = marginTopPx;
-            var availableHeightOtherPx = Math.Min(table.Height, (pageHeightPx - marginBottomPx) - yOtherPx);
+            var yOtherPx = contentStartPx;
+            var availableHeightOtherPx = Math.Min(table.Height, contentEndPx - yOtherPx);
             var rowsOtherPages = (int)Math.Floor((availableHeightOtherPx - rowHeightPx) / rowHeightPx);
             if (rowsOtherPages < 1) rowsOtherPages = 1;
 
             int totalPages;
-            if (dataCount <= rowsFirstPage)
+            if (displayRowCount <= rowsFirstPage)
             {
                 totalPages = 1;
             }
             else
             {
-                var remaining = dataCount - rowsFirstPage;
+                var remaining = displayRowCount - rowsFirstPage;
                 totalPages = 1 + (int)Math.Ceiling(remaining / (double)rowsOtherPages);
             }
 
@@ -432,7 +543,7 @@ public class PdfGeneratorService
                                 {
                                     startRow = pageInfo.RowsFirstPage + (localPageIndex - 1) * pageInfo.RowsOtherPages;
                                     rowsToTake = pageInfo.RowsOtherPages;
-                                    yStartPx = marginTopPx;
+                                    yStartPx = contentStartPx;
                                 }
 
                                 RenderTablePage(canvas, obj, report.ReportObjects, startRow, rowsToTake, yStartPx);
@@ -441,7 +552,8 @@ public class PdfGeneratorService
 
                             if (obj.Y < pageHeightPx)
                             {
-                                if (localPageIndex != 0) continue;
+                                var repeat = ShouldRepeatOnEveryPage(obj);
+                                if (localPageIndex != 0 && !repeat) continue;
                                 RenderObject(canvas, obj, report.ReportObjects, parameters);
                                 continue;
                             }
@@ -481,7 +593,9 @@ public class PdfGeneratorService
 
         var parentRegion = FindParentDataRegion(obj, allObjects);
         var data = obj.Data ?? parentRegion?.Data ?? new List<Dictionary<string, object>>();
-        if (startRow >= data.Count) return;
+
+        var displayRows = BuildTableDisplayRows(obj, data);
+        if (startRow >= displayRows.Count) return;
 
         // Convert to points
         var objX = PixelsToPoints(obj.X);
@@ -505,6 +619,20 @@ public class PdfGeneratorService
             Opacity = 1
         };
 
+        var groupDefaults = new TextStyleProperties
+        {
+            BackgroundColor = "#f9fafb",
+            BorderColor = "#e5e7eb",
+            BorderWidth = 1,
+            Color = "#111827",
+            FontSize = 12,
+            FontFamily = "Arial",
+            Bold = true,
+            Padding = 5,
+            TextAlign = "left",
+            Opacity = 1
+        };
+
         // Draw header cells (with formatting)
         for (int i = 0; i < columns.Count; i++)
         {
@@ -512,7 +640,8 @@ public class PdfGeneratorService
             var y = objY;
             var col = columns[i];
             var headerStyle = GetHeaderCellStyle(props, col);
-            DrawStyledCell(canvas, x, y, colWidthsPt[i], rowHeight, col, headerStyle, headerDefaults);
+            var headerText = GetHeaderLabel(props, col);
+            DrawStyledCell(canvas, x, y, colWidthsPt[i], rowHeight, headerText, headerStyle, headerDefaults);
         }
 
         var cellDefaults = new TextStyleProperties
@@ -529,11 +658,20 @@ public class PdfGeneratorService
             Opacity = 1
         };
 
-        var displayData = data.Skip(startRow).Take(rowsToTake).ToList();
-        for (int rowIndex = 0; rowIndex < displayData.Count; rowIndex++)
+        var pageRows = displayRows.Skip(startRow).Take(rowsToTake).ToList();
+        for (int rowIndex = 0; rowIndex < pageRows.Count; rowIndex++)
         {
-            var row = displayData[rowIndex];
             var y = objY + (rowIndex + 1) * rowHeight;
+
+            var r = pageRows[rowIndex];
+            if (r.IsGroup)
+            {
+                DrawStyledCell(canvas, objX, y, objW, rowHeight, r.GroupLabel ?? string.Empty, null, groupDefaults);
+                continue;
+            }
+
+            var row = r.Row;
+            if (row == null) continue;
 
             for (int colIndex = 0; colIndex < columns.Count; colIndex++)
             {
@@ -599,8 +737,40 @@ public class PdfGeneratorService
 
             case ReportObjectType.Header:
             case ReportObjectType.Footer:
-                // Headers/footers handled separately
+                RenderHeaderFooter(canvas, obj);
                 break;
+        }
+    }
+
+    private static void RenderHeaderFooter(SKCanvas canvas, ReportObject obj)
+    {
+        var props = obj.Properties;
+
+        var x = PixelsToPoints(obj.X);
+        var y = PixelsToPoints(obj.Y);
+        var w = PixelsToPoints(obj.Width);
+        var h = PixelsToPoints(obj.Height);
+
+        if (!string.IsNullOrEmpty(props.BackgroundColor) &&
+            !props.BackgroundColor.Equals("transparent", StringComparison.OrdinalIgnoreCase))
+        {
+            using var fillPaint = new SKPaint
+            {
+                Color = ParseSkColor(props.BackgroundColor),
+                Style = SKPaintStyle.Fill
+            };
+            canvas.DrawRect(x, y, w, h, fillPaint);
+        }
+
+        if (props.BorderWidth > 0 && !string.IsNullOrEmpty(props.BorderColor))
+        {
+            using var borderPaint = new SKPaint
+            {
+                Color = ParseSkColor(props.BorderColor),
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = PixelsToPoints(props.BorderWidth ?? 1)
+            };
+            canvas.DrawRect(x, y, w, h, borderPaint);
         }
     }
 
@@ -780,6 +950,8 @@ public class PdfGeneratorService
         var parentRegion = FindParentDataRegion(obj, allObjects);
         var data = obj.Data ?? parentRegion?.Data ?? new List<Dictionary<string, object>>();
 
+        var displayRows = BuildTableDisplayRows(obj, data);
+
         // Convert to points
         var objX = PixelsToPoints(obj.X);
         var objY = PixelsToPoints(obj.Y);
@@ -810,7 +982,8 @@ public class PdfGeneratorService
             var y = objY;
             var col = columns[i];
             var headerStyle = GetHeaderCellStyle(props, col);
-            DrawStyledCell(canvas, x, y, colWidthsPt[i], rowHeight, col, headerStyle, headerDefaults);
+            var headerText = GetHeaderLabel(props, col);
+            DrawStyledCell(canvas, x, y, colWidthsPt[i], rowHeight, headerText, headerStyle, headerDefaults);
         }
 
         var cellDefaults = new TextStyleProperties
@@ -827,14 +1000,38 @@ public class PdfGeneratorService
             Opacity = 1
         };
 
+        var groupDefaults = new TextStyleProperties
+        {
+            BackgroundColor = "#f9fafb",
+            BorderColor = "#e5e7eb",
+            BorderWidth = 1,
+            Color = "#111827",
+            FontSize = 12,
+            FontFamily = "Arial",
+            Bold = true,
+            Padding = 5,
+            TextAlign = "left",
+            Opacity = 1
+        };
+
         // Draw data rows
         var maxRows = (int)((objH - rowHeight) / rowHeight);
-        var displayData = data.Take(maxRows).ToList();
 
-        for (int rowIndex = 0; rowIndex < displayData.Count; rowIndex++)
+        var rows = displayRows.Take(maxRows).ToList();
+
+        for (int rowIndex = 0; rowIndex < rows.Count; rowIndex++)
         {
-            var row = displayData[rowIndex];
             var y = objY + (rowIndex + 1) * rowHeight;
+
+            var r = rows[rowIndex];
+            if (r.IsGroup)
+            {
+                DrawStyledCell(canvas, objX, y, objW, rowHeight, r.GroupLabel ?? string.Empty, null, groupDefaults);
+                continue;
+            }
+
+            var row = r.Row;
+            if (row == null) continue;
 
             for (int colIndex = 0; colIndex < columns.Count; colIndex++)
             {

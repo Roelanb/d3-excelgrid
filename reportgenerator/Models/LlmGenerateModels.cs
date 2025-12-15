@@ -7,6 +7,9 @@ public class LlmGenerateRequest
     [JsonPropertyName("question")]
     public required string Question { get; set; }
 
+    [JsonPropertyName("model")]
+    public string? Model { get; set; }
+
     [JsonPropertyName("sources")]
     public List<string> Sources { get; set; } = new();
 
@@ -72,4 +75,7 @@ public class LlmGenerateResponse
 
     [JsonPropertyName("parameters")]
     public List<ReportParameter>? Parameters { get; set; }
+
+    [JsonPropertyName("metadata")]
+    public ReportMetadata? Metadata { get; set; }
 }

@@ -154,17 +154,17 @@ export const TextStyleToolbar = () => {
     };
 
     return (
-        <div className="w-16 bg-white border-r border-gray-200 h-full flex flex-col items-center py-2 gap-2 overflow-y-auto">
+        <div className="w-16 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-full flex flex-col items-center py-2 gap-2 overflow-y-auto">
             <div className="w-full flex flex-col items-center gap-1 px-2">
-                <div className="text-[10px] text-gray-500 text-center leading-tight">
+                <div className="text-[10px] text-gray-500 dark:text-gray-400 text-center leading-tight">
                     Text
                 </div>
-                <div className="text-[10px] text-gray-400 text-center leading-tight">
+                <div className="text-[10px] text-gray-400 dark:text-gray-500 text-center leading-tight">
                     Style
                 </div>
             </div>
 
-            <div className="w-full h-px bg-gray-200" />
+            <div className="w-full h-px bg-gray-200 dark:bg-gray-700" />
 
             <div className="relative w-full flex justify-center" ref={fontDropdownRef}>
                 <button
@@ -182,7 +182,7 @@ export const TextStyleToolbar = () => {
                         });
                         setShowSizeDropdown(false);
                     }}
-                    className={`w-12 h-10 flex flex-col items-center justify-center gap-0.5 rounded border ${disabled ? 'opacity-30 cursor-not-allowed border-gray-200' : 'hover:bg-gray-50 border-gray-200'} ${showFontDropdown ? 'bg-blue-50 text-blue-700' : 'text-gray-700'}`}
+                    className={`w-12 h-10 flex flex-col items-center justify-center gap-0.5 rounded border ${disabled ? 'opacity-30 cursor-not-allowed border-gray-200 dark:border-gray-700' : 'hover:bg-gray-50 dark:hover:bg-gray-800 border-gray-200 dark:border-gray-700'} ${showFontDropdown ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'}`}
                     title="Font Family"
                 >
                     <Type size={16} />
@@ -190,7 +190,7 @@ export const TextStyleToolbar = () => {
                 </button>
                 {showFontDropdown && effectiveTextStyle && (
                     <div
-                        className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[160px] max-h-64 overflow-y-auto"
+                        className="fixed bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 min-w-[160px] max-h-64 overflow-y-auto"
                         style={{ top: fontDropdownPos?.top ?? 0, left: fontDropdownPos?.left ?? 0 }}
                     >
                         {FONT_FAMILIES.map(font => (
@@ -201,7 +201,7 @@ export const TextStyleToolbar = () => {
                                     updateTextProperty('fontFamily', font);
                                     setShowFontDropdown(false);
                                 }}
-                                className={`w-full text-left px-3 py-2 hover:bg-blue-50 text-sm ${effectiveTextStyle.fontFamily === font ? 'bg-blue-100 text-blue-700' : ''}`}
+                                className={`w-full text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-sm ${effectiveTextStyle.fontFamily === font ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300' : ''}`}
                                 style={{ fontFamily: font }}
                             >
                                 {font}
@@ -227,7 +227,7 @@ export const TextStyleToolbar = () => {
                         });
                         setShowFontDropdown(false);
                     }}
-                    className={`w-12 h-10 flex flex-col items-center justify-center gap-0.5 rounded border ${disabled ? 'opacity-30 cursor-not-allowed border-gray-200' : 'hover:bg-gray-50 border-gray-200'} ${showSizeDropdown ? 'bg-blue-50 text-blue-700' : 'text-gray-700'}`}
+                    className={`w-12 h-10 flex flex-col items-center justify-center gap-0.5 rounded border ${disabled ? 'opacity-30 cursor-not-allowed border-gray-200 dark:border-gray-700' : 'hover:bg-gray-50 dark:hover:bg-gray-800 border-gray-200 dark:border-gray-700'} ${showSizeDropdown ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'}`}
                     title="Font Size"
                 >
                     <div className="text-xs font-semibold">{(effectiveTextStyle?.fontSize || 16)}px</div>
@@ -235,7 +235,7 @@ export const TextStyleToolbar = () => {
                 </button>
                 {showSizeDropdown && effectiveTextStyle && (
                     <div
-                        className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[90px] max-h-64 overflow-y-auto"
+                        className="fixed bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 min-w-[90px] max-h-64 overflow-y-auto"
                         style={{ top: sizeDropdownPos?.top ?? 0, left: sizeDropdownPos?.left ?? 0 }}
                     >
                         {FONT_SIZES.map(size => (
@@ -246,7 +246,7 @@ export const TextStyleToolbar = () => {
                                     updateTextProperty('fontSize', size);
                                     setShowSizeDropdown(false);
                                 }}
-                                className={`w-full text-left px-3 py-2 hover:bg-blue-50 text-sm ${effectiveTextStyle.fontSize === size ? 'bg-blue-100 text-blue-700' : ''}`}
+                                className={`w-full text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-sm ${effectiveTextStyle.fontSize === size ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300' : ''}`}
                             >
                                 {size}px
                             </button>
@@ -255,13 +255,13 @@ export const TextStyleToolbar = () => {
                 )}
             </div>
 
-            <div className="w-full h-px bg-gray-200" />
+            <div className="w-full h-px bg-gray-200 dark:bg-gray-700" />
 
             <button
                 type="button"
                 disabled={disabled}
                 onClick={() => updateTextProperty('bold', !(effectiveTextStyle?.bold ?? false))}
-                className={`w-12 h-10 flex items-center justify-center rounded ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50'} ${(effectiveTextStyle?.bold ?? false) ? 'bg-blue-100 text-blue-600' : 'text-gray-600'}`}
+                className={`w-12 h-10 flex items-center justify-center rounded ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-800'} ${(effectiveTextStyle?.bold ?? false) ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}
                 title="Bold"
             >
                 <Bold size={18} />
@@ -270,7 +270,7 @@ export const TextStyleToolbar = () => {
                 type="button"
                 disabled={disabled}
                 onClick={() => updateTextProperty('italic', !(effectiveTextStyle?.italic ?? false))}
-                className={`w-12 h-10 flex items-center justify-center rounded ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50'} ${(effectiveTextStyle?.italic ?? false) ? 'bg-blue-100 text-blue-600' : 'text-gray-600'}`}
+                className={`w-12 h-10 flex items-center justify-center rounded ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-800'} ${(effectiveTextStyle?.italic ?? false) ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}
                 title="Italic"
             >
                 <Italic size={18} />
@@ -279,7 +279,7 @@ export const TextStyleToolbar = () => {
                 type="button"
                 disabled={disabled}
                 onClick={() => updateTextProperty('underline', !(effectiveTextStyle?.underline ?? false))}
-                className={`w-12 h-10 flex items-center justify-center rounded ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50'} ${(effectiveTextStyle?.underline ?? false) ? 'bg-blue-100 text-blue-600' : 'text-gray-600'}`}
+                className={`w-12 h-10 flex items-center justify-center rounded ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-800'} ${(effectiveTextStyle?.underline ?? false) ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}
                 title="Underline"
             >
                 <Underline size={18} />
@@ -288,13 +288,13 @@ export const TextStyleToolbar = () => {
                 type="button"
                 disabled={disabled}
                 onClick={() => updateTextProperty('strikeThrough', !(effectiveTextStyle?.strikeThrough ?? false))}
-                className={`w-12 h-10 flex items-center justify-center rounded ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50'} ${(effectiveTextStyle?.strikeThrough ?? false) ? 'bg-blue-100 text-blue-600' : 'text-gray-600'}`}
+                className={`w-12 h-10 flex items-center justify-center rounded ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-800'} ${(effectiveTextStyle?.strikeThrough ?? false) ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}
                 title="Strikethrough"
             >
                 <Strikethrough size={18} />
             </button>
 
-            <div className="w-full h-px bg-gray-200" />
+            <div className="w-full h-px bg-gray-200 dark:bg-gray-700" />
 
             <div className="w-full flex flex-col items-center gap-2">
                 <div className="flex flex-col items-center" title="Text Color">
@@ -303,9 +303,9 @@ export const TextStyleToolbar = () => {
                         type="color"
                         value={effectiveTextStyle?.color || '#000000'}
                         onChange={(e) => updateTextProperty('color', e.target.value)}
-                        className="w-10 h-10 p-0 border border-gray-300 rounded cursor-pointer"
+                        className="w-10 h-10 p-0 border border-gray-300 dark:border-gray-700 rounded cursor-pointer"
                     />
-                    <div className="text-[10px] text-gray-500 mt-0.5">Text</div>
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Text</div>
                 </div>
                 <div className="flex flex-col items-center" title="Background Color">
                     <input
@@ -313,19 +313,19 @@ export const TextStyleToolbar = () => {
                         type="color"
                         value={effectiveTextStyle?.backgroundColor || '#ffffff'}
                         onChange={(e) => updateTextProperty('backgroundColor', e.target.value)}
-                        className="w-10 h-10 p-0 border border-gray-300 rounded cursor-pointer"
+                        className="w-10 h-10 p-0 border border-gray-300 dark:border-gray-700 rounded cursor-pointer"
                     />
-                    <div className="text-[10px] text-gray-500 mt-0.5">Bg</div>
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Bg</div>
                 </div>
             </div>
 
-            <div className="w-full h-px bg-gray-200" />
+            <div className="w-full h-px bg-gray-200 dark:bg-gray-700" />
 
             <button
                 type="button"
                 disabled={disabled}
                 onClick={() => updateTextProperty('textAlign', 'left')}
-                className={`w-12 h-10 flex items-center justify-center rounded ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50'} ${effectiveTextStyle?.textAlign === 'left' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'}`}
+                className={`w-12 h-10 flex items-center justify-center rounded ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-800'} ${effectiveTextStyle?.textAlign === 'left' ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}
                 title="Align Left"
             >
                 <AlignLeft size={18} />
@@ -334,7 +334,7 @@ export const TextStyleToolbar = () => {
                 type="button"
                 disabled={disabled}
                 onClick={() => updateTextProperty('textAlign', 'center')}
-                className={`w-12 h-10 flex items-center justify-center rounded ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50'} ${effectiveTextStyle?.textAlign === 'center' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'}`}
+                className={`w-12 h-10 flex items-center justify-center rounded ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-800'} ${effectiveTextStyle?.textAlign === 'center' ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}
                 title="Align Center"
             >
                 <AlignCenter size={18} />
@@ -343,22 +343,22 @@ export const TextStyleToolbar = () => {
                 type="button"
                 disabled={disabled}
                 onClick={() => updateTextProperty('textAlign', 'right')}
-                className={`w-12 h-10 flex items-center justify-center rounded ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50'} ${effectiveTextStyle?.textAlign === 'right' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'}`}
+                className={`w-12 h-10 flex items-center justify-center rounded ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-800'} ${effectiveTextStyle?.textAlign === 'right' ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}
                 title="Align Right"
             >
                 <AlignRight size={18} />
             </button>
 
-            <div className="w-full h-px bg-gray-200" />
+            <div className="w-full h-px bg-gray-200 dark:bg-gray-700" />
 
             <div className="w-full flex flex-col items-center gap-2">
                 <div className="w-full flex flex-col items-center gap-1" title="Border Width">
-                    <Square size={16} className="text-gray-500" />
+                    <Square size={16} className="text-gray-500 dark:text-gray-400" />
                     <input
                         type="number"
                         value={effectiveTextStyle?.borderWidth || 0}
                         onChange={(e) => updateTextProperty('borderWidth', parseInt(e.target.value) || 0)}
-                        className="w-12 border border-gray-300 rounded px-1 py-0.5 text-xs text-center"
+                        className="w-12 border border-gray-300 dark:border-gray-700 rounded px-1 py-0.5 text-xs text-center bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
                         min="0"
                         max="20"
                         disabled={disabled}
@@ -371,18 +371,18 @@ export const TextStyleToolbar = () => {
                         type="color"
                         value={effectiveTextStyle?.borderColor || '#000000'}
                         onChange={(e) => updateTextProperty('borderColor', e.target.value)}
-                        className="w-10 h-10 p-0 border border-gray-300 rounded cursor-pointer"
+                        className="w-10 h-10 p-0 border border-gray-300 dark:border-gray-700 rounded cursor-pointer"
                     />
-                    <div className="text-[10px] text-gray-500 mt-0.5">Border</div>
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Border</div>
                 </div>
 
                 <div className="w-full flex flex-col items-center gap-1" title="Padding">
-                    <Maximize2 size={16} className="text-gray-500" />
+                    <Maximize2 size={16} className="text-gray-500 dark:text-gray-400" />
                     <input
                         type="number"
                         value={effectiveTextStyle?.padding || 0}
                         onChange={(e) => updateTextProperty('padding', parseInt(e.target.value) || 0)}
-                        className="w-12 border border-gray-300 rounded px-1 py-0.5 text-xs text-center"
+                        className="w-12 border border-gray-300 dark:border-gray-700 rounded px-1 py-0.5 text-xs text-center bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
                         min="0"
                         max="50"
                         disabled={disabled}

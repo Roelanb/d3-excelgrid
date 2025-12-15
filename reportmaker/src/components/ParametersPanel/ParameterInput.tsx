@@ -23,7 +23,7 @@ export const ParameterInput: React.FC<ParameterInputProps> = ({ parameter, onCha
                     value={(currentValue as string) || ''}
                     placeholder={placeholder}
                     onChange={(e) => handleChange(e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
             );
 
@@ -34,7 +34,7 @@ export const ParameterInput: React.FC<ParameterInputProps> = ({ parameter, onCha
                     value={(currentValue as string) || ''}
                     placeholder={placeholder || 'email@example.com'}
                     onChange={(e) => handleChange(e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
             );
 
@@ -46,7 +46,7 @@ export const ParameterInput: React.FC<ParameterInputProps> = ({ parameter, onCha
                     value={(currentValue as number) ?? ''}
                     placeholder={placeholder}
                     onChange={(e) => handleChange(e.target.value ? parseInt(e.target.value, 10) : undefined)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
             );
 
@@ -58,7 +58,7 @@ export const ParameterInput: React.FC<ParameterInputProps> = ({ parameter, onCha
                     value={(currentValue as number) ?? ''}
                     placeholder={placeholder}
                     onChange={(e) => handleChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
             );
 
@@ -68,7 +68,7 @@ export const ParameterInput: React.FC<ParameterInputProps> = ({ parameter, onCha
                     type="date"
                     value={(currentValue as string) || ''}
                     onChange={(e) => handleChange(e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
             );
 
@@ -78,7 +78,7 @@ export const ParameterInput: React.FC<ParameterInputProps> = ({ parameter, onCha
                     type="time"
                     value={(currentValue as string) || ''}
                     onChange={(e) => handleChange(e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
             );
 
@@ -88,7 +88,7 @@ export const ParameterInput: React.FC<ParameterInputProps> = ({ parameter, onCha
                     type="datetime-local"
                     value={(currentValue as string) || ''}
                     onChange={(e) => handleChange(e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
             );
 
@@ -100,14 +100,14 @@ export const ParameterInput: React.FC<ParameterInputProps> = ({ parameter, onCha
                         type="date"
                         value={rangeValue.from || ''}
                         onChange={(e) => handleChange({ ...rangeValue, from: e.target.value })}
-                        className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     />
-                    <span className="text-gray-500 text-sm">to</span>
+                    <span className="text-gray-500 dark:text-gray-400 text-sm">to</span>
                     <input
                         type="date"
                         value={rangeValue.to || ''}
                         onChange={(e) => handleChange({ ...rangeValue, to: e.target.value })}
-                        className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     />
                 </div>
             );
@@ -120,9 +120,9 @@ export const ParameterInput: React.FC<ParameterInputProps> = ({ parameter, onCha
                         type="checkbox"
                         checked={!!currentValue}
                         onChange={(e) => handleChange(e.target.checked)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        className="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-700 rounded focus:ring-blue-500"
                     />
-                    <span className="ml-2 text-sm text-gray-600">
+                    <span className="ml-2 text-sm text-gray-600 dark:text-gray-300">
                         {currentValue ? 'Yes' : 'No'}
                     </span>
                 </label>
@@ -139,7 +139,7 @@ export const ParameterInput: React.FC<ParameterInputProps> = ({ parameter, onCha
                             className={`px-2 py-1 text-xs rounded cursor-pointer border ${
                                 selectedValues.includes(option)
                                     ? 'bg-blue-500 text-white border-blue-500'
-                                    : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                                    : 'bg-white dark:bg-gray-950 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-700 hover:border-blue-400'
                             }`}
                         >
                             <input
@@ -158,7 +158,7 @@ export const ParameterInput: React.FC<ParameterInputProps> = ({ parameter, onCha
                         </label>
                     ))}
                     {options.length === 0 && (
-                        <span className="text-gray-400 text-xs italic">No options defined</span>
+                        <span className="text-gray-400 dark:text-gray-500 text-xs italic">No options defined</span>
                     )}
                 </div>
             );
@@ -175,7 +175,7 @@ export const ParameterInput: React.FC<ParameterInputProps> = ({ parameter, onCha
                             className={`px-2 py-1 text-xs rounded cursor-pointer border ${
                                 selectedValues.includes(option)
                                     ? 'bg-blue-500 text-white border-blue-500'
-                                    : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                                    : 'bg-white dark:bg-gray-950 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-700 hover:border-blue-400'
                             }`}
                         >
                             <input
@@ -194,7 +194,7 @@ export const ParameterInput: React.FC<ParameterInputProps> = ({ parameter, onCha
                         </label>
                     ))}
                     {options.length === 0 && (
-                        <span className="text-gray-400 text-xs italic">No options defined</span>
+                        <span className="text-gray-400 dark:text-gray-500 text-xs italic">No options defined</span>
                     )}
                 </div>
             );
@@ -207,7 +207,7 @@ export const ParameterInput: React.FC<ParameterInputProps> = ({ parameter, onCha
                     value={String(currentValue || '')}
                     placeholder={placeholder}
                     onChange={(e) => handleChange(e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
             );
     }

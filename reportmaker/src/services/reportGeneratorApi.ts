@@ -1,4 +1,4 @@
-import type { ReportObject, CanvasSettings, ReportParameter } from '../types';
+import type { ReportObject, CanvasSettings, ReportParameter, ReportMetadata } from '../types';
 
 import { getReportGeneratorBaseUrl } from './runtimeConfig';
 
@@ -10,10 +10,12 @@ export interface LlmGenerateReportResponse {
     reportObjects: ReportObject[];
     canvasSettings: CanvasSettings;
     parameters?: ReportParameter[];
+    metadata?: ReportMetadata;
 }
 
 export interface LlmGenerateReportRequest {
     question: string;
+    model?: string;
     sources?: string[];
     history?: {
         prompt: string;
@@ -21,12 +23,14 @@ export interface LlmGenerateReportRequest {
             reportObjects: ReportObject[];
             canvasSettings: CanvasSettings;
             parameters: ReportParameter[];
+            metadata?: ReportMetadata;
         };
     }[];
     report?: {
         reportObjects: ReportObject[];
         canvasSettings: CanvasSettings;
         parameters: ReportParameter[];
+        metadata?: ReportMetadata;
     };
 }
 
@@ -136,6 +140,7 @@ export const reportGeneratorApi = {
     async generateReportWithLlm(
         question: string,
         options?: {
+            model?: string;
             sources?: string[];
             history?: {
                 prompt: string;
@@ -143,12 +148,14 @@ export const reportGeneratorApi = {
                     reportObjects: ReportObject[];
                     canvasSettings: CanvasSettings;
                     parameters: ReportParameter[];
+                    metadata?: ReportMetadata;
                 };
             }[];
             report?: {
                 reportObjects: ReportObject[];
                 canvasSettings: CanvasSettings;
                 parameters: ReportParameter[];
+                metadata?: ReportMetadata;
             };
         }
     ): Promise<LlmGenerateReportResponse> {
@@ -159,6 +166,7 @@ export const reportGeneratorApi = {
             },
             body: JSON.stringify({
                 question,
+                model: options?.model,
                 sources: options?.sources ?? [],
                 history: options?.history,
                 report: options?.report,

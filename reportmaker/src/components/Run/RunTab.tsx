@@ -9,7 +9,7 @@ import { getReportGeneratorBaseUrl } from '../../services/runtimeConfig';
 let lastAutoGenerateAtMs = 0;
 
 export const RunTab: React.FC = () => {
-    const { reportObjects, canvasSettings, parameters, setParameterValue, updateObjectsData } = useReportStore();
+    const { reportObjects, canvasSettings, parameters, reportMetadata, setParameterValue, updateObjectsData } = useReportStore();
     const [isGeneratingViaApi, setIsGeneratingViaApi] = useState(false);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
@@ -41,7 +41,7 @@ export const RunTab: React.FC = () => {
             if (pdfUrl) URL.revokeObjectURL(pdfUrl);
 
             // First, fetch data for data regions (same as local run)
-            const dataUpdates = await runDataConnections(reportObjects, parametersForRun);
+            const dataUpdates = await runDataConnections(reportObjects, parametersForRun, reportMetadata);
 
             // Build data map for API request
             const dataMap: Record<string, any[]> = {};

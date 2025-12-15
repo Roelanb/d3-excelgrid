@@ -8,7 +8,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "localvm",
         "DB_SERVER": "192.168.0.25",
-        "DB_NAME": "AdventureWorks2022",
+        "DB_NAME": "Alpha",
         "DB_USER": "report",
         "DB_PASSWORD": "report",
         "DB_TRUST_CERT": "true",
